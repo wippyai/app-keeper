@@ -6,52 +6,41 @@
         </picture>
     </a>
 </p>
-<h1 align="center">{Package Name}</h1>
+<h1 align="center">Wippy Keeper</h1>
 <div align="center">
 
-[![Latest Release](https://img.shields.io/github/v/release/{organization}/{repo}?style=flat-square)][releases-page]
-[![License](https://img.shields.io/github/license/{organization}/{repo}?style=flat-square)](LICENSE)
-[![Documentation](https://img.shields.io/badge/Wippy-Documentation-brightgreen.svg?style=flat-square)][wippy-documentation]
+[![Latest Release](https://img.shields.io/github/v/release/wippyai/app-keeper?style=for-the-badge)][releases-page]
+[![License](https://img.shields.io/github/license/wippyai/app-keeper?style=for-the-badge)](LICENSE)
+[![Documentation](https://img.shields.io/badge/documentation-0F6640.svg?style=for-the-badge&logo=gitbook)][wippy-documentation]
 
 </div>
 
-{description}
+Wippy Keeper is the central management agent for the Wippy platform that coordinates all specialized system agents.
+It serves as the main hub for users to access various system capabilities.
 
----
+## Primary Responsibilities
 
-## TODO
+1. Connect users with the right specialized agent for their task
+2. Provide an overview of available system capabilities
+3. Coordinate workflows that require multiple specialized agents
+4. Maintain context when switching between agents
 
-### Prepare the repository
+## Available Specialized Agents
 
-- Replace all `{repo}` with the actual repository name.
-- Replace all `{organization}` with the actual organization name (e.g., `wippyai`).
-- Replace all `{namespace}` with the actual module namespace (e.g., `wippyai`).
-- Replace all `{Package Name}` with the actual human-readable package name.
-- Replace the `{description}` with the actual package description.
-- Fill the `.github/CODEOWNERS` with the actual owners.
-  - Configure access to the repository for the owners in https://github.com/{organization}/{repo}/settings/access
-- Check that the `LICENSE` file is present and contains the correct license information.
-- Customize the `CONTRIBUTING.md` file with the actual contribution guidelines or remove it if not needed.
-- Fill the blocks below with the actual information or remove them if not needed.
+- **Documentation Agent**: For accessing module specifications and technical documentation
+- **Command Executor**: For executing system commands and processing output
+- **Filesystem Manager**: For file and directory operations
+- **Registry Manager**: For managing the distributed registry system
+- **Views Manager**: For handling application presentation layer, views, templates, and resources
+- **Coder**: For creating, updating, and managing code entries in the registry
+- **Git Manager**: For managing Git repositories and operations
+- **System Manager**: For system monitoring and resource management
+- **Test Runner**: For running and managing tests
 
-### Register the module in the Wippy registry
+The Keeper application is designed to help users navigate efficiently to the right capabilities within the Wippy platform,
+maintaining conversational context throughout interactions with different specialized agents.
+It acts as the central coordination point for the entire system.
 
-The repository uses the [Github Action](https://github.com/wippyai/action-module-release)
-to automatically register the module in the [Wippy registry][modules-registry] on every release.
-To trigger the registration, you need to create a new tag in the format `vX.Y.Z` (e.g., `v1.0.0`).
-
-Before you can use the action, you need [to set up](https://github.com/{organization}/{repo}/settings/secrets/actions) the following repository secrets.
-
-- `PRIVATE_REPO_TOKEN` - a token with permissions to clone the private repository `wippyai/module-registry-proto`.
-- `MODULE_ID` - the UUID of the module in the Wippy registry.
-- `WIPPY_USERNAME` - the UUID of the user in the Wippy registry.
-- `WIPPY_PASSWORD` - the password for the user in the Wippy registry.
-
-Register in [Wippy registry][modules-registry] and use [PackCli tool][packcli] to generate the `MODULE_ID` and `WIPPY_USERNAME`/`WIPPY_PASSWORD` credentials.
-
----
 
 [wippy-documentation]: https://docs.wippy.ai
-[releases-page]: https://github.com/{organization}/{repo}/releases
-[packcli]: https://github.com/wippyai/packcli
-[modules-registry]: https://modules.wippy.ai
+[releases-page]: https://github.com/wippyai/app-keeper/releases
