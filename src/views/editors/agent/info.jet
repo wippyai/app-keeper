@@ -1,0 +1,2047 @@
+{{ extends "/common/layout" }}
+
+{ * Page title and description * }
+{{ block title() }}Agent Configuration{{ end }}
+{{ block metaDescription() }}View and edit agent configuration and capabilities{{ end }}
+
+{{ block mainContent() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden max-w-5xl mx-auto"
+     x-data="agentEditorApp"
+     x-init="initialize()"
+     x-cloak>
+    {{ yield pageHeader() }}
+    {{ yield loadingStates() }}
+    {{ yield tabNavigation() }}
+    {{ yield tabContents() }}
+    {{ yield statusNotification() }}
+</div>
+{{ end }}
+
+{ * Page Header Block * }
+{{ block pageHeader() }}
+<div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+    <div class="flex items-center">
+        <iconify-icon icon="tabler:robot"
+                      class="text-3xl text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0"></iconify-icon>
+        <div>
+            <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Agent Configuration</h3>
+            <p class="mt-1 text-sm text-surface-500 dark:text-surface-400"
+               x-show="agentData?.id">
+                <span x-text="agentData?.id ? getNamespace(agentData.id) : ''"></span>:<span
+                    x-text="agentData?.id ? getName(agentData.id) : ''"></span>
+                <span class="ml-1">(Agent)</span>
+            </p>
+        </div>
+    </div>
+    <div class="flex space-x-3">
+        <button
+                id="saveButton"
+                type="button"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="isSaving || isLoading || !isDirty"
+                @click="saveAgent()">
+            <template x-if="isSaving">
+                <iconify-icon icon="tabler:loader" class="animate-spin mr-2" width="16" height="16"></iconify-icon>
+            </template>
+            <template x-if="!isSaving">
+                <iconify-icon icon="tabler:device-floppy" class="mr-2" width="16" height="16"></iconify-icon>
+            </template>
+            Save Changes
+        </button>
+    </div>
+</div>
+{{ end }}
+
+{ * Loading States Block * }
+{{ block loadingStates() }}
+<!-- Loading Indicator -->
+<div id="loadingIndicator" class="flex justify-center items-center py-12" x-show="isLoading">
+    <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+    <span class="ml-3 text-surface-700 dark:text-surface-300">Loading agent details...</span>
+</div>
+
+<!-- Error Indicator -->
+<div id="errorIndicator" class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400"
+     x-show="!isLoading && loadError">
+    <div class="flex flex-col items-center justify-center">
+        <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+        <p class="text-lg font-medium mt-2" x-text="loadError"></p>
+        <button @click="initialize()"
+                class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+            <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+            Retry
+        </button>
+    </div>
+</div>
+{{ end }}
+
+{ * Tab Navigation Block * }
+{{ block tabNavigation() }}
+<div x-show="!isLoading && !loadError && agentData?.id">
+    <nav class="flex w-full border-b border-surface-200 dark:border-surface-600" aria-label="Tabs">
+        <template x-for="tab in tabs" :key="tab.id">
+            <button
+                    :id="'tab-' + tab.id"
+                    type="button"
+                    class="flex-1 text-center py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                    :class="activeTab === tab.id ?
+                    'border-primary-500 text-primary-600 dark:text-primary-400' :
+                    'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+                    @click="handleTabChange(tab.id)">
+                <iconify-icon :icon="tab.icon" class="mr-1.5 flex-shrink-0"
+                              :class="activeTab === tab.id ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                              width="16" height="16"></iconify-icon>
+                <span x-text="tab.label" class="whitespace-nowrap"></span>
+            </button>
+        </template>
+    </nav>
+</div>
+{{ end }}
+
+{ * Tab Contents Block * }
+{{ block tabContents() }}
+<div class="px-4 py-5 sm:p-6" x-show="!isLoading && !loadError && agentData?.id">
+    {{ yield basicTabPanel() }}
+    {{ yield modelTabPanel() }}
+    {{ yield memoryTabPanel() }}
+    {{ yield startPromptsTabPanel() }}
+    {{ yield delegatesTabPanel() }}
+    {{ yield traitsTabPanel() }}
+    {{ yield toolsTabPanel() }}
+</div>
+{{ end }}
+
+{ * Basic Tab Panel * }
+{{ block basicTabPanel() }}
+<!-- Basic Settings Tab Panel -->
+<div x-show="activeTab === 'basic'" class="space-y-6">
+    <!-- Description Section -->
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3">
+            <iconify-icon icon="tabler:file-description"
+                          class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20"
+                          height="20"></iconify-icon>
+            <div class="flex-grow">
+                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Description</h4>
+                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Details and purpose of this agent</p>
+            </div>
+        </div>
+        <div class="mt-2 space-y-2">
+            <textarea x-model="agentData.meta.comment"
+                      @input="setDirty('meta')"
+                      class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                      rows="3"
+                      placeholder="Enter agent description..."
+                      :disabled="isLoading || isSaving"></textarea>
+        </div>
+    </div>
+
+    <!-- Agent Classes Section -->
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3">
+            <iconify-icon icon="tabler:tags" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+            <div class="flex-grow">
+                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Agent Classes</h4>
+                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Categorize the agent with class labels (e.g., developer_assistant, data_analyst).</p>
+            </div>
+        </div>
+        <div class="mt-2 space-y-2">
+            <div class="flex items-center space-x-2">
+                <input type="text" x-model="classInputText"
+                       @keydown.enter.prevent="addClassesFromInput()"
+                       @keydown.,.prevent="addClassesFromInput()"
+                       placeholder="Add classes, comma-separated..."
+                       class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                       :disabled="isLoading || isSaving">
+                <button type="button" @click="addClassesFromInput()"
+                        class="px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+                        :disabled="isLoading || isSaving || !classInputText.trim()">
+                    Add
+                </button>
+            </div>
+            <div x-show="agentData.meta.class && agentData.meta.class.length > 0" class="mt-3 flex flex-wrap gap-2">
+                <template x-for="(cls, index) in agentData.meta.class" :key="index">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border
+                                 bg-primary-50 text-primary-700 border-primary-300
+                                 dark:bg-primary-700 dark:text-primary-100 dark:border-primary-600
+                                 shadow-sm">
+                        <span x-text="cls"></span>
+                        <button type="button" @click="removeClass(index)"
+                                class="ml-2 flex-shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full
+                                       text-primary-500 hover:bg-primary-200 hover:text-primary-700
+                                       dark:text-primary-200 dark:hover:bg-primary-600 dark:hover:text-primary-50
+                                       focus:outline-none focus:bg-primary-300 focus:text-primary-800
+                                       dark:focus:bg-primary-500 dark:focus:text-white transition-colors"
+                                :disabled="isLoading || isSaving">
+                            <span class="sr-only">Remove class</span>
+                            <iconify-icon icon="tabler:x" width="12" height="12"></iconify-icon>
+                        </button>
+                    </span>
+                </template>
+            </div>
+            <p x-show="!agentData.meta.class || agentData.meta.class.length === 0" class="text-xs text-surface-500 dark:text-surface-400 text-center py-2">No classes added yet.</p>
+        </div>
+    </div>
+
+    <!-- Prompt Section -->
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3">
+            <iconify-icon icon="tabler:message-2" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0"
+                          width="20" height="20"></iconify-icon>
+            <div class="flex-grow">
+                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Agent Prompt</h4>
+                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">The main prompt that defines the agent's
+                    behavior</p>
+            </div>
+        </div>
+        <div class="mt-2 space-y-2">
+            <textarea x-model="agentData.data.prompt"
+                      @input="setDirty('data')"
+                      class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm font-mono"
+                      rows="15"
+                      placeholder="Enter agent prompt..."
+                      :disabled="isLoading || isSaving"></textarea>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{ * Model Tab Panel * }
+{{ block modelTabPanel() }}
+<!-- Model Tab Panel -->
+<div x-show="activeTab === 'model'" class="space-y-6">
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3">
+            <iconify-icon icon="tabler:brain" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0"
+                          width="20" height="20"></iconify-icon>
+            <div class="flex-grow">
+                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Model Settings</h4>
+                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Configure the LLM model used by this
+                    agent</p>
+            </div>
+        </div>
+
+        <!-- Model Selection -->
+        <div class="mt-4">
+            <label for="modelSelect"
+                   class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Model</label>
+            <div class="relative">
+                <select id="modelSelect"
+                        x-model="agentData.data.model"
+                        @change="setDirty('data'); syncModelSelection()"
+                        class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 pl-3 pr-10 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none"
+                        :disabled="isLoadingModels || isLoading || isSaving">
+                    <option value="">Select a model</option>
+                    <template x-for="model in availableModels" :key="model.name">
+                        <option :value="model.name" x-text="model.title || model.name"></option>
+                    </template>
+                    <option value="" disabled x-show="isLoadingModels">Loading models...</option>
+                    <option value="" disabled
+                            x-show="!isLoadingModels && availableModels.length === 0 && !agentData.data.model">No models
+                        available
+                    </option>
+                    <!-- Fallback for potentially saved model not in list -->
+                    <template
+                            x-if="currentModelName && !availableModels.find(m => m.name === currentModelName)">
+                        <option :value="currentModelName" x-text="currentModelName + ' (current)'" selected></option>
+                    </template>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-surface-500 dark:text-surface-400">
+                    <iconify-icon icon="tabler:chevron-down" class="h-4 w-4"></iconify-icon>
+                </div>
+            </div>
+        </div>
+
+        <!-- Max Tokens Slider -->
+        <div class="mt-4">
+            <div class="flex justify-between items-center mb-1">
+                <label for="maxTokensSlider" class="block text-sm font-medium text-surface-700 dark:text-surface-300">Max
+                    Tokens</label>
+                <span class="text-sm text-primary-600 dark:text-primary-400 font-medium bg-primary-100 dark:bg-primary-900/30 px-2 py-0.5 rounded min-w-[60px] text-center"
+                      x-text="formatNumber(agentData.data.max_tokens || 0)"></span>
+            </div>
+            <input type="range" id="maxTokensSlider" min="1000" max="100000" step="1000"
+                   x-model.number="agentData.data.max_tokens" @input="setDirty('data')"
+                   class="w-full h-2 bg-surface-200 dark:bg-surface-600 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                   :disabled="isLoading || isSaving">
+            <div class="flex justify-between text-xs text-surface-500 dark:text-surface-400 mt-1">
+                <span>1K</span> <span>25K</span> <span>50K</span> <span>75K</span> <span>100K</span>
+            </div>
+        </div>
+
+        <!-- Temperature Slider -->
+        <div class="mt-4">
+            <div class="flex justify-between items-center mb-1">
+                <label for="temperatureSlider" class="block text-sm font-medium text-surface-700 dark:text-surface-300">Temperature</label>
+                <span class="text-sm text-primary-600 dark:text-primary-400 font-medium bg-primary-100 dark:bg-primary-900/30 px-2 py-0.5 rounded min-w-[40px] text-center"
+                      x-text="(agentData.data.temperature || 0).toFixed(1)"></span>
+            </div>
+            <input type="range" id="temperatureSlider" min="0" max="1" step="0.1"
+                   x-model.number="agentData.data.temperature" @input="setDirty('data')"
+                   class="w-full h-2 bg-surface-200 dark:bg-surface-600 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                   :disabled="isLoading || isSaving">
+            <div class="flex justify-between text-xs text-surface-500 dark:text-surface-400 mt-1">
+                <span>0.0</span> <span>0.2</span> <span>0.4</span> <span>0.6</span> <span>0.8</span> <span>1.0</span>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{ * Memory Tab Panel * }
+{{ block memoryTabPanel() }}
+<!-- Memory Tab Panel -->
+<div x-show="activeTab === 'memory'" class="space-y-6">
+    <!-- Persistent Memory Contract Section -->
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3">
+            <iconify-icon icon="tabler:database-cog" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0"
+                          width="20" height="20"></iconify-icon>
+            <div class="flex-grow">
+                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Persistent Memory Contract</h4>
+                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Configure a dynamic memory contract for persistent, recallable context.</p>
+            </div>
+        </div>
+
+        <div class="mt-4 space-y-4">
+            <!-- Linked State -->
+            <template x-if="isMemoryContractLinked">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm text-surface-700 dark:text-surface-300">
+                            Linked Contract Implementation:
+                            <strong class="text-primary-600 dark:text-primary-400" x-text="agentData.data.memory_contract.implementation_id"></strong>
+                        </p>
+                        <button type="button"
+                                @click="unlinkMemoryContract()"
+                                class="inline-flex items-center px-3 py-1.5 border border-red-500 text-sm font-medium rounded-md shadow-sm text-red-600 bg-white hover:bg-red-50 dark:bg-surface-700 dark:text-red-400 dark:hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                            <iconify-icon icon="tabler:unlink" class="mr-1.5 -ml-0.5" width="16" height="16"></iconify-icon>
+                            Unlink Contract
+                        </button>
+                    </div>
+
+                    <div>
+                        <label for="memoryContractContext" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Context Values (JSON format):</label>
+                        <textarea id="memoryContractContext"
+                                  x-model="memoryContractContextString"
+                                  @input="handleMemoryContextChange($event)"
+                                  rows="5"
+                                  class="block w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none sm:text-sm font-mono"
+                                  :class="memoryContractContextError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-surface-300 dark:border-surface-600 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:ring-primary-500 focus:border-primary-500'"
+                                  placeholder='{ "partition": "default" }'
+                                  :disabled="isLoading || isSaving"></textarea>
+                        <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">These values are passed to the memory contract. Default is <code class="text-xs bg-surface-200 dark:bg-surface-600 px-1 py-0.5 rounded">{ }</code>.</p>
+                        <p class="mt-1 text-xs text-red-500 dark:text-red-400" x-show="memoryContractContextError" x-text="memoryContractContextError"></p>
+                        <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">Note: The current agent ID (<span x-text="agentData.id"></span>) is always passed as <code class="text-xs bg-surface-200 dark:bg-surface-600 px-1 py-0.5 rounded">agent_id</code> in the context.</p>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Unlinked State -->
+            <template x-if="!isMemoryContractLinked">
+                <div class="space-y-4">
+                    <p class="text-sm text-surface-600 dark:text-surface-400 text-center py-2 border border-dashed border-surface-300 dark:border-surface-600 rounded-md">
+                        No persistent memory contract is currently linked.
+                    </p>
+
+                    <div>
+                        <label for="memoryContractIdInput" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Contract Implementation ID:</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="memoryContractIdInput"
+                                   x-model="memoryContractImplementationIdInput"
+                                   placeholder="e.g., app.memory.custom:impl"
+                                   class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                   :disabled="isLoading || isSaving">
+                            <button type="button"
+                                    @click="linkMemoryContract()"
+                                    :disabled="isLoading || isSaving || !memoryContractImplementationIdInput.trim()"
+                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50">
+                                <iconify-icon icon="tabler:link" class="mr-1.5 -ml-0.5" width="16" height="16"></iconify-icon>
+                                Link
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">Enter the full ID of the contract binding (implementation).</p>
+                    </div>
+
+                    <div class="pt-3 border-t border-surface-200 dark:border-surface-700">
+                        <label for="memoryContractBase64Input" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Import Contract from Base64:</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="memoryContractBase64Input"
+                                   x-model="memoryContractBase64Input"
+                                   placeholder='Paste Base64 encoded data: {"id": "...", "context": {...}}'
+                                   class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                   :disabled="isLoading || isSaving">
+                            <button type="button"
+                                    @click="importMemoryContractFromBase64()"
+                                    :disabled="isLoading || isSaving || !memoryContractBase64Input.trim()"
+                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50">
+                                <iconify-icon icon="tabler:upload" class="mr-1.5 -ml-0.5" width="16" height="16"></iconify-icon>
+                                Import
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">Imports an implementation ID and its context values.</p>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+
+    <!-- Static Agent Memory Section -->
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3">
+            <iconify-icon icon="tabler:history" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0"
+                          width="20" height="20"></iconify-icon>
+            <div class="flex-grow">
+                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Static Memory / Initial Knowledge</h4>
+                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Provide fixed knowledge or context for the agent.</p>
+            </div>
+        </div>
+        <div class="mt-4 space-y-3">
+            <template x-for="(memoryItem, index) in agentData.data.memory" :key="index">
+                <div class="flex items-start group">
+                    <textarea x-model="agentData.data.memory[index]" @input="setDirty('data')"
+                              class="block flex-grow border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                              rows="2" placeholder="Enter memory item..." :disabled="isLoading || isSaving"></textarea>
+                    <button @click="removeMemory(index)"
+                            class="ml-2 text-surface-400 hover:text-red-500 dark:text-surface-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity mt-2"
+                            :disabled="isLoading || isSaving">
+                        <iconify-icon icon="tabler:trash" width="18" height="18"></iconify-icon>
+                    </button>
+                </div>
+            </template>
+            <div x-show="!agentData.data.memory || agentData.data.memory.length === 0"
+                 class="text-center py-6 bg-surface-50 dark:bg-surface-700 rounded-md border border-dashed border-surface-300 dark:border-surface-600">
+                <iconify-icon icon="tabler:history-off"
+                              class="text-3xl text-surface-400 dark:text-surface-500 mb-2"></iconify-icon>
+                <p class="text-sm text-surface-500 dark:text-surface-400">No static memory items added yet.</p>
+            </div>
+            <div class="mt-4 flex justify-center">
+                <button @click="addMemory()"
+                        class="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        :disabled="isLoading || isSaving">
+                    <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                    Add Static Memory
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{ * Start Prompts Tab Panel * }
+{{ block startPromptsTabPanel() }}
+<!-- Start Prompts Tab Panel -->
+<div x-show="activeTab === 'start_prompts'" class="space-y-6">
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3">
+            <iconify-icon icon="tabler:prompt" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0"
+                          width="20" height="20"></iconify-icon>
+            <div class="flex-grow">
+                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Start Prompts</h4>
+                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Initial prompts to show when a user
+                    starts a conversation</p>
+            </div>
+        </div>
+        <div class="mt-4 space-y-3">
+            <template x-for="(promptItem, index) in agentData.data.start_prompts" :key="index">
+                <div class="flex items-start group">
+                    <textarea x-model="agentData.data.start_prompts[index]" @input="setDirty('data')"
+                              class="block flex-grow border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                              rows="2" placeholder="Enter start prompt..." :disabled="isLoading || isSaving"></textarea>
+                    <button @click="removeStartPrompt(index)"
+                            class="ml-2 text-surface-400 hover:text-red-500 dark:text-surface-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity mt-2"
+                            :disabled="isLoading || isSaving">
+                        <iconify-icon icon="tabler:trash" width="18" height="18"></iconify-icon>
+                    </button>
+                </div>
+            </template>
+            <div x-show="!agentData.data.start_prompts || agentData.data.start_prompts.length === 0"
+                 class="text-center py-6 bg-surface-50 dark:bg-surface-700 rounded-md border border-dashed border-surface-300 dark:border-surface-600">
+                <iconify-icon icon="tabler:prompt-off"
+                              class="text-3xl text-surface-400 dark:text-surface-500 mb-2"></iconify-icon>
+                <p class="text-sm text-surface-500 dark:text-surface-400">No start prompts added yet.</p>
+            </div>
+            <div class="mt-4 flex justify-center">
+                <button @click="addStartPrompt()"
+                        class="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        :disabled="isLoading || isSaving">
+                    <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                    Add Start Prompt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{ * Delegates Tab Panel * }
+{{ block delegatesTabPanel() }}
+<!-- Delegates Tab Panel -->
+<div x-show="activeTab === 'delegates'" class="space-y-6">
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3">
+            <iconify-icon icon="tabler:directions"
+                          class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20"
+                          height="20"></iconify-icon>
+            <div class="flex-grow">
+                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Delegates</h4>
+                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Delegate tasks to other agents. Click
+                    items to expand details.</p>
+            </div>
+        </div>
+        <div class="mt-4 flex flex-col md:flex-row gap-6">
+            <!-- Left: Available Agents & Add Form -->
+            <div class="md:w-2/5 space-y-3">
+                <div>
+                    <label for="delegateFilter"
+                           class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Available
+                        Agents:</label>
+                    <div class="flex relative">
+                        <input type="text" id="delegateFilter"
+                               x-model="itemSearchQueries.delegates"
+                               @input.debounce.300ms="filterAvailableItems('delegates')"
+                               placeholder="Filter available agents..."
+                               class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 pl-3 pr-10 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <iconify-icon icon="tabler:search"
+                                          class="h-4 w-4 text-surface-400 dark:text-surface-500"></iconify-icon>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div x-show="isLoadingItems.delegates" class="flex justify-center items-center py-2 mt-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-600"></div>
+                    <span class="ml-2 text-xs text-surface-600 dark:text-surface-400">Loading agents...</span>
+                </div>
+
+                <!-- Available Agents List -->
+                <div x-show="!isLoadingItems.delegates && filteredAvailableItems.delegates.length > 0"
+                     class="border border-surface-200 dark:border-surface-600 rounded-md mt-2 max-h-60 overflow-y-auto bg-white dark:bg-surface-700">
+                    <template x-for="(item) in filteredAvailableItems.delegates" :key="item.id">
+                        <div class="border-b border-surface-200 dark:border-surface-600 last:border-b-0">
+                            <div class="p-3 flex items-center justify-between">
+                                <div class="flex-grow min-w-0 mr-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate"
+                                              x-text="getItemName(item, 'delegates', true)"
+                                              :title="getItemName(item, 'delegates', true) + ' (' + item.id + ')'"></span>
+                                        <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-surface-100 dark:bg-surface-600 text-surface-600 dark:text-surface-300 flex-shrink-0"
+                                              x-text="getNamespace(item.id)"></span>
+                                    </div>
+                                    <p class="text-xs text-surface-500 dark:text-surface-400 mt-1 truncate"
+                                       x-text="getItemDescription(item, 'delegates', true)"
+                                       :title="getItemDescription(item, 'delegates', true)"></p>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <button type="button"
+                                            @click="selectAgentForDelegate(item)"
+                                            class="px-2.5 py-1 border border-primary-500 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-xs font-medium rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 flex items-center">
+                                        <iconify-icon icon="tabler:plus" class="mr-1" width="12"
+                                                      height="12"></iconify-icon>
+                                        Select
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Empty State Messages -->
+                <div x-show="!isLoadingItems.delegates && itemSearchQueries.delegates.length > 0 && filteredAvailableItems.delegates.length === 0 && (availableRegistryItems[getKeeperTypeForTab('delegates')] && availableRegistryItems[getKeeperTypeForTab('delegates')].length > 0)"
+                     class="text-center py-4 text-sm text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-600 rounded-md mt-2">
+                    No agents match your filter.
+                </div>
+                <div x-show="!isLoadingItems.delegates && (!availableRegistryItems[getKeeperTypeForTab('delegates')] || availableRegistryItems[getKeeperTypeForTab('delegates')].length === 0) && !loadError && !itemSearchQueries.delegates"
+                     class="text-center py-4 text-sm text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-600 rounded-md mt-2">
+                    No delegate agents available.
+                </div>
+
+                <!-- Delegate Form -->
+                <div class="mt-4 pt-4 border-t border-surface-200 dark:border-surface-600">
+                    <h5 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">Add Delegate</h5>
+
+                    <!-- Target Agent Display Field -->
+                    <div class="mb-3">
+                        <label for="delegateAgentNameDisplay"
+                               class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Target
+                            Agent</label>
+                        <input type="text" id="delegateAgentNameDisplay" x-model="newDelegate.agentName"
+                               class="block w-full border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 focus:outline-none sm:text-sm disabled:opacity-70"
+                               placeholder="Select an agent from list above" :disabled="true">
+                        <p class="mt-1 text-xs text-surface-500 dark:text-surface-400" x-show="newDelegate.id" x-text="'ID: ' + newDelegate.id"></p>
+                    </div>
+
+                    <!-- Tool Name Field -->
+                    <div class="mb-3">
+                        <label for="delegateToolNameInput"
+                               class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Tool Name
+                            <span class="text-red-500">*</span></label>
+                        <input type="text" id="delegateToolNameInput" x-model="newDelegate.toolName"
+                               @input="generateDelegateNameAndRule()"
+                               class="block w-full border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                               placeholder="call_selected_agent" :disabled="isLoading || isSaving || !newDelegate.id">
+                        <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">Snake_case name for the
+                            delegation tool</p>
+                    </div>
+
+                    <!-- Delegation Rule Field -->
+                    <div class="mb-3">
+                        <label for="delegateRuleInput"
+                               class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Delegation
+                            Rule</label>
+                        <textarea id="delegateRuleInput" x-model="newDelegate.rule"
+                                  class="block w-full border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                  rows="2" placeholder="When to delegate to this agent..."
+                                  :disabled="isLoading || isSaving || !newDelegate.id"></textarea>
+                    </div>
+
+                    <!-- Add Button -->
+                    <button @click="addDelegate()" :disabled="!canAddDelegate()"
+                            class="w-full inline-flex justify-center items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-surface-100 hover:bg-surface-200 dark:bg-surface-600 dark:hover:bg-surface-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                        Add Delegate
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: Current Delegates List -->
+            <div class="md:w-3/5">
+                <div x-show="agentDelegates.length === 0"
+                     class="bg-surface-50 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 rounded-md p-4 text-center min-h-[15rem] flex items-center justify-center flex-col">
+                    <iconify-icon icon="tabler:directions-off" class="text-surface-400 dark:text-surface-500" width="32"
+                                  height="32"></iconify-icon>
+                    <p class="text-sm text-surface-500 dark:text-surface-400 mt-3">No delegates configured.</p>
+                    <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Use the controls on the left to add
+                        them.</p>
+                </div>
+                <div class="space-y-2" x-show="agentDelegates.length > 0">
+                    <template x-for="(delegate, index) in agentDelegates" :key="delegate.agentName"> <!-- key by agentName as it's the primary key in agentData.data.delegate -->
+                        <div class="rounded-md border group transition-all duration-200 ease-in-out overflow-hidden bg-surface-50 dark:bg-surface-900/70 border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600">
+                            <div class="flex items-center justify-between p-3 cursor-pointer min-h-[4.5rem]"
+                                 @click="toggleItemExpansion(delegate.agentName, 'delegates')">
+                                <div class="flex items-center overflow-hidden min-w-0">
+                                    <iconify-icon icon="tabler:share-3"
+                                                  class="flex-shrink-0 mr-3 w-5 h-5 text-primary-600 dark:text-primary-500"></iconify-icon>
+                                    <div class="overflow-hidden min-w-0">
+                                        <span class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate block"
+                                              x-text="delegate.toolName" :title="delegate.toolName"></span>
+                                        <span class="text-xs text-primary-500 dark:text-primary-400 truncate block"
+                                              x-text="'→ ' + delegate.agentName"
+                                              :title="'Target Agent: ' + delegate.agentName + ' (ID: ' + delegate.agentId + ')'"></span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center ml-2 flex-shrink-0">
+                                    <button @click.stop="removeDelegate(index)" title="Remove"
+                                            class="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity text-surface-400 hover:text-red-600 dark:hover:text-red-400 p-1 mr-1 rounded-md focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500">
+                                        <iconify-icon icon="tabler:trash" width="16" height="16"></iconify-icon>
+                                    </button>
+                                    <iconify-icon
+                                            :icon="expandedItems.delegates[delegate.agentName] ? 'tabler:chevron-up' : 'tabler:chevron-down'"
+                                            class="w-5 h-5 text-surface-500 dark:text-surface-400"></iconify-icon>
+                                </div>
+                            </div>
+                            <div x-show="expandedItems.delegates[delegate.agentName]" x-collapse
+                                 class="border-t border-surface-200 dark:border-surface-700">
+                                <div class="p-3 space-y-1.5 bg-white dark:bg-surface-800">
+                                    <p class="text-xs text-surface-600 dark:text-surface-300"><strong
+                                            class="font-medium text-surface-700 dark:text-surface-200">Tool
+                                        Name:</strong> <span class="ml-1" x-text="delegate.toolName"></span></p>
+                                    <p class="text-xs text-surface-600 dark:text-surface-300"><strong
+                                            class="font-medium text-surface-700 dark:text-surface-200">Target Agent
+                                        Name:</strong> <span class="ml-1" x-text="delegate.agentName"></span></p>
+                                    <p class="text-xs text-surface-600 dark:text-surface-300"><strong
+                                            class="font-medium text-surface-700 dark:text-surface-200">Target Agent
+                                        ID:</strong> <a :href="getKeeperLink(delegate.agentId, 'agent')"
+                                                        @click.prevent="navigateToKeeper(delegate.agentId, 'agent')"
+                                                        class="text-primary-600 dark:text-primary-400 hover:underline ml-1 break-all"
+                                                        x-text="delegate.agentId"></a></p>
+                                    <p class="text-xs text-surface-600 dark:text-surface-300"><strong
+                                            class="font-medium text-surface-700 dark:text-surface-200">Delegation
+                                        Rule:</strong> <span class="ml-1"
+                                                             x-text="delegate.rule || 'Not specified.'"></span></p>
+                                    <p class="text-xs text-surface-600 dark:text-surface-300"><strong
+                                            class="font-medium text-surface-700 dark:text-surface-200">Target Agent
+                                        Desc:</strong> <span class="ml-1"
+                                                             x-text="getItemDescription(delegate.agentId, 'delegates')"></span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{ * Traits Tab Panel * }
+{{ block traitsTabPanel() }}
+<!-- Traits Tab Panel -->
+<div x-show="activeTab === 'traits'" class="space-y-6">
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3 justify-between">
+            <div class="flex items-start">
+                <iconify-icon icon="tabler:dna" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0"
+                              width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Agent Traits</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Behavioral traits and capabilities.
+                        Click items to expand details.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 flex flex-col md:flex-row gap-6">
+            <!-- LEFT SIDE: Available Traits List & Filter -->
+            <div class="md:w-2/5">
+                <div>
+                    <label for="traitFilter"
+                           class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Available
+                        Traits:</label>
+                    <div class="flex relative">
+                        <input type="text" id="traitFilter"
+                               x-model="itemSearchQueries.traits"
+                               @input.debounce.300ms="filterAvailableItems('traits')"
+                               placeholder="Filter available traits..."
+                               class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 pl-3 pr-10 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <iconify-icon icon="tabler:search"
+                                          class="h-4 w-4 text-surface-400 dark:text-surface-500"></iconify-icon>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div x-show="isLoadingItems.traits" class="flex justify-center items-center py-2 mt-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-600"></div>
+                    <span class="ml-2 text-xs text-surface-600 dark:text-surface-400">Loading traits...</span>
+                </div>
+
+                <!-- Filtered Traits List -->
+                <div x-show="!isLoadingItems.traits && filteredAvailableItems.traits.length > 0"
+                     class="border border-surface-200 dark:border-surface-600 rounded-md mt-2 max-h-96 overflow-y-auto bg-white dark:bg-surface-700">
+                    <template x-for="(item, index) in filteredAvailableItems.traits" :key="item.id">
+                        <div class="border-b border-surface-200 dark:border-surface-600 last:border-b-0">
+                            <div class="p-3 flex items-center justify-between">
+                                <div class="flex-grow min-w-0 mr-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate"
+                                              x-text="getItemName(item, 'traits', true)"
+                                              :title="getItemName(item, 'traits', true)  + ' (' + item.id + ')'"></span>
+                                        <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-surface-100 dark:bg-surface-600 text-surface-600 dark:text-surface-300 flex-shrink-0"
+                                              x-text="getNamespace(item.id)"></span>
+                                    </div>
+                                    <p class="text-xs text-surface-500 dark:text-surface-400 mt-1 truncate"
+                                       x-text="getItemDescription(item, 'traits', true)"
+                                       :title="getItemDescription(item, 'traits', true)"></p>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <button type="button"
+                                            x-show="!isItemAdded(item.meta.name, 'traits')"
+                                            @click="addItem(item, 'traits')"
+                                            class="px-2.5 py-1 border border-primary-500 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-xs font-medium rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 flex items-center">
+                                        <iconify-icon icon="tabler:plus" class="mr-1" width="12"
+                                                      height="12"></iconify-icon>
+                                        Add
+                                    </button>
+                                    <span x-show="isItemAdded(item.meta.name, 'traits')"
+                                          class="px-2.5 py-1 text-xs font-medium rounded-md text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-800/50 flex items-center">
+                                        <iconify-icon icon="tabler:check" class="mr-1" width="12"
+                                                      height="12"></iconify-icon>
+                                        Added
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Empty States -->
+                <div x-show="!isLoadingItems.traits && itemSearchQueries.traits.length > 0 && filteredAvailableItems.traits.length === 0 && (availableRegistryItems[getKeeperTypeForTab('traits')] && availableRegistryItems[getKeeperTypeForTab('traits')].length > 0)"
+                     class="text-center py-4 text-sm text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-600 rounded-md mt-2">
+                    No traits match your filter.
+                </div>
+                <div x-show="!isLoadingItems.traits && (!availableRegistryItems[getKeeperTypeForTab('traits')] || availableRegistryItems[getKeeperTypeForTab('traits')].length === 0) && !loadError && !itemSearchQueries.traits"
+                     class="text-center py-4 text-sm text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-600 rounded-md mt-2">
+                    No traits available in the system.
+                </div>
+            </div>
+
+            <!-- RIGHT SIDE: Current Traits List -->
+            <div class="md:w-3/5">
+                <div x-show="!agentData.data.traits || agentData.data.traits.length === 0"
+                     class="bg-surface-50 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 rounded-md p-4 text-center min-h-[15rem] flex items-center justify-center flex-col">
+                    <iconify-icon icon="tabler:dna-off" class="text-surface-400 dark:text-surface-500" width="32"
+                                  height="32"></iconify-icon>
+                    <p class="text-sm text-surface-500 dark:text-surface-400 mt-3">No traits have been added to this
+                        agent.</p>
+                    <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Use the controls on the left to add
+                        them.</p>
+                </div>
+                <div class="space-y-2" x-show="agentData.data.traits && agentData.data.traits.length > 0">
+                    <template x-for="(traitName, index) in agentData.data.traits" :key="traitName">
+                        <div class="rounded-md border group transition-all duration-200 ease-in-out overflow-hidden bg-surface-50 dark:bg-surface-900/70 border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600">
+                            <div class="flex items-center justify-between p-3 cursor-pointer min-h-[4.5rem]"
+                                 @click="toggleItemExpansion(traitName, 'traits')">
+                                <div class="flex items-center overflow-hidden min-w-0">
+                                    <iconify-icon icon="tabler:dna"
+                                                  class="flex-shrink-0 mr-3 w-5 h-5 text-primary-600 dark:text-primary-500"></iconify-icon>
+                                    <div class="flex-grow overflow-hidden min-w-0">
+                                        <span class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate block"
+                                              x-text="getItemName(traitName, 'traits')"
+                                              :title="getItemName(traitName, 'traits') + ' (' + (itemCache['agent.trait']?.[traitName]?.id || traitName) + ')'"></span>
+                                        <span class="text-xs text-surface-500 dark:text-surface-400 truncate block"
+                                              x-text="itemCache['agent.trait']?.[traitName]?.id || traitName" :title="itemCache['agent.trait']?.[traitName]?.id || traitName"></span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center ml-2 flex-shrink-0">
+                                    <button @click.stop="removeItem(index, 'traits')" title="Remove Trait"
+                                            class="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity text-surface-400 hover:text-red-600 dark:hover:text-red-400 p-1 mr-1 rounded-md focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500">
+                                        <iconify-icon icon="tabler:trash" width="16" height="16"></iconify-icon>
+                                    </button>
+                                    <iconify-icon
+                                            :icon="expandedItems.traits[traitName] ? 'tabler:chevron-up' : 'tabler:chevron-down'"
+                                            class="w-5 h-5 text-surface-500 dark:text-surface-400"></iconify-icon>
+                                </div>
+                            </div>
+                            <div x-show="expandedItems.traits[traitName]" x-collapse
+                                 class="border-t border-surface-200 dark:border-surface-700">
+                                <div class="p-3 space-y-1.5 bg-white dark:bg-surface-800">
+                                    <p class="text-xs text-surface-600 dark:text-surface-300"><strong
+                                            class="font-medium text-surface-700 dark:text-surface-200">ID:</strong> <a
+                                            :href="getKeeperLink(itemCache['agent.trait']?.[traitName]?.id, 'trait')"
+                                            @click.prevent="navigateToKeeper(itemCache['agent.trait']?.[traitName]?.id, 'trait')"
+                                            class="text-primary-600 dark:text-primary-400 hover:underline ml-1 break-all"
+                                            x-text="itemCache['agent.trait']?.[traitName]?.id || 'ID not available'"></a></p>
+                                    <p class="text-xs text-surface-600 dark:text-surface-300"><strong
+                                            class="font-medium text-surface-700 dark:text-surface-200">Description:</strong>
+                                        <span class="ml-1" x-text="getItemDescription(traitName, 'traits')"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{ * Tools Tab Panel * }
+{{ block toolsTabPanel() }}
+<!-- Tools Tab Panel -->
+<div x-show="activeTab === 'tools'" class="space-y-6">
+    <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+        <div class="flex items-start mb-3 justify-between">
+            <div class="flex items-start">
+                <iconify-icon icon="tabler:tool" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0"
+                              width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Agent Tools</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Tools available to this agent. Click
+                        items to expand details.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 flex flex-col md:flex-row gap-6">
+            <!-- LEFT SIDE: Available Tools List & Filter -->
+            <div class="md:w-2/5">
+                <div>
+                    <label for="toolFilter"
+                           class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Available
+                        Tools:</label>
+                    <div class="flex relative">
+                        <input type="text" id="toolFilter"
+                               x-model="itemSearchQueries.tools"
+                               @input.debounce.300ms="filterAvailableItems('tools')"
+                               placeholder="Filter available tools..."
+                               class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 pl-3 pr-10 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <iconify-icon icon="tabler:search"
+                                          class="h-4 w-4 text-surface-400 dark:text-surface-500"></iconify-icon>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div x-show="isLoadingItems.tools" class="flex justify-center items-center py-2 mt-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-600"></div>
+                    <span class="ml-2 text-xs text-surface-600 dark:text-surface-400">Loading tools...</span>
+                </div>
+
+                <!-- Filtered Tools List -->
+                <div x-show="!isLoadingItems.tools && filteredAvailableItems.tools.length > 0"
+                     class="border border-surface-200 dark:border-surface-600 rounded-md mt-2 max-h-96 overflow-y-auto bg-white dark:bg-surface-700">
+                    <template x-for="(item, index) in filteredAvailableItems.tools" :key="item.id">
+                        <div class="border-b border-surface-200 dark:border-surface-600 last:border-b-0">
+                            <div class="p-3 flex items-center justify-between">
+                                <div class="flex-grow min-w-0 mr-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate"
+                                              x-text="getItemName(item, 'tools', true)"
+                                              :title="getItemName(item, 'tools', true)  + ' (' + item.id + ')'"></span>
+                                        <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-surface-100 dark:bg-surface-600 text-surface-600 dark:text-surface-300 flex-shrink-0"
+                                              x-text="getNamespace(item.id)"></span>
+                                    </div>
+                                    <p class="text-xs text-surface-500 dark:text-surface-400 mt-1 truncate"
+                                       x-text="getItemDescription(item, 'tools', true)"
+                                       :title="getItemDescription(item, 'tools', true)"></p>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <button type="button"
+                                            x-show="!isItemAdded(item.id, 'tools')"
+                                            @click="addItem(item.id, 'tools')"
+                                            class="px-2.5 py-1 border border-primary-500 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-xs font-medium rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 flex items-center">
+                                        <iconify-icon icon="tabler:plus" class="mr-1" width="12"
+                                                      height="12"></iconify-icon>
+                                        Add
+                                    </button>
+                                    <span x-show="isItemAdded(item.id, 'tools')"
+                                          class="px-2.5 py-1 text-xs font-medium rounded-md text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-800/50 flex items-center">
+                                        <iconify-icon icon="tabler:check" class="mr-1" width="12"
+                                                      height="12"></iconify-icon>
+                                        Added
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Empty States -->
+                <div x-show="!isLoadingItems.tools && itemSearchQueries.tools.length > 0 && filteredAvailableItems.tools.length === 0 && (availableRegistryItems[getKeeperTypeForTab('tools')] && availableRegistryItems[getKeeperTypeForTab('tools')].length > 0)"
+                     class="text-center py-4 text-sm text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-600 rounded-md mt-2">
+                    No tools match your filter.
+                </div>
+                <div x-show="!isLoadingItems.tools && (!availableRegistryItems[getKeeperTypeForTab('tools')] || availableRegistryItems[getKeeperTypeForTab('tools')].length === 0) && !loadError && !itemSearchQueries.tools"
+                     class="text-center py-4 text-sm text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-600 rounded-md mt-2">
+                    No tools available in the system.
+                </div>
+
+                <!-- Namespace Wildcard Selector -->
+                <div class="mt-6 pt-4 border-t border-surface-200 dark:border-surface-600">
+                    <label for="namespaceSelectorTools"
+                           class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Add Namespace
+                        Access:</label>
+                    <div class="relative">
+                        <select id="namespaceSelectorTools"
+                                x-model="namespaceInput"
+                                @change="validateNamespaceInput()"
+                                class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 pl-3 pr-10 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none">
+                            <option value="" disabled selected>Select a namespace</option>
+                            <template x-for="(ns, index) in availableNamespaces.sort()" :key="index">
+                                <option :value="ns" x-text="ns"></option>
+                            </template>
+                            <option value="" disabled x-show="isLoadingNamespaces">Loading namespaces...</option>
+                            <option value="" disabled x-show="!isLoadingNamespaces && availableNamespaces.length === 0">
+                                No namespaces available
+                            </option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <iconify-icon icon="tabler:chevron-down" class="text-surface-400 dark:text-surface-500"
+                                          width="18" height="18"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="flex mt-2">
+                        <button @click="addNamespaceWildcard()"
+                                :disabled="!isValidNamespaceInput || isAddingNamespace || isLoadingNamespaces"
+                                class="inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-surface-100 hover:bg-surface-200 dark:bg-surface-600 dark:hover:bg-surface-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center">
+                            <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                            Link Namespace Access
+                        </button>
+                    </div>
+                    <p class="mt-1 text-xs text-red-600 dark:text-red-400" x-show="namespaceError"
+                       x-text="namespaceError"></p>
+                </div>
+            </div>
+
+            <!-- RIGHT SIDE: Current Tools List -->
+            <div class="md:w-3/5">
+                <div x-show="!agentData.data.tools || agentData.data.tools.length === 0"
+                     class="bg-surface-50 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 rounded-md p-4 text-center min-h-[15rem] flex items-center justify-center flex-col">
+                    <iconify-icon icon="tabler:toolbox" class="text-surface-400 dark:text-surface-500" width="32"
+                                  height="32"></iconify-icon>
+                    <p class="text-sm text-surface-500 dark:text-surface-400 mt-3">No tools or namespace access rules
+                        have been added.</p>
+                    <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Use the controls on the left to add
+                        them.</p>
+                </div>
+
+                <div class="space-y-2" x-show="agentData.data.tools && agentData.data.tools.length > 0">
+                    <template x-for="(toolId, index) in agentData.data.tools" :key="toolId">
+                        <div class="rounded-md border group transition-all duration-200 ease-in-out overflow-hidden"
+                             :class="{
+                                 'bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600': toolId.endsWith(':*'),
+                                 'bg-surface-50 dark:bg-surface-900/70 border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600': !toolId.endsWith(':*')
+                             }">
+                            <div class="flex items-center justify-between p-3 cursor-pointer min-h-[4.5rem]"
+                                 @click="toggleItemExpansion(toolId, 'tools')">
+                                <div class="flex items-center overflow-hidden min-w-0">
+                                    <iconify-icon
+                                            :icon="toolId.endsWith(':*') ? 'tabler:folder-star' : 'tabler:tool'"
+                                            class="flex-shrink-0 mr-3 w-5 h-5"
+                                            :class="{
+                                            'text-purple-500 dark:text-purple-400': toolId.endsWith(':*'),
+                                            'text-primary-600 dark:text-primary-500': !toolId.endsWith(':*')
+                                        }"></iconify-icon>
+                                    <div class="flex-grow overflow-hidden min-w-0">
+                                        <span class="text-sm font-medium truncate block"
+                                              :class="{
+                                                  'text-purple-700 dark:text-purple-300': toolId.endsWith(':*'),
+                                                  'text-surface-800 dark:text-surface-200': !toolId.endsWith(':*')
+                                              }"
+                                              x-text="toolId.endsWith(':*') ? toolId.replace(':*', '') + ' (Namespace Access)' : getItemName(toolId, 'tools')"
+                                              :title="toolId.endsWith(':*') ? (toolId.replace(':*', '') + ' (Namespace Access)') : (getItemName(toolId, 'tools') + ' (' + toolId + ')')">
+                                        </span>
+                                        <span x-show="!toolId.endsWith(':*')"
+                                              class="text-xs text-surface-500 dark:text-surface-400 truncate block"
+                                              x-text="toolId" :title="toolId">
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center ml-2 flex-shrink-0">
+                                    <button @click.stop="removeItem(index, 'tools')"
+                                            title="Remove Tool/Rule"
+                                            class="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity text-surface-400 hover:text-red-600 dark:hover:text-red-400 p-1 mr-1 rounded-md focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500">
+                                        <iconify-icon icon="tabler:trash" width="16" height="16"></iconify-icon>
+                                    </button>
+                                    <iconify-icon
+                                            :icon="expandedItems.tools[toolId] ? 'tabler:chevron-up' : 'tabler:chevron-down'"
+                                            class="w-5 h-5 text-surface-500 dark:text-surface-400">
+                                    </iconify-icon>
+                                </div>
+                            </div>
+
+                            <!-- Expanded View Content for Specific Tool -->
+                            <div x-show="expandedItems.tools[toolId] && !toolId.endsWith(':*')" x-collapse
+                                 class="border-t border-surface-200 dark:border-surface-700">
+                                <div class="p-3 space-y-1.5 bg-white dark:bg-surface-800">
+                                    <p class="text-xs text-surface-600 dark:text-surface-300">
+                                        <strong class="font-medium text-surface-700 dark:text-surface-200">ID:</strong>
+                                        <a :href="getKeeperLink(toolId, 'tool')"
+                                           @click.prevent="navigateToKeeper(toolId, 'tool')"
+                                           class="text-primary-600 dark:text-primary-400 hover:underline ml-1 break-all"
+                                           x-text="toolId"></a>
+                                    </p>
+                                    <p class="text-xs text-surface-600 dark:text-surface-300">
+                                        <strong class="font-medium text-surface-700 dark:text-surface-200">Description:</strong>
+                                        <span class="ml-1" x-text="getItemDescription(toolId, 'tools')"></span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Expanded View Content for Namespace Wildcard -->
+                            <div x-show="expandedItems.tools[toolId] && toolId.endsWith(':*')" x-collapse
+                                 class="border-t border-purple-200 dark:border-purple-700">
+                                <div class="p-3 bg-purple-50/50 dark:bg-purple-900/20">
+                                    <div x-show="loadingWildcards[toolId] === 'full' || (loadingWildcards[toolId] && (!(loadedWildcardTools[toolId] || {}).entries || (loadedWildcardTools[toolId] || {}).entries.length === 0 && (loadedWildcardTools[toolId] || {total:0}).total === 0))"
+                                         class="flex items-center justify-center py-4">
+                                        <div class="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-purple-500"></div>
+                                        <span class="ml-2 text-sm text-purple-600 dark:text-purple-400">Loading tools in namespace...</span>
+                                    </div>
+                                    <div x-show="!loadingWildcards[toolId] && wildcardLoadError[toolId] && (!(loadedWildcardTools[toolId] || {}).entries || (loadedWildcardTools[toolId] || {}).entries.length === 0)"
+                                         class="text-center py-2 text-red-600 dark:text-red-400 text-xs">
+                                        <iconify-icon icon="tabler:alert-circle"
+                                                      class="inline-block mr-1 w-4 h-4"></iconify-icon>
+                                        Error loading tools: <span x-text="wildcardLoadError[toolId]"></span>
+                                        <button @click="loadWildcardTools(toolId, true, false)"
+                                                class="ml-2 text-primary-600 dark:text-primary-400 hover:underline text-xs font-medium">
+                                            (Retry)
+                                        </button>
+                                    </div>
+
+                                    <div x-show="(loadedWildcardTools[toolId] || {}).entries && !loadingWildcards[toolId] && !wildcardLoadError[toolId]">
+                                        <template
+                                                x-if="!(loadedWildcardTools[toolId] || {}).entries || (loadedWildcardTools[toolId] || {}).entries.length === 0">
+                                            <p class="text-xs text-center py-2 text-surface-500 dark:text-surface-400">
+                                                No tools with type 'tool' found in this namespace.</p>
+                                        </template>
+                                        <template
+                                                x-if="(loadedWildcardTools[toolId] || {}).entries && (loadedWildcardTools[toolId] || {}).entries.length > 0">
+                                            <ul class="space-y-2">
+                                                <template x-for="toolInNamespace in (loadedWildcardTools[toolId] || {}).entries"
+                                                          :key="toolInNamespace.id">
+                                                    <li class="text-xs group/sub-item p-2 rounded-md bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm">
+                                                        <div class="flex items-start justify-between">
+                                                            <div class="flex-grow min-w-0">
+                                                                <div class="flex items-center">
+                                                                    <iconify-icon icon="tabler:tool"
+                                                                                  class="inline-block mr-2 w-4 h-4 text-primary-500 flex-shrink-0 self-center relative top-0.5"></iconify-icon>
+                                                                    <a :href="getKeeperLink(toolInNamespace.id, 'tool')"
+                                                                       @click.prevent="navigateToKeeper(toolInNamespace.id, 'tool')"
+                                                                       class="font-medium text-primary-600 dark:text-primary-400 hover:underline truncate"
+                                                                       :title="getItemName(toolInNamespace, 'tools', true) + ' (' + toolInNamespace.id + ')'">
+                                                                        <span x-text="getItemName(toolInNamespace, 'tools', true)"></span>
+                                                                    </a>
+                                                                </div>
+                                                                <span class="text-[0.7rem] text-purple-500 dark:text-purple-400 pl-6 truncate block mt-0.5"
+                                                                      x-text="toolInNamespace.id"
+                                                                      :title="toolInNamespace.id"></span>
+                                                                <p class="mt-1 pl-6 text-surface-500 dark:text-surface-400 text-xs leading-tight line-clamp-2"
+                                                                   x-text="getItemDescription(toolInNamespace, 'tools', true)"
+                                                                   :title="getItemDescription(toolInNamespace, 'tools', true)"></p>
+                                                            </div>
+                                                        </div>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{ * Status Notification Block * }
+{{ block statusNotification() }}
+<div x-data="{ notification: { show: false, type: 'success', message: '', timeout: null } }"
+     @shownotification.window="
+         notification.show = false; clearTimeout(notification.timeout);
+         $nextTick(() => { notification = { ...$event.detail, show: true }; notification.timeout = setTimeout(() => notification.show = false, 5000); });
+     "
+     x-show="notification.show"
+     x-transition:enter="transform ease-out duration-300 transition"
+     x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+     x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+     x-transition:leave="transition ease-in duration-100"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed bottom-4 right-4 max-w-sm w-full z-50">
+    <div class="p-4 rounded-md shadow-lg"
+         :class="{ 'bg-green-50 border-green-200 dark:bg-green-900 dark:border-green-800': notification.type === 'success', 'bg-red-50 border-red-200 dark:bg-red-900 dark:border-red-800': notification.type === 'error', 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900 dark:border-yellow-800': notification.type === 'warning' }">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <iconify-icon
+                        :icon="notification.type === 'success' ? 'tabler:circle-check' : (notification.type === 'error' ? 'tabler:alert-circle' : 'tabler:alert-triangle')"
+                        :class="{ 'text-green-600 dark:text-green-400': notification.type === 'success', 'text-red-600 dark:text-red-400': notification.type === 'error', 'text-yellow-600 dark:text-yellow-400': notification.type === 'warning' }"
+                        width="20" height="20"></iconify-icon>
+            </div>
+            <div class="ml-3 w-0 flex-1 pt-0.5"><p class="text-sm font-medium"
+                                                   :class="{ 'text-green-800 dark:text-green-200': notification.type === 'success', 'text-red-800 dark:text-red-200': notification.type === 'error', 'text-yellow-800 dark:text-yellow-200': notification.type === 'warning' }"
+                                                   x-text="notification.message"></p></div>
+            <div class="ml-4 flex-shrink-0 flex">
+                <button type="button" @click="notification.show = false; clearTimeout(notification.timeout);"
+                        class="inline-flex rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                        :class="{ 'text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 focus:ring-green-600 dark:focus:ring-offset-green-900': notification.type === 'success', 'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:ring-red-600 dark:focus:ring-offset-red-900': notification.type === 'error', 'text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 focus:ring-yellow-600 dark:focus:ring-offset-yellow-900': notification.type === 'warning' }">
+                    <span class="sr-only">Close</span>
+                    <iconify-icon icon="tabler:x" width="16" height="16"></iconify-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        if (window.Alpine && window.Alpine.plugin && window.AlpineCollapse) {
+            window.Alpine.plugin(window.AlpineCollapse);
+        }
+
+        Alpine.data('agentEditorApp', () => ({
+            agentData: {
+                id: null,
+                meta: {comment: '', title: '', name: '', icon: '', tags: [], group: [], class: []},
+                data: {
+                    prompt: '', memory: [], start_prompts: [], tools: [],
+                    model: '', max_tokens: 8000, temperature: 0.7,
+                    traits: [], delegate: {},
+                    memory_contract: {} // Initialize as empty object for consistency with unlink
+                }
+            },
+            originalAgentData: null,
+            isLoading: true,
+            loadError: null,
+            isSaving: false,
+            wippyApi: null,
+
+            metaDirty: false,
+            dataDirty: false,
+
+            activeTab: 'basic',
+            tabs: [
+                {id: 'basic', label: 'Basic', icon: 'tabler:settings'},
+                {id: 'model', label: 'Model', icon: 'tabler:brain'},
+                {id: 'memory', label: 'Memory', icon: 'tabler:history'},
+                {id: 'start_prompts', label: 'Start Prompts', icon: 'tabler:prompt'},
+                {id: 'delegates', label: 'Delegates', icon: 'tabler:directions'},
+                {id: 'traits', label: 'Traits', icon: 'tabler:dna'},
+                {id: 'tools', label: 'Tools', icon: 'tabler:tool'}
+            ],
+
+            itemSearchQueries: {tools: '', traits: '', delegates: ''},
+            filteredAvailableItems: {tools: [], traits: [], delegates: []},
+            isLoadingItems: {tools: false, traits: false, delegates: false},
+            expandedItems: {tools: {}, traits: {}, delegates: {}},
+
+            availableRegistryItems: {
+                'agent.gen1': undefined,
+                'tool': undefined,
+                'agent.trait': undefined
+            },
+            isLoadingRegistryItems: {'agent.gen1': false, 'tool': false, 'agent.trait': false},
+            itemCache: {'agent.gen1': {}, 'tool': {}, 'agent.trait': {}},
+
+            availableModels: [],
+            isLoadingModels: false,
+            get currentModelName() { return this.agentData?.data?.model || ''; },
+
+            namespaceInput: '',
+            namespaceError: '',
+            isAddingNamespace: false,
+            availableNamespaces: [],
+            isLoadingNamespaces: false,
+            loadedWildcardTools: {},
+            loadingWildcards: {},
+            wildcardLoadError: {},
+
+            newDelegate: {id: '', agentName: '', toolName: '', rule: ''},
+            classInputText: '',
+
+            // Memory Contract specific state
+            memoryContractImplementationIdInput: '',
+            memoryContractContextString: '{}',
+            memoryContractBase64Input: '',
+            memoryContractContextError: '',
+
+            get isMemoryContractLinked() {
+                return !!(this.agentData.data.memory_contract && this.agentData.data.memory_contract.implementation_id);
+            },
+
+            get agentDelegates() {
+                if (!this.agentData || !this.agentData.data || !this.agentData.data.delegate) return [];
+                const delegates = [];
+                for (const [agentName, config] of Object.entries(this.agentData.data.delegate)) {
+                    delegates.push({
+                        agentName: agentName, toolName: config.name || '',
+                        rule: config.rule || '', agentId: config.id || ''
+                    });
+                }
+                return delegates.sort((a, b) => (a.toolName || '').localeCompare(b.toolName || ''));
+            },
+
+            get isDirty() {
+                if (!this.originalAgentData || !this.agentData) return false;
+                if (this.metaDirty || this.dataDirty) return true;
+
+                const originalMetaJSON = JSON.stringify(this.originalAgentData.meta || {});
+                const currentMetaJSON = JSON.stringify(this.agentData.meta || {});
+                if (originalMetaJSON !== currentMetaJSON) return true;
+
+                const originalData = this.originalAgentData.data || {};
+                const currentData = this.agentData.data || {};
+                const fieldsToCompare = ['prompt', 'model', 'max_tokens', 'temperature'];
+                for (const field of fieldsToCompare) {
+                    if (JSON.stringify(originalData[field]) !== JSON.stringify(currentData[field])) return true;
+                }
+                const arrayFieldsToCompare = ['memory', 'start_prompts', 'tools', 'traits'];
+                for (const field of arrayFieldsToCompare) {
+                    const originalArrayJSON = JSON.stringify((originalData[field] || []).sort());
+                    const currentArrayJSON = JSON.stringify((currentData[field] || []).sort());
+                    if (originalArrayJSON !== currentArrayJSON) return true;
+                }
+                const normalizeDelegates = (delegatesObj) => {
+                    if (!delegatesObj) return {};
+                    const sortedKeys = Object.keys(delegatesObj).sort();
+                    const normalized = {};
+                    sortedKeys.forEach(key => { normalized[key] = delegatesObj[key]; });
+                    return normalized;
+                };
+                const originalDelegatesJSON = JSON.stringify(normalizeDelegates(originalData.delegate));
+                const currentDelegatesJSON = JSON.stringify(normalizeDelegates(currentData.delegate));
+                if (originalDelegatesJSON !== currentDelegatesJSON) return true;
+
+                // Memory contract comparison
+                // Normalize empty memory_contract to {} for comparison if original was null or undefined
+                const normalizeMc = (mc) => (!mc || Object.keys(mc).length === 0) ? {} : mc;
+                const originalMcNorm = normalizeMc(originalData.memory_contract);
+                const currentMcNorm = normalizeMc(currentData.memory_contract);
+
+                if (JSON.stringify(originalMcNorm.implementation_id) !== JSON.stringify(currentMcNorm.implementation_id)) return true;
+                if (JSON.stringify(originalMcNorm.context_values || {}) !== JSON.stringify(currentMcNorm.context_values || {})) return true;
+
+                return false;
+            },
+
+            setDirty(section) {
+                if (section === 'meta') this.metaDirty = true;
+                if (section === 'data') this.dataDirty = true;
+            },
+
+            get isValidNamespaceInput() { return this.namespaceInput && !this.namespaceError; },
+            canAddDelegate() { return this.newDelegate.id && this.newDelegate.agentName && this.newDelegate.toolName && !this.isLoading && !this.isSaving; },
+
+            getKeeperTypeForTab(tabId) {
+                if (tabId === 'tools') return 'tool';
+                if (tabId === 'traits') return 'agent.trait';
+                if (tabId === 'delegates') return 'agent.gen1';
+                return null;
+            },
+
+            async initialize() {
+                this.isLoading = true;
+                this.loadError = null;
+                this.metaDirty = false;
+                this.dataDirty = false;
+                this.agentData = {
+                    id: null, meta: {comment: '', title: '', name: '', icon: '', tags: [], group: [], class: []},
+                    data: {
+                        prompt: '', memory: [], start_prompts: [], tools: [],
+                        model: '', max_tokens: 8000, temperature: 0.7,
+                        traits: [], delegate: {}, memory_contract: {}
+                    }
+                };
+                this.originalAgentData = null;
+                this.activeTab = 'basic';
+                this.itemSearchQueries = {tools: '', traits: '', delegates: ''};
+                this.filteredAvailableItems = {tools: [], traits: [], delegates: []};
+                this.isLoadingItems = {tools: false, traits: false, delegates: false};
+                this.expandedItems = {tools: {}, traits: {}, delegates: {}};
+
+                this.availableRegistryItems = {'agent.gen1': undefined, 'tool': undefined, 'agent.trait': undefined};
+                this.isLoadingRegistryItems = {'agent.gen1': false, 'tool': false, 'agent.trait': false};
+                this.itemCache = {'agent.gen1': {}, 'tool': {}, 'agent.trait': {}};
+
+                this.availableModels = [];
+                this.isLoadingModels = false;
+                this.namespaceInput = ''; this.namespaceError = ''; this.isAddingNamespace = false;
+                this.availableNamespaces = []; this.isLoadingNamespaces = false;
+                this.loadedWildcardTools = {}; this.loadingWildcards = {}; this.wildcardLoadError = {};
+                this.newDelegate = {id: '', agentName: '', toolName: '', rule: ''};
+                this.classInputText = '';
+
+                this.memoryContractImplementationIdInput = '';
+                this.memoryContractContextString = '{}';
+                this.memoryContractBase64Input = '';
+                this.memoryContractContextError = '';
+
+                this.$watch('agentData.data.memory_contract', (newContract) => {
+                    if (newContract && newContract.implementation_id) {
+                        this.memoryContractContextString = JSON.stringify(newContract.context_values || {}, null, 2);
+                        this.memoryContractContextError = '';
+                    } else {
+                        // When unlinked (newContract is {} or null or undefined) or initially null,
+                        this.memoryContractContextString = '{}';
+                        this.memoryContractContextError = '';
+                    }
+                }, { deep: true }); // Use deep watch if context_values might change internally without reassigning memory_contract
+
+                try {
+                    this.wippyApi = await window.initWippyApi(); // Direct call, assumes Wippy AI environment
+                    const agentId = this.wippyApi.config.path;
+                    if (!agentId) throw new Error("Agent ID not found in Wippy configuration.");
+
+                    await Promise.all([
+                        this.loadAvailableRegistryItemsIfNeeded('agent.gen1'),
+                        this.loadAvailableRegistryItemsIfNeeded('agent.trait')
+                    ]);
+                    await this.loadAgent(agentId);
+                } catch (error) {
+                    console.error('Initialization error:', error);
+                    this.loadError = `Initialization Failed: ${error.message || 'Unknown error'}`;
+                    if (this.wippyApi && this.wippyApi.iframe && this.isFatalError(error)) { // Check if iframe is available
+                        this.wippyApi.iframe.handleError('other', error);
+                    }
+                } finally { this.isLoading = false; }
+            },
+
+            async loadAgent(id) {
+                this.loadError = null;
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(id)}`);
+                    if (!response.data.success || !response.data.entry) {
+                        throw new Error(response.data.error || 'Failed to load agent data.');
+                    }
+                    this.agentData = response.data.entry;
+                    this.ensureDataStructures();
+
+                    const serverTraitsField = this.agentData.data.traits || [];
+                    const agentTraitNames = [];
+                    const allAvailableTraitObjects = this.availableRegistryItems['agent.trait'] || [];
+                    if (serverTraitsField.length > 0 && allAvailableTraitObjects.length > 0) {
+                        for (const traitIdentifier of serverTraitsField) {
+                            let foundTraitObj = null;
+                            if (typeof traitIdentifier === 'string') {
+                                if (traitIdentifier.includes(':')) {
+                                    foundTraitObj = allAvailableTraitObjects.find(t => t.id === traitIdentifier);
+                                } else {
+                                    foundTraitObj = allAvailableTraitObjects.find(t => t.meta && t.meta.name === traitIdentifier);
+                                }
+                            }
+                            if (foundTraitObj && foundTraitObj.meta && foundTraitObj.meta.name) {
+                                agentTraitNames.push(foundTraitObj.meta.name);
+                                if (!this.itemCache['agent.trait']) this.itemCache['agent.trait'] = {};
+                                this.itemCache['agent.trait'][foundTraitObj.meta.name] = foundTraitObj;
+                            }
+                        }
+                    }
+                    this.agentData.data.traits = agentTraitNames;
+
+                    const serverDelegates = this.agentData.data.delegate || {};
+                    const normalizedDelegates = {};
+                    const allAvailableAgentObjects = this.availableRegistryItems['agent.gen1'] || [];
+                    for (const serverKey in serverDelegates) {
+                        const serverConfig = serverDelegates[serverKey];
+                        let targetAgentObj = allAvailableAgentObjects.find(agent => agent.id === serverKey || (agent.meta && agent.meta.name === serverKey));
+                        if (targetAgentObj && targetAgentObj.meta && targetAgentObj.meta.name) {
+                            const targetAgentName = targetAgentObj.meta.name;
+                            normalizedDelegates[targetAgentName] = { ...serverConfig, id: targetAgentObj.id };
+                            if (!this.itemCache['agent.gen1'][targetAgentObj.id] || this.itemCache['agent.gen1'][targetAgentObj.id].status !== 'loaded') {
+                                this.itemCache['agent.gen1'][targetAgentObj.id] = this.extractItemDetails(targetAgentObj, 'agent.gen1');
+                            }
+                        } else {
+                            normalizedDelegates[serverKey] = { ...serverConfig, id: serverKey.includes(':') ? serverKey : (serverConfig.id || serverKey) };
+                            if (serverKey.includes(':') && (!this.itemCache['agent.gen1'][serverKey] || this.itemCache['agent.gen1'][serverKey].status !== 'loaded') ) {
+                                this.fetchItemDetails(serverKey, 'delegates', true);
+                            }
+                        }
+                    }
+                    this.agentData.data.delegate = normalizedDelegates;
+
+                    const itemDetailPromises = [];
+                    (this.agentData.data.tools || []).filter(toolId => toolId && !toolId.endsWith(':*')).forEach(toolId => {
+                        itemDetailPromises.push(this.fetchItemDetails(toolId, 'tools', true));
+                    });
+                    await Promise.all(itemDetailPromises);
+
+                    const wildcardLoadPromises = (this.agentData.data.tools || [])
+                        .filter(toolId => toolId && toolId.endsWith(':*'))
+                        .map(wildcardId => {
+                            if (!this.loadedWildcardTools[wildcardId]) this.loadedWildcardTools[wildcardId] = {entries: [], total: 0};
+                            return this.loadWildcardTools(wildcardId, false, true);
+                        });
+                    await Promise.all(wildcardLoadPromises);
+                    this.loadedWildcardTools = {...this.loadedWildcardTools};
+
+                    this.itemCache['agent.gen1'] = {...this.itemCache['agent.gen1']};
+                    this.itemCache['agent.trait'] = {...this.itemCache['agent.trait']};
+                    this.itemCache['tool'] = {...this.itemCache['tool']};
+                    this.itemCache = {...this.itemCache};
+
+                    // Initialize memoryContractContextString based on loaded data
+                    // This will also be handled by the watcher if memory_contract is an object
+                    if (this.agentData.data.memory_contract && this.agentData.data.memory_contract.implementation_id) {
+                        this.memoryContractContextString = JSON.stringify(this.agentData.data.memory_contract.context_values || {}, null, 2);
+                    } else {
+                        this.memoryContractContextString = '{}'; // Default for unlinked
+                    }
+
+                    this.originalAgentData = JSON.parse(JSON.stringify(this.agentData));
+                    this.metaDirty = false; this.dataDirty = false;
+                } catch (error) {
+                    console.error('Error loading agent:', error);
+                    this.loadError = `Failed to load agent: ${error.message || 'Unknown error'}`;
+                    if (this.wippyApi && this.wippyApi.iframe && (error.response?.status === 401 || error.response?.status === 403)) { // Check iframe
+                        this.wippyApi.iframe.handleError('auth-expired', error);
+                    }
+                }
+            },
+
+            ensureDataStructures() {
+                this.agentData.meta = this.agentData.meta || { comment: '', title: '', name: '', icon: '', tags: [], group: [], class: [] };
+                this.agentData.meta.comment = this.agentData.meta.comment || '';
+                this.agentData.meta.class = Array.isArray(this.agentData.meta.class) ? this.agentData.meta.class.filter(c => typeof c === 'string' && c.trim()) : [];
+
+                const data = this.agentData.data || {};
+                this.agentData.data = {
+                    prompt: data.prompt || '',
+                    memory: Array.isArray(data.memory) ? data.memory.filter(item => typeof item === 'string') : [],
+                    start_prompts: Array.isArray(data.start_prompts) ? data.start_prompts.filter(item => typeof item === 'string') : [],
+                    tools: Array.isArray(data.tools) ? data.tools.filter(item => typeof item === 'string') : [],
+                    model: (typeof data.model === 'string' ? data.model.trim() : '') || '',
+                    max_tokens: (typeof data.max_tokens === 'number' && !isNaN(data.max_tokens)) ? data.max_tokens : 8000,
+                    temperature: (typeof data.temperature === 'number' && !isNaN(data.temperature)) ? data.temperature : 0.7,
+                    traits: Array.isArray(data.traits) ? data.traits.filter(item => typeof item === 'string') : [],
+                    delegate: (typeof data.delegate === 'object' && data.delegate !== null) ? data.delegate : {},
+                    memory_contract: (typeof data.memory_contract === 'object' && data.memory_contract !== null) ? data.memory_contract : {} // Ensure it's an object, or empty object
+                };
+                // Ensure context_values is an object if memory_contract has an implementation_id
+                if (this.agentData.data.memory_contract && this.agentData.data.memory_contract.implementation_id && typeof this.agentData.data.memory_contract.context_values !== 'object') {
+                    this.agentData.data.memory_contract.context_values = {};
+                }
+                // If memory_contract is empty but not null (e.g. {} from unlink), ensure context_values is not present or is empty
+                if (this.agentData.data.memory_contract && !this.agentData.data.memory_contract.implementation_id) {
+                    this.agentData.data.memory_contract.context_values = {}; // or delete if preferred
+                }
+            },
+
+            async saveAgent() {
+                if (!this.agentData || !this.agentData.id) { this.showNotification('error', 'Agent data or ID is missing.'); return; }
+                if (this.memoryContractContextError) { this.showNotification('error', `Cannot save: ${this.memoryContractContextError}`); return; }
+                if (!this.isDirty) { this.showNotification('warning', 'No changes to save.'); return; }
+
+                this.isSaving = true;
+                try {
+                    const saveData = JSON.parse(JSON.stringify(this.agentData.data));
+                    saveData.memory = saveData.memory.filter(item => item && item.trim() !== '');
+                    saveData.start_prompts = saveData.start_prompts.filter(item => item && item.trim() !== '');
+
+                    if (saveData.memory_contract && saveData.memory_contract.implementation_id) {
+                        try {
+                            saveData.memory_contract.context_values = JSON.parse(this.memoryContractContextString);
+                        } catch (e) {
+                            this.showNotification('error', 'Invalid JSON in memory contract context. Please fix before saving.');
+                            this.isSaving = false; return;
+                        }
+                    } else {
+                        // If not linked, ensure memory_contract is an empty object or not present
+                        // Backend will handle explicit empty {} to remove the field
+                        saveData.memory_contract = {};
+                    }
+
+
+                    const saveMeta = JSON.parse(JSON.stringify(this.agentData.meta));
+                    saveMeta.class = (saveMeta.class || []).filter(c => c && c.trim() !== '');
+
+                    const payload = { id: this.agentData.id, meta: saveMeta, data: saveData, merge: true };
+                    const response = await this.wippyApi.api.put(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(this.agentData.id)}`, payload);
+                    if (!response.data.success) { throw new Error(response.data.error || 'Failed to save agent.'); }
+
+                    // After successful save, reload the agent to get the canonical state from backend
+                    // This handles cases where backend might nullify memory_contract if it was {}
+                    await this.loadAgent(this.agentData.id);
+                    // No need to set originalAgentData or dirty flags here, loadAgent will do it.
+                    this.showNotification('success', response.data.message || 'Agent configuration saved.');
+
+                } catch (error) {
+                    console.error('Error saving agent:', error);
+                    this.showNotification('error', `Save Failed: ${error.message || 'Unknown error'}`);
+                    if (this.wippyApi && this.wippyApi.iframe) { // Check iframe
+                        if (error.response?.status === 401 || error.response?.status === 403) { this.wippyApi.iframe.handleError('auth-expired', error); }
+                        else if (this.isFatalError(error)) { this.wippyApi.iframe.handleError('other', error); }
+                    }
+                } finally { this.isSaving = false; }
+            },
+
+            // Memory Contract Methods
+            linkMemoryContract() {
+                if (!this.memoryContractImplementationIdInput.trim()) {
+                    this.showNotification('error', 'Contract Implementation ID cannot be empty.');
+                    return;
+                }
+                this.agentData.data.memory_contract = {
+                    implementation_id: this.memoryContractImplementationIdInput.trim(),
+                    context_values: {} // Initialize with empty context
+                };
+                this.memoryContractImplementationIdInput = ''; // Clear input
+                this.setDirty('data');
+                this.showNotification('success', 'Memory contract linked. You can now configure context values.');
+            },
+            unlinkMemoryContract() {
+                this.agentData.data.memory_contract = {}; // Set to empty object for backend merge logic
+                this.setDirty('data');
+                this.showNotification('info', 'Memory contract unlinked. Save to apply changes.');
+            },
+            importMemoryContractFromBase64() {
+                if (!this.memoryContractBase64Input.trim()) {
+                    this.showNotification('error', 'Base64 input cannot be empty.');
+                    return;
+                }
+                try {
+                    const decodedJsonString = atob(this.memoryContractBase64Input.trim());
+                    const contractData = JSON.parse(decodedJsonString);
+
+                    if (!contractData.id || typeof contractData.id !== 'string') {
+                        throw new Error('Decoded JSON must have an "id" (string) field.');
+                    }
+                    if (typeof contractData.context !== 'object' || contractData.context === null) {
+                        // Allow empty context object
+                        contractData.context = {};
+                    }
+
+                    this.agentData.data.memory_contract = {
+                        implementation_id: contractData.id,
+                        context_values: contractData.context
+                    };
+                    this.memoryContractBase64Input = ''; // Clear input
+                    this.setDirty('data');
+                    this.showNotification('success', 'Memory contract imported successfully.');
+
+                } catch (e) {
+                    console.error("Error importing memory contract from Base64:", e);
+                    this.showNotification('error', `Import failed: ${e.message}`);
+                }
+            },
+            handleMemoryContextChange(event) {
+                const newValue = event.target.value;
+                // x-model handles memoryContractContextString update
+
+                if (this.agentData.data.memory_contract && this.agentData.data.memory_contract.implementation_id) {
+                    try {
+                        const parsedContext = JSON.parse(newValue);
+                        if (typeof parsedContext !== 'object' || parsedContext === null) {
+                            throw new Error("Context must be a JSON object.");
+                        }
+                        // Update agentData directly only if JSON is valid
+                        if (JSON.stringify(this.agentData.data.memory_contract.context_values || {}) !== JSON.stringify(parsedContext)) {
+                            this.agentData.data.memory_contract.context_values = parsedContext;
+                            this.setDirty('data');
+                        }
+                        this.memoryContractContextError = '';
+                    } catch (e) {
+                        this.memoryContractContextError = `Invalid JSON: ${e.message}`;
+                        // Do not update agentData.data.memory_contract.context_values, keep last valid state
+                        // This prevents saving invalid JSON to the agentData state that might affect isDirty
+                    }
+                }
+            },
+
+
+            addMemory() { if (!this.agentData.data.memory) this.agentData.data.memory = []; this.agentData.data.memory.push(''); this.setDirty('data'); },
+            removeMemory(index) { this.agentData.data.memory.splice(index, 1); this.setDirty('data'); },
+            addStartPrompt() { if (!this.agentData.data.start_prompts) this.agentData.data.start_prompts = []; this.agentData.data.start_prompts.push(''); this.setDirty('data'); },
+            removeStartPrompt(index) { this.agentData.data.start_prompts.splice(index, 1); this.setDirty('data'); },
+
+            addClassesFromInput() {
+                if (!this.classInputText.trim()) return;
+                const newClasses = this.classInputText.split(',')
+                    .map(c => c.trim().toLowerCase().replace(/[^a-z0-9_/-]+/g, ''))
+                    .filter(c => c.length > 0);
+
+                if (newClasses.length > 0) {
+                    if (!this.agentData.meta.class) this.agentData.meta.class = [];
+                    newClasses.forEach(nc => {
+                        if (!this.agentData.meta.class.includes(nc)) {
+                            this.agentData.meta.class.push(nc);
+                        }
+                    });
+                    this.setDirty('meta');
+                }
+                this.classInputText = '';
+            },
+            removeClass(index) {
+                if (this.agentData.meta.class && this.agentData.meta.class.length > index) {
+                    this.agentData.meta.class.splice(index, 1);
+                    this.setDirty('meta');
+                }
+            },
+
+            async loadAvailableModels() {
+                this.isLoadingModels = true;
+                try {
+                    const response = await this.wippyApi.api.get('/api/v1/keeper/models/list');
+                    if (response.data.success && response.data.models) {
+                        this.availableModels = response.data.models.filter(m => m.type !== 'llm.embedding').sort((a,b) => (a.title||a.name).localeCompare(b.title||b.name));
+                        this.syncModelSelection();
+                    } else { throw new Error(response.data.error || 'Failed to load models.'); }
+                } catch (error) { console.error('Error loading available models:', error); this.showNotification('error', `Failed to load models: ${error.message||'Unknown error'}`); }
+                finally { this.isLoadingModels = false; }
+            },
+            syncModelSelection() {
+                this.$nextTick(() => {
+                    const el = document.getElementById('modelSelect');
+                    if (el && this.agentData.data.model && Array.from(el.options).some(o => o.value === this.agentData.data.model)) {
+                        const val = this.agentData.data.model; this.agentData.data.model = '';
+                        this.$nextTick(() => { this.agentData.data.model = val; });
+                    }
+                });
+            },
+
+            selectAgentForDelegate(agentObject) {
+                if (agentObject && agentObject.id && agentObject.meta && agentObject.meta.name) {
+                    this.newDelegate.id = agentObject.id; this.newDelegate.agentName = agentObject.meta.name;
+                    this.generateDelegateNameAndRule();
+                }
+            },
+            generateDelegateNameAndRule() {
+                if (!this.newDelegate.agentName) return;
+                const baseName = this.newDelegate.agentName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+                if (!this.newDelegate.toolName || this.newDelegate.toolName.startsWith('call_agent_') || this.newDelegate.toolName === 'call_selected_agent') {
+                    this.newDelegate.toolName = `call_${baseName || 'agent'}`;
+                }
+                if (!this.newDelegate.rule) { this.newDelegate.rule = `When the task is related to the capabilities of the '${this.newDelegate.agentName}' agent.`; }
+            },
+            addDelegate() {
+                if (!this.canAddDelegate()) { this.showNotification('error', 'Target Agent, Agent Name, and Tool Name are required.'); return; }
+                if (!this.agentData) { this.showNotification('error', 'Agent data not loaded.'); return; }
+                if (this.newDelegate.id === this.agentData.id) { this.showNotification('error', 'Agent cannot delegate to itself.'); return; }
+                const targetAgentNameKey = this.newDelegate.agentName;
+                if (!this.agentData.data.delegate) this.agentData.data.delegate = {};
+                if (this.agentData.data.delegate[targetAgentNameKey]) { this.showNotification('warning', `Delegate for target agent '${targetAgentNameKey}' already exists.`); return; }
+                this.agentData.data.delegate[targetAgentNameKey] = { name: this.newDelegate.toolName, rule: this.newDelegate.rule, id: this.newDelegate.id };
+                this.agentData.data.delegate = {...this.agentData.data.delegate};
+                this.newDelegate = {id: '', agentName: '', toolName: '', rule: ''}; this.setDirty('data');
+            },
+            removeDelegate(index) {
+                if (!this.agentData || !this.agentData.data.delegate) return;
+                const delegateToRemove = this.agentDelegates[index]; const agentNameKey = delegateToRemove.agentName;
+                delete this.agentData.data.delegate[agentNameKey];
+                if (this.expandedItems.delegates) delete this.expandedItems.delegates[agentNameKey];
+                this.agentData.data.delegate = {...this.agentData.data.delegate};
+                this.expandedItems.delegates = {...(this.expandedItems.delegates || {})}; this.setDirty('data');
+            },
+
+            async loadNamespaces() {
+                this.isLoadingNamespaces = true;
+                try {
+                    const response = await this.wippyApi.api.get('/api/v1/keeper/registry/namespaces');
+                    if (response.data.success && response.data.namespaces) {
+                        this.availableNamespaces = response.data.namespaces.map(ns => ns.name)
+                            .filter(name => name.includes('.tools') || name.includes('.utils') || name.startsWith('app') || name.startsWith('system') || name.includes('testing'));
+                    } else { throw new Error(response.data.error || "Failed to fetch namespaces"); }
+                } catch (error) { console.error('Error loading namespaces:', error); this.showNotification('error', `Failed to load namespaces: ${error.message||'Unknown error'}`); }
+                finally { this.isLoadingNamespaces = false; }
+            },
+            validateNamespaceInput() {
+                this.namespaceError = ''; if (!this.namespaceInput) return;
+                if (this.isItemAdded(`${this.namespaceInput}:*`, 'tools')) this.namespaceError = 'This namespace access rule is already added.';
+            },
+            async addNamespaceWildcard() {
+                if (!this.isValidNamespaceInput || this.isAddingNamespace) return;
+                if (!this.agentData || !this.agentData.data) { this.showNotification('error', 'Agent data not available.'); return; }
+                const wildcardId = `${this.namespaceInput}:*`;
+                if (!this.isItemAdded(wildcardId, 'tools')) {
+                    this.isAddingNamespace = true;
+                    if (!this.agentData.data.tools) this.agentData.data.tools = [];
+                    this.agentData.data.tools.push(wildcardId);
+                    if (!this.loadedWildcardTools[wildcardId]) this.loadedWildcardTools[wildcardId] = {entries: [], total: 0};
+                    this.loadedWildcardTools = {...this.loadedWildcardTools}; this.setDirty('data');
+                    await this.loadWildcardTools(wildcardId, true, true);
+                    this.namespaceInput = ''; this.namespaceError = ''; this.isAddingNamespace = false;
+                } else { this.showNotification('warning', 'This namespace access rule is already added.'); }
+            },
+            async loadWildcardTools(wildcardId, forceReload = false, countOnly = false) {
+                if (!wildcardId || !wildcardId.endsWith(':*')) return;
+                if (!this.loadedWildcardTools[wildcardId]) this.loadedWildcardTools[wildcardId] = {entries: [], total: 0};
+                const currentLoadingState = this.loadingWildcards[wildcardId];
+                const alreadyLoadedCount = (this.loadedWildcardTools[wildcardId]?.total !== undefined && this.loadedWildcardTools[wildcardId].total !== 0);
+                const alreadyLoadedFull = !!(this.loadedWildcardTools[wildcardId]?.entries && this.loadedWildcardTools[wildcardId].entries.length > 0);
+                if (!forceReload) {
+                    if (countOnly && alreadyLoadedCount && !this.wildcardLoadError[wildcardId]) return;
+                    if (!countOnly && alreadyLoadedFull && !this.wildcardLoadError[wildcardId]) return;
+                    if (currentLoadingState === (countOnly ? 'count' : 'full')) return;
+                }
+                const namespace = wildcardId.replace(':*', '');
+                this.loadingWildcards[wildcardId] = countOnly ? 'count' : 'full';
+                if (!countOnly || forceReload) this.wildcardLoadError[wildcardId] = null;
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entries?namespace=${encodeURIComponent(namespace)}&meta.type=tool&limit=1000`);
+                    const data = response.data;
+                    if (data.success) {
+                        this.loadedWildcardTools[wildcardId].total = (typeof data.total === 'number') ? data.total : (data.entries ? data.entries.length : 0);
+                        if (!countOnly) {
+                            this.loadedWildcardTools[wildcardId].entries = (data.entries || []).sort((a,b) => (this.getItemName(a,'tools',true)).localeCompare(this.getItemName(b,'tools',true)));
+                            if (!this.itemCache.tool) this.itemCache.tool = {};
+                            (data.entries || []).forEach(toolEntry => {
+                                if (!this.itemCache.tool[toolEntry.id] || this.itemCache.tool[toolEntry.id].status !== 'loaded') {
+                                    this.itemCache.tool[toolEntry.id] = this.extractItemDetails(toolEntry, 'tool');
+                                }
+                            });
+                            this.itemCache.tool = {...(this.itemCache.tool || {})}; this.itemCache = {...this.itemCache};
+                            this.wildcardLoadError[wildcardId] = null;
+                        } else if (this.loadedWildcardTools[wildcardId].entries === null || this.loadedWildcardTools[wildcardId].entries === undefined) {
+                            this.loadedWildcardTools[wildcardId].entries = [];
+                        }
+                        this.loadedWildcardTools = {...this.loadedWildcardTools};
+                    } else { throw new Error(data.error || 'Failed to load tools for namespace.'); }
+                } catch (error) {
+                    console.error(`Error loading tools for wildcard ${wildcardId}:`, error);
+                    if (!countOnly || !alreadyLoadedFull || forceReload) this.wildcardLoadError[wildcardId] = error.message || 'Unknown error';
+                    if (!countOnly && (!alreadyLoadedFull || forceReload)) { this.loadedWildcardTools[wildcardId].entries = []; }
+                    else if (countOnly && !alreadyLoadedCount && this.loadedWildcardTools[wildcardId]) {
+                        this.loadedWildcardTools[wildcardId].total = undefined;
+                        if (this.loadedWildcardTools[wildcardId].entries === null || this.loadedWildcardTools[wildcardId].entries === undefined) this.loadedWildcardTools[wildcardId].entries = [];
+                    }
+                    this.loadedWildcardTools = {...this.loadedWildcardTools}; this.wildcardLoadError = {...this.wildcardLoadError};
+                } finally {
+                    if (this.loadingWildcards[wildcardId] === (countOnly ? 'count' : 'full')) delete this.loadingWildcards[wildcardId];
+                    this.loadingWildcards = {...this.loadingWildcards};
+                }
+            },
+
+            async handleTabChange(tabId) {
+                this.activeTab = tabId;
+                const keeperType = this.getKeeperTypeForTab(tabId);
+
+                if (keeperType) {
+                    if (this.isLoadingItems.hasOwnProperty(tabId)) {
+                        this.isLoadingItems[tabId] = true;
+                    }
+                    if (this.availableRegistryItems[keeperType] !== undefined) {
+                        this.filterAvailableItems(tabId);
+                        if (this.isLoadingItems.hasOwnProperty(tabId)) {
+                            this.isLoadingItems[tabId] = false;
+                        }
+                    } else {
+                        await this.loadAvailableRegistryItemsIfNeeded(keeperType);
+                    }
+                } else {
+                    if (this.isLoadingItems.hasOwnProperty(tabId)) {
+                        this.isLoadingItems[tabId] = false;
+                    }
+                }
+
+                if (tabId === 'model') { await this.loadAvailableModels(); }
+                if (tabId === 'tools') { await this.loadNamespaces(); }
+            },
+            getItemNameFromEntry(entry, keeperType) {
+                if (!entry) return 'unknown';
+                if (entry.meta) return entry.meta.title || entry.meta.name || this.getName(entry.id);
+                return this.getName(entry.id || 'unknown');
+            },
+            async loadAvailableRegistryItemsIfNeeded(keeperType) {
+                if (!keeperType) return;
+                if (this.isLoadingRegistryItems[keeperType]) return;
+                if (this.availableRegistryItems[keeperType] !== undefined) {
+                    if (this.getKeeperTypeForTab(this.activeTab) === keeperType && this.isLoadingItems.hasOwnProperty(this.activeTab)) {
+                        this.isLoadingItems[this.activeTab] = false;
+                    }
+                    return;
+                }
+
+                this.isLoadingRegistryItems[keeperType] = true;
+                const activeTabNeedsThisData = this.getKeeperTypeForTab(this.activeTab) === keeperType;
+
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entries?meta.type=${keeperType}&limit=5000`);
+                    const data = response.data;
+                    if (data.success && data.entries) {
+                        this.availableRegistryItems[keeperType] = data.entries
+                            .filter(item => item && item.id && (!this.agentData || item.id !== this.agentData.id) && (keeperType !== 'agent.trait' || (item.meta && item.meta.name)))
+                            .sort((a,b) => (this.getItemNameFromEntry(a,keeperType)).localeCompare(this.getItemNameFromEntry(b,keeperType)));
+
+                        if (!this.itemCache[keeperType]) this.itemCache[keeperType] = {};
+                        this.availableRegistryItems[keeperType].forEach(item => {
+                            const cacheKey = (keeperType === 'agent.trait') ? item.meta.name : item.id;
+                            const existingCached = this.itemCache[keeperType][cacheKey];
+                            if (!existingCached || existingCached.status !== 'loaded') {
+                                if (keeperType === 'agent.trait') this.itemCache[keeperType][cacheKey] = item;
+                                else this.itemCache[keeperType][cacheKey] = this.extractItemDetails(item, keeperType);
+                            }
+                        });
+                        this.itemCache[keeperType] = {...this.itemCache[keeperType]}; this.itemCache = {...this.itemCache};
+
+                        if (activeTabNeedsThisData) {
+                            this.filterAvailableItems(this.activeTab);
+                        }
+                    } else {
+                        this.availableRegistryItems[keeperType] = [];
+                        throw new Error(data.error || `Failed to load ${keeperType} items`);
+                    }
+                } catch (error) {
+                    console.error(`Error loading ${keeperType} items:`, error);
+                    this.showNotification('error', `Failed to load ${keeperType} items: ${error.message||'Unknown error'}`);
+                    this.availableRegistryItems[keeperType] = [];
+                } finally {
+                    this.isLoadingRegistryItems[keeperType] = false;
+                    if (activeTabNeedsThisData && this.isLoadingItems.hasOwnProperty(this.activeTab)) {
+                        this.isLoadingItems[this.activeTab] = false;
+                    }
+                }
+            },
+            filterAvailableItems(tabId) {
+                const keeperType = this.getKeeperTypeForTab(tabId);
+                if (!keeperType || this.availableRegistryItems[keeperType] === undefined) {
+                    this.filteredAvailableItems[tabId] = []; return;
+                }
+                const sourceList = this.availableRegistryItems[keeperType] || [];
+                const query = (this.itemSearchQueries[tabId] || '').toLowerCase().trim();
+                if (!query) { this.filteredAvailableItems[tabId] = [...sourceList]; return; }
+                this.filteredAvailableItems[tabId] = sourceList.filter(item => {
+                    if (!item || !item.id || (keeperType === 'agent.trait' && (!item.meta || !item.meta.name))) return false;
+                    const name = (this.getItemName(item,tabId,true)||'').toLowerCase();
+                    const description = (this.getItemDescription(item,tabId,true)||'').toLowerCase();
+                    const id = (item.id||'').toLowerCase();
+                    return name.includes(query) || description.includes(query) || id.includes(query);
+                });
+            },
+            isItemAdded(identifier, tabId) {
+                if (!this.agentData || !this.agentData.data) return false;
+                if (tabId === 'tools') return (this.agentData.data.tools || []).includes(identifier);
+                if (tabId === 'traits') return (this.agentData.data.traits || []).includes(identifier);
+                if (tabId === 'delegates') return !!(this.agentData.data.delegate && this.agentData.data.delegate[identifier]);
+                return false;
+            },
+            addItem(itemOrId, tabId) {
+                if (!this.agentData || !this.agentData.data) { this.showNotification('error', 'Agent data not available.'); return; }
+                if (tabId === 'traits') {
+                    const traitObject = itemOrId;
+                    if (!traitObject || !traitObject.meta || !traitObject.meta.name) { this.showNotification('error', 'Invalid trait object.'); return; }
+                    const traitName = traitObject.meta.name;
+                    if (!this.isItemAdded(traitName, 'traits')) {
+                        if (!this.agentData.data.traits) this.agentData.data.traits = [];
+                        this.agentData.data.traits.push(traitName);
+                        if (!this.itemCache['agent.trait']) this.itemCache['agent.trait'] = {};
+                        this.itemCache['agent.trait'][traitName] = traitObject;
+                        this.itemCache['agent.trait'] = {...this.itemCache['agent.trait']}; this.itemCache = {...this.itemCache};
+                        this.setDirty('data');
+                    } else { this.showNotification('warning', `Trait '${this.getItemName(traitName,'traits')}' already added.`); }
+                } else {
+                    const itemId = itemOrId;
+                    if (!this.isItemAdded(itemId, tabId)) {
+                        const dataKey = tabId;
+                        if (!this.agentData.data[dataKey]) this.agentData.data[dataKey] = [];
+                        this.agentData.data[dataKey].push(itemId);
+                        this.fetchItemDetails(itemId, tabId); this.setDirty('data');
+                    } else { this.showNotification('warning', `${this.capitalize(tabId).slice(0,-1)} '${this.getItemName(itemId,tabId)}' already added.`); }
+                }
+            },
+            removeItem(index, tabId) {
+                const dataKey = tabId;
+                if (!this.agentData || !this.agentData.data || (tabId !== 'traits' && !this.agentData.data[dataKey])) return;
+                if (tabId === 'traits') {
+                    const removedTraitName = this.agentData.data.traits[index];
+                    this.agentData.data.traits.splice(index, 1);
+                    if (removedTraitName && this.expandedItems.traits) delete this.expandedItems.traits[removedTraitName];
+                    this.expandedItems.traits = {...(this.expandedItems.traits || {})};
+                } else {
+                    const removedItemId = this.agentData.data[dataKey][index];
+                    this.agentData.data[dataKey].splice(index, 1);
+                    if (this.expandedItems[tabId]) delete this.expandedItems[tabId][removedItemId];
+                    this.expandedItems[tabId] = {...(this.expandedItems[tabId] || {})};
+                    if (tabId === 'tools' && removedItemId.endsWith(':*')) {
+                        delete this.loadedWildcardTools[removedItemId]; delete this.loadingWildcards[removedItemId]; delete this.wildcardLoadError[removedItemId];
+                        this.loadedWildcardTools = {...this.loadedWildcardTools}; this.loadingWildcards = {...this.loadingWildcards}; this.wildcardLoadError = {...this.wildcardLoadError};
+                    }
+                }
+                this.setDirty('data');
+            },
+            toggleItemExpansion(itemIdOrName, tabId) {
+                if (!itemIdOrName) return;
+                if (!this.expandedItems[tabId]) this.expandedItems[tabId] = {};
+                this.expandedItems[tabId][itemIdOrName] = !this.expandedItems[tabId][itemIdOrName];
+                this.expandedItems[tabId] = {...this.expandedItems[tabId]}; this.expandedItems = {...this.expandedItems};
+                if (this.expandedItems[tabId][itemIdOrName]) {
+                    if (tabId === 'tools' && itemIdOrName.endsWith(':*')) {
+                        if (!this.loadedWildcardTools[itemIdOrName]) this.loadedWildcardTools[itemIdOrName] = {entries: [], total: 0};
+                        this.loadedWildcardTools = {...this.loadedWildcardTools};
+                        const isFullyLoaded = this.loadedWildcardTools[itemIdOrName].entries && this.loadedWildcardTools[itemIdOrName].entries.length > 0;
+                        const hasError = !!this.wildcardLoadError[itemIdOrName];
+                        if (!isFullyLoaded || hasError) this.loadWildcardTools(itemIdOrName, false, false);
+                    } else if (tabId !== 'traits' && tabId !== 'delegates') {
+                        this.fetchItemDetails(itemIdOrName, tabId);
+                    } else if (tabId === 'delegates') {
+                        const delegateConfig = this.agentData.data.delegate[itemIdOrName];
+                        if (delegateConfig && delegateConfig.id) { this.fetchItemDetails(delegateConfig.id, tabId, false); }
+                    }
+                }
+            },
+            extractItemDetails(entry, keeperType) {
+                if (!entry || !entry.id) return { id: entry?.id || 'unknown', name: 'Error', description: 'Invalid entry data', type: keeperType, status: 'error' };
+                const meta = entry.meta || {};
+                return { id: entry.id, name: meta.title || meta.name || this.getName(entry.id), description: meta.llm_description || meta.description || meta.comment || 'No description available.', type: keeperType, status: 'loaded', fullObject: entry };
+            },
+            async fetchItemDetails(itemId, listType, isPrecache = false) {
+                if (!itemId) return;
+                const keeperType = this.getKeeperTypeForTab(listType);
+                if (!keeperType) { console.warn(`No keeperType for listType ${listType}`); return; }
+                const cacheKey = (keeperType === 'agent.trait') ? this.getName(itemId) : itemId;
+                const cachedItem = this.itemCache[keeperType]?.[cacheKey];
+                if (cachedItem && cachedItem.status === 'loaded' && !isPrecache) return;
+                if (cachedItem && cachedItem.status === 'loading' && !isPrecache) return;
+                if (!this.itemCache[keeperType]) this.itemCache[keeperType] = {};
+                this.itemCache[keeperType][cacheKey] = { id: itemId, name: cachedItem?.name || this.getName(itemId), description: (cachedItem?.status!=='error' && cachedItem?.description) ? cachedItem.description : 'Loading...', type: keeperType, status: 'loading' };
+                this.itemCache[keeperType] = {...this.itemCache[keeperType]}; this.itemCache = {...this.itemCache};
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(itemId)}`);
+                    if (response.data.success && response.data.entry) {
+                        const entryKeeperType = response.data.entry?.meta?.type || keeperType;
+                        const finalCacheKey = (entryKeeperType==='agent.trait' && response.data.entry.meta) ? response.data.entry.meta.name : itemId;
+                        if (!this.itemCache[entryKeeperType]) this.itemCache[entryKeeperType] = {};
+                        if (entryKeeperType==='agent.trait' && response.data.entry.meta && response.data.entry.meta.name) {
+                            this.itemCache[entryKeeperType][finalCacheKey] = response.data.entry;
+                        } else {
+                            this.itemCache[entryKeeperType][finalCacheKey] = this.extractItemDetails(response.data.entry, entryKeeperType);
+                        }
+                        if (finalCacheKey !== cacheKey && this.itemCache[keeperType]?.[cacheKey]?.status === 'loading') {
+                            delete this.itemCache[keeperType][cacheKey];
+                        }
+                    } else { throw new Error(response.data.error || `Entry ${itemId} not found.`); }
+                } catch (error) {
+                    console.error(`Error fetching details for ${listType} ${itemId} (Keeper: ${keeperType}):`, error);
+                    if (this.itemCache[keeperType]?.[cacheKey]?.status === 'loading') {
+                        this.itemCache[keeperType][cacheKey].description = `Failed to load details. (${error.response?.status||'Network Error'})`;
+                        this.itemCache[keeperType][cacheKey].status = 'error';
+                    }
+                } finally {
+                    if (this.itemCache[keeperType]) this.itemCache[keeperType] = {...this.itemCache[keeperType]};
+                    const actualListKeeperType = this.getKeeperTypeForTab(listType);
+                    if (actualListKeeperType && this.itemCache[actualListKeeperType]) this.itemCache[actualListKeeperType] = {...this.itemCache[actualListKeeperType]};
+                    this.itemCache = {...this.itemCache};
+                }
+            },
+            getItemName(itemOrIdOrName, listType, fromAvailableList = false) {
+                const keeperType = this.getKeeperTypeForTab(listType); let itemId = ''; let itemName = '';
+                if (typeof itemOrIdOrName === 'string') {
+                    if (listType==='traits' || listType==='delegates') itemName = itemOrIdOrName; else itemId = itemOrIdOrName;
+                } else if (itemOrIdOrName && itemOrIdOrName.id) {
+                    itemId = itemOrIdOrName.id;
+                    if (listType==='traits' && itemOrIdOrName.meta) itemName = itemOrIdOrName.meta.name;
+                    if (listType==='delegates' && itemOrIdOrName.meta) itemName = itemOrIdOrName.meta.name;
+                }
+                if (!itemId && !itemName && !keeperType) return (typeof itemOrIdOrName==='string' && itemOrIdOrName) ? this.getName(itemOrIdOrName) : 'N/A';
+                if (fromAvailableList && typeof itemOrIdOrName==='object' && itemOrIdOrName!==null && itemOrIdOrName.meta) {
+                    return itemOrIdOrName.meta.title || itemOrIdOrName.meta.name || this.getName(itemOrIdOrName.id);
+                }
+                const cacheKey = (listType==='traits' || (listType==='delegates' && itemName)) ? itemName : itemId;
+                const cached = this.itemCache[keeperType]?.[cacheKey];
+                if (cached) {
+                    if (listType==='traits' && cached.meta) return cached.meta.title || cached.meta.name;
+                    if (cached.status==='loaded' || (cached.name && cached.name!==this.getName(itemId) && !['Loading...','Failed to load details.'].some(s => cached.description?.startsWith(s)))) {
+                        return cached.name;
+                    }
+                }
+                if (typeof itemOrIdOrName==='object' && itemOrIdOrName!==null && itemOrIdOrName.meta) {
+                    return itemOrIdOrName.meta.title || itemOrIdOrName.meta.name || this.getName(itemOrIdOrName.id);
+                }
+                return this.getName(itemId || itemName);
+            },
+            getItemDescription(itemOrIdOrName, listType, fromAvailableList = false) {
+                const keeperType = this.getKeeperTypeForTab(listType); let itemId = ''; let itemName = '';
+                if (typeof itemOrIdOrName === 'string') {
+                    if (listType==='traits' || listType==='delegates') itemName = itemOrIdOrName; else itemId = itemOrIdOrName;
+                } else if (itemOrIdOrName && itemOrIdOrName.id) {
+                    itemId = itemOrIdOrName.id;
+                    if (listType==='traits' && itemOrIdOrName.meta) itemName = itemOrIdOrName.meta.name;
+                    if (listType==='delegates' && itemOrIdOrName.meta) itemName = itemOrIdOrName.meta.name;
+                }
+                if (!itemId && !itemName && !keeperType) return 'Details unavailable.';
+                if (fromAvailableList && typeof itemOrIdOrName==='object' && itemOrIdOrName!==null && itemOrIdOrName.meta) {
+                    return itemOrIdOrName.meta.llm_description || itemOrIdOrName.meta.description || itemOrIdOrName.meta.comment || 'No description available.';
+                }
+                const cacheKey = (listType==='traits' || (listType==='delegates' && itemName)) ? itemName : itemId;
+                const cached = this.itemCache[keeperType]?.[cacheKey];
+                if (cached) {
+                    if (listType==='traits' && cached.meta) return cached.meta.llm_description || cached.meta.description || cached.meta.comment || 'No description available.';
+                    if (cached.status==='loaded') return cached.description;
+                    if (cached.status==='loading' || cached.status==='placeholder') return 'Loading description...';
+                    if (cached.status==='error') return cached.description;
+                }
+                if (typeof itemOrIdOrName==='object' && itemOrIdOrName!==null && itemOrIdOrName.meta) {
+                    return itemOrIdOrName.meta.llm_description || itemOrIdOrName.meta.description || itemOrIdOrName.meta.comment || 'No description available.';
+                }
+                return 'Details not loaded or unavailable.';
+            },
+
+            getNamespace(id) { return (id || '').split(':')[0] || ''; },
+            getName(id) { const parts = (id || '').split(':'); return parts.length > 1 ? parts.slice(1).join(':') : (parts[0] || ''); },
+            formatNumber(num) { return new Intl.NumberFormat().format(num); },
+            getKeeperLink(id, itemKeeperType = 'entry') { const prefix = this.wippyApi.config.feature.routePrefix || ''; return `${prefix}/keeper/${id}`; },
+            navigateToKeeper(id, itemKeeperType = 'entry') {
+                const keeperPath = `/keeper/${id}`;
+                if (this.wippyApi.iframe && this.wippyApi.iframe.navigate) { // Check iframe
+                    this.wippyApi.iframe.navigate(keeperPath);
+                } else {
+                    const fullUrl = (this.wippyApi.config.feature.routePrefix || '') + keeperPath;
+                    window.open(fullUrl, '_blank');
+                }
+            },
+            isFatalError(error) { return error.fatal === true || error.message?.toLowerCase().includes('critical') || error.message?.toLowerCase().includes('auth'); },
+            capitalize(str) { if (!str) return ''; return str.charAt(0).toUpperCase() + str.slice(1); },
+            showNotification(type, message) { window.dispatchEvent(new CustomEvent('shownotification', {detail: {type, message}})); }
+        }));
+    });
+</script>
+{{ end }}

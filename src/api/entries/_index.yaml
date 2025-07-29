@@ -1,0 +1,30 @@
+version: "1.0"
+namespace: keeper.api.entries
+
+entries:
+  # keeper.api.entries:start_agent
+  - name: start_agent
+    kind: function.lua
+    meta:
+      comment: Generates a session start token for a specific agent by name/ID.
+    source: file://start_agent.lua
+    modules:
+      - http
+      - json
+      - registry
+      - security
+    imports:
+      start_tokens: wippy.session:start_tokens
+    method: handler
+    
+  # keeper.api.entries:start_agent.endpoint
+  - name: start_agent.endpoint
+    kind: http.endpoint
+    meta:
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: keeper.api.entries:start_agent
+    path: /keeper/agents/start-agent
+    

@@ -1,0 +1,40 @@
+version: "1.0"
+namespace: keeper.views.editors.library
+
+entries:
+  # keeper.views.editors.library:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for Lua library entries
+      target_kind: library.lua
+    editors:
+      - title: General
+        icon: tabler:library
+        order: 1
+        id: default
+        page_name: keeper.views.editors.library:info
+      - title: Source
+        icon: tabler:code
+        order: 2
+        field: source
+        id: source
+        language: lua
+    
+  # keeper.views.editors.library:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/library
+      type: view.page
+      title: Library Information
+      icon: tabler:book
+      description: View library metadata in a clean format
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

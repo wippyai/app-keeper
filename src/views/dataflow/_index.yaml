@@ -1,0 +1,38 @@
+version: "1.0"
+namespace: keeper.views.dataflow
+
+entries:
+  # keeper.views.dataflow:list
+  - name: list
+    kind: template.jet
+    meta:
+      name: views.dataflow.list
+      type: view.page
+      title: Workflows
+      group: Keeper
+      icon: tabler:loader
+      description: View and manage your dataflows
+      order: 126
+      content_type: text/html
+      announced: true
+      group_order: 9999
+      group_placement: bottom
+      secure: true
+    source: file://list.jet
+    set: keeper.views.common:templates
+    
+  # keeper.views.dataflow:view
+  - name: view
+    kind: template.jet
+    meta:
+      name: views.dataflow.view
+      type: view.page
+      title: Workflow Debug
+      group: Keeper
+      icon: tabler:sitemap
+      description: Debug view for examining dataflow nodes, data, and executions
+      content_type: text/html
+      secure: true
+    source: file://view.jet
+    set: keeper.views.common:templates
+    

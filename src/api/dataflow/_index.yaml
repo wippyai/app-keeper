@@ -1,0 +1,160 @@
+version: "1.0"
+namespace: keeper.api.dataflow
+
+entries:
+  # keeper.api.dataflow:cancel_dataflow
+  - name: cancel_dataflow
+    kind: function.lua
+    meta:
+      comment: Cancel a running dataflow by sending a cancel signal
+      depends_on:
+        - ns:app
+        - ns:dataflow.runner
+      router: app:api
+    source: file://cancel_dataflow.lua
+    modules:
+      - http
+      - security
+    imports:
+      dataflow_client: dataflow.runner:client
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.dataflow:cancel_dataflow.endpoint
+  - name: cancel_dataflow.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for cancelling a running dataflow
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: cancel_dataflow
+    path: /dataflows/{id}/cancel
+    
+  # keeper.api.dataflow:get_dataflow_details
+  - name: get_dataflow_details
+    kind: function.lua
+    meta:
+      comment: Get complete dataflow details for the authenticated admin user
+      depends_on:
+        - ns:app
+        - ns:dataflow.persist
+      router: app:api
+    source: file://get_dataflow_details.lua
+    modules:
+      - http
+      - security
+    imports:
+      data_reader: dataflow.persist:data_reader
+      dataflow_repo: dataflow.persist:dataflow_repo
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.dataflow:get_dataflow_details.endpoint
+  - name: get_dataflow_details.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for getting complete dataflow details for the authenticated admin user
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: get_dataflow_details
+    path: /dataflows/{id}
+    
+  # keeper.api.dataflow:get_dataflow_nodes
+  - name: get_dataflow_nodes
+    kind: function.lua
+    meta:
+      comment: Get dataflow nodes in a streamlined format for the dataflow state view
+      depends_on:
+        - ns:app
+      router: app:api
+    source: file://get_dataflow_nodes.lua
+    modules:
+      - http
+      - security
+      - json
+    imports:
+      dataflow_repo: dataflow.persist:dataflow_repo
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.dataflow:get_dataflow_nodes.endpoint
+  - name: get_dataflow_nodes.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for getting dataflow nodes for the dataflow state view
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: get_dataflow_nodes
+    path: /dataflows/{id}/nodes
+    
+  # keeper.api.dataflow:list_dataflows
+  - name: list_dataflows
+    kind: function.lua
+    meta:
+      comment: List all dataflows for the authenticated admin user
+      depends_on:
+        - ns:app
+        - ns:dataflow.persist
+      router: app:api
+    source: file://list_dataflows.lua
+    modules:
+      - http
+      - security
+    imports:
+      dataflow_repo: dataflow.persist:dataflow_repo
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.dataflow:list_own_dataflows.endpoint
+  - name: list_own_dataflows.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for listing all dataflows of the authenticated admin user
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: list_dataflows
+    path: /dataflows
+    
+  # keeper.api.dataflow:terminate_dataflow
+  - name: terminate_dataflow
+    kind: function.lua
+    meta:
+      comment: Terminate a dataflow by force and update its status
+      depends_on:
+        - ns:app
+        - ns:dataflow.runner
+      router: app:api
+    source: file://terminate_dataflow.lua
+    modules:
+      - http
+      - security
+    imports:
+      dataflow_client: dataflow.runner:client
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.dataflow:terminate_dataflow.endpoint
+  - name: terminate_dataflow.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for terminating a dataflow
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: terminate_dataflow
+    path: /dataflows/{id}/terminate
+    

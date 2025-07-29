@@ -1,0 +1,954 @@
+{{ extends "/common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}Agent Trait Information{{ end }}
+{{ block metaDescription() }}View and edit agent trait configuration{{ end }}
+
+{{ block mainContent() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden max-w-5xl mx-auto"
+     x-data="traitViewApp"
+     x-init="initialize()"
+     x-cloak>
+
+    <!-- Page Header -->
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+        <div class="flex items-center">
+            <iconify-icon icon="tabler:message-circle" class="text-3xl text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0"></iconify-icon>
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Agent Trait Information</h3>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400"
+                   x-show="traitData?.id">
+                    <span x-text="traitData?.id ? getNamespace(traitData.id) : ''"></span>:<span x-text="traitData?.id ? getName(traitData.id) : ''"></span>
+                    <span class="ml-1">(Agent Trait)</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex space-x-3">
+            <button
+                    id="saveButton"
+                    type="button"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="isSaving || isLoading || !isDirty"
+                    @click="saveTrait()">
+                <template x-if="isSaving">
+                    <iconify-icon icon="tabler:loader" class="animate-spin mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="!isSaving">
+                    <iconify-icon icon="tabler:device-floppy" class="mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="flex justify-center items-center py-12" x-show="isLoading">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading trait details...</span>
+    </div>
+
+    <!-- Error Indicator -->
+    <div id="errorIndicator" class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400"
+         x-show="!isLoading && loadError">
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="loadError"></p>
+            <button @click="initialize()"
+                    class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+                <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab Navigation and Content Area -->
+    <div x-show="!isLoading && !loadError && traitData?.id">
+        <!-- Tab Navigation -->
+        <nav class="flex border-b border-surface-200 dark:border-surface-600" aria-label="Tabs">
+            <template x-for="tab in tabs" :key="tab.id">
+                <button
+                        :id="'tab-' + tab.id"
+                        type="button"
+                        class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                        :class="activeTab === tab.id ?
+                        'border-primary-500 text-primary-600 dark:text-primary-400' :
+                        'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+                        @click="activeTab = tab.id">
+                    <iconify-icon :icon="tab.icon" class="mr-1.5" :class="getTabIconColor(tab.id)" width="16" height="16"></iconify-icon>
+                    <span x-text="tab.label"></span>
+                </button>
+            </template>
+        </nav>
+
+        <!-- Tab Content Panels -->
+        <div class="px-4 py-5 sm:p-6">
+            <!-- General Tab Panel -->
+            <div x-show="activeTab === 'general'" class="space-y-6">
+                <!-- Description Section -->
+                <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+                    <div class="flex items-start mb-3">
+                        <iconify-icon icon="tabler:file-description" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                        <div class="flex-grow">
+                            <h4 class="text-base font-semibold text-surface-900 dark:text-white">Description</h4>
+                            <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Details and purpose of this trait. Changes are saved with the "Save Changes" button above.</p>
+                        </div>
+                    </div>
+                    <div class="mt-2 space-y-2">
+                        <textarea x-model="traitData.meta.comment"
+                                  @input="metadataChanged = true"
+                                  class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                  rows="3"
+                                  placeholder="Enter trait description..."
+                                  :disabled="isLoading || isSaving"></textarea>
+                    </div>
+                </div>
+
+                <!-- Prompt Section -->
+                <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+                    <div class="flex items-start mb-3">
+                        <iconify-icon icon="tabler:message-2" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                        <div class="flex-grow">
+                            <h4 class="text-base font-semibold text-surface-900 dark:text-white">Trait Prompt</h4>
+                            <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">The prompt that will be added to agents with this trait.</p>
+                        </div>
+                    </div>
+                    <div class="mt-2 space-y-2">
+                        <textarea x-model="traitData.data.prompt"
+                                  @input="dataChanged = true"
+                                  class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm font-mono"
+                                  rows="10"
+                                  placeholder="Enter trait prompt..."
+                                  :disabled="isLoading || isSaving"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tools Tab Panel -->
+            <div x-show="activeTab === 'tools'" class="space-y-6">
+                <!-- Trait Tools Section -->
+                <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+                    <div class="flex items-start mb-3 justify-between">
+                        <div class="flex items-start">
+                            <iconify-icon icon="tabler:tool" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                            <div class="flex-grow">
+                                <h4 class="text-base font-semibold text-surface-900 dark:text-white">Trait Tools</h4>
+                                <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Tools that will be available to agents with this trait. Click items to expand/collapse.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center text-xs ml-4 flex-shrink-0">
+                            <span class="text-surface-600 dark:text-surface-300 mr-1.5">Effective Tools:</span>
+                            <span class="font-semibold mr-2"
+                                  :class="getToolLoadIndicatorColor(effectiveTotalToolCount).text"
+                                  x-text="effectiveTotalToolCount">
+                            </span>
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                                  :class="getToolLoadIndicatorColor(effectiveTotalToolCount).bg"
+                                  x-text="getToolLoadIndicatorLabel(effectiveTotalToolCount)">
+                            </span>
+                        </div>
+                    </div>
+
+
+                    <!-- Tools Manager Layout - Form left, List right -->
+                    <div class="mt-4 flex flex-col md:flex-row gap-6">
+                        <!-- LEFT SIDE: Available Tools List & Filter -->
+                        <div class="md:w-2/5">
+                            <!-- Tool Filter Input -->
+                            <div>
+                                <label for="toolFilter" class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Available Tools:</label>
+                                <div class="flex relative">
+                                    <input type="text" id="toolFilter"
+                                           x-model="toolSearchQuery"
+                                           @input.debounce.300ms="filterAvailableToolsList()"
+                                           placeholder="Filter available tools..."
+                                           class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                                    <div x-show="toolSearchQuery.length > 0"
+                                         @click="toolSearchQuery = ''; filterAvailableToolsList();"
+                                         class="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer">
+                                        <iconify-icon icon="tabler:x" class="text-surface-400 dark:text-surface-500" width="16" height="16"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Loading Indicator for Initial Tool List Load -->
+                            <div x-show="isFetchingAllToolsList" class="flex justify-center items-center py-2 mt-2">
+                                <div class="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary-600"></div>
+                                <span class="ml-2 text-xs text-surface-600 dark:text-surface-400">Loading tool list...</span>
+                            </div>
+
+                            <!-- Filtered Tool List -->
+                            <div x-show="!isFetchingAllToolsList && filteredAvailableTools.length > 0" class="border border-surface-200 dark:border-surface-600 rounded-md mt-2 max-h-96 overflow-y-auto bg-white dark:bg-surface-700">
+                                <template x-for="(tool, index) in filteredAvailableTools" :key="tool.id">
+                                    <div class="border-b border-surface-200 dark:border-surface-600 last:border-b-0">
+                                        <div class="p-3 flex items-center justify-between">
+                                            <div class="flex-grow min-w-0 mr-2">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-sm font-medium text-surface-800 dark:text-surface-200 truncate" x-text="getToolNameForDisplay(tool)" :title="getToolNameForDisplay(tool)"></span>
+                                                    <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-surface-100 dark:bg-surface-600 text-surface-600 dark:text-surface-300 flex-shrink-0" x-text="getNamespace(tool.id)"></span>
+                                                </div>
+                                                <p class="text-xs text-surface-500 dark:text-surface-400 mt-1 truncate" x-text="getToolDescription(tool)" :title="getToolDescription(tool)"></p>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <button type="button"
+                                                        x-show="!isToolAdded(tool.id)"
+                                                        @click="addToolById(tool.id)"
+                                                        class="px-2.5 py-1 border border-primary-500 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-xs font-medium rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 flex items-center">
+                                                    <iconify-icon icon="tabler:plus" class="mr-1" width="12" height="12"></iconify-icon>
+                                                    Add
+                                                </button>
+                                                <span x-show="isToolAdded(tool.id)"
+                                                      class="px-2.5 py-1 text-xs font-medium rounded-md text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-800/50 flex items-center">
+                                                    <iconify-icon icon="tabler:check" class="mr-1" width="12" height="12"></iconify-icon>
+                                                    Added
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- No Results/Empty List Message -->
+                            <div x-show="!isFetchingAllToolsList && toolSearchQuery.length > 0 && filteredAvailableTools.length === 0 && allAvailableTools.length > 0"
+                                 class="text-center py-4 text-sm text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-600 rounded-md mt-2">
+                                No tools match your filter.
+                            </div>
+                            <div x-show="!isFetchingAllToolsList && allAvailableTools.length === 0 && !loadError && !toolSearchQuery"
+                                 class="text-center py-4 text-sm text-surface-500 dark:text-surface-400 border border-surface-200 dark:border-surface-600 rounded-md mt-2">
+                                No tools available in the system.
+                            </div>
+
+
+                            <!-- Namespace Wildcard Selector -->
+                            <div class="mt-6 pt-4 border-t border-surface-200 dark:border-surface-600">
+                                <label for="namespaceSelector" class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Add Namespace Access:</label>
+                                <div class="relative">
+                                    <select id="namespaceSelector"
+                                            x-model="namespaceInput"
+                                            @change="validateNamespaceInput()"
+                                            class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 pl-3 pr-10 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm appearance-none">
+                                        <option value="" disabled selected>Select a namespace</option>
+                                        <template x-for="(ns, index) in availableNamespaces.sort()" :key="index">
+                                            <option :value="ns" x-text="ns"></option>
+                                        </template>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                                        <iconify-icon icon="tabler:chevron-down" class="text-surface-400 dark:text-surface-500" width="18" height="18"></iconify-icon>
+                                    </div>
+                                </div>
+                                <div class="flex mt-2">
+                                    <button @click="addNamespaceWildcard()"
+                                            :disabled="!isValidNamespaceInput || isAddingTool"
+                                            class="inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-surface-100 hover:bg-surface-200 dark:bg-surface-600 dark:hover:bg-surface-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center">
+                                        <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                                        Link Namespace Access
+                                    </button>
+                                </div>
+                                <p class="mt-1 text-xs text-red-600 dark:text-red-400" x-show="namespaceError" x-text="namespaceError"></p>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT SIDE: Current Tools List -->
+                        <div class="md:w-3/5">
+                            <div x-show="!traitTools || traitTools.length === 0"
+                                 class="bg-surface-50 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 rounded-md p-4 text-center min-h-[15rem] flex items-center justify-center flex-col">
+                                <iconify-icon icon="tabler:toolbox" class="text-surface-400 dark:text-surface-500" width="32" height="32"></iconify-icon>
+                                <p class="text-sm text-surface-500 dark:text-surface-400 mt-3">No tools or namespace access rules have been added.</p>
+                                <p class="text-xs text-surface-400 dark:text-surface-500 mt-1">Use the controls on the left to add them.</p>
+                            </div>
+
+                            <div class="space-y-2" x-show="traitTools && traitTools.length > 0">
+                                <template x-for="(toolId, index) in traitTools" :key="toolId">
+                                    <div class="rounded-md border group transition-all duration-200 ease-in-out overflow-hidden"
+                                         :class="{
+                                             'bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600': toolId.endsWith(':*'),
+                                             'bg-surface-50 dark:bg-surface-900/70 border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600': !toolId.endsWith(':*')
+                                         }">
+                                        <!-- Collapsed View Trigger -->
+                                        <div class="flex items-center justify-between p-3 cursor-pointer min-h-[4.5rem]" @click="toggleItemExpansion(toolId)">
+                                            <div class="flex items-center overflow-hidden min-w-0">
+                                                <iconify-icon
+                                                        :icon="toolId.endsWith(':*') ? 'tabler:folder-star' : 'tabler:tool'"
+                                                        class="flex-shrink-0 mr-3 w-5 h-5"
+                                                        :class="{
+                                                        'text-purple-500 dark:text-purple-400': toolId.endsWith(':*'),
+                                                        'text-primary-600 dark:text-primary-500': !toolId.endsWith(':*')
+                                                    }"></iconify-icon>
+                                                <div class="flex-grow overflow-hidden min-w-0">
+                                                    <span class="text-sm font-medium truncate block"
+                                                          :class="{
+                                                              'text-purple-700 dark:text-purple-300': toolId.endsWith(':*'),
+                                                              'text-surface-800 dark:text-surface-200': !toolId.endsWith(':*')
+                                                          }"
+                                                          x-text="toolId.endsWith(':*') ? toolId.replace(':*', '') + ' (Namespace Access)' : getToolDisplayName(toolId)"
+                                                          :title="toolId.endsWith(':*') ? toolId.replace(':*', '') + ' (Namespace Access)' : getToolDisplayName(toolId)">
+                                                    </span>
+                                                    <span x-show="!toolId.endsWith(':*')"
+                                                          class="text-xs text-surface-500 dark:text-surface-400 truncate block"
+                                                          x-text="toolId" :title="toolId">
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center ml-2 flex-shrink-0">
+                                                <button @click.stop="removeTool(index)"
+                                                        title="Remove"
+                                                        class="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity text-surface-400 hover:text-red-600 dark:hover:text-red-400 p-1 mr-1 rounded-md focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500">
+                                                    <iconify-icon icon="tabler:trash" width="16" height="16"></iconify-icon>
+                                                </button>
+                                                <iconify-icon
+                                                        :icon="isItemExpanded(toolId) ? 'tabler:chevron-up' : 'tabler:chevron-down'"
+                                                        class="w-5 h-5 text-surface-500 dark:text-surface-400">
+                                                </iconify-icon>
+                                            </div>
+                                        </div>
+
+                                        <!-- Expanded View Content - TOOL vs NAMESPACE completely separate paths -->
+                                        <!-- TOOLS: Standard Expansion with ID and Description -->
+                                        <div x-show="isItemExpanded(toolId) && !toolId.endsWith(':*')" x-collapse
+                                             class="border-t border-surface-200 dark:border-surface-700">
+                                            <div class="p-3 space-y-1.5 bg-white dark:bg-surface-800">
+                                                <p class="text-xs text-surface-600 dark:text-surface-300">
+                                                    <strong class="font-medium text-surface-700 dark:text-surface-200">ID:</strong>
+                                                    <a :href="getKeeperLink(toolId)"
+                                                       @click.prevent="navigateToKeeper(toolId)"
+                                                       class="text-primary-600 dark:text-primary-400 hover:underline ml-1 break-all"
+                                                       x-text="toolId"></a>
+                                                </p>
+                                                <p class="text-xs text-surface-600 dark:text-surface-300">
+                                                    <strong class="font-medium text-surface-700 dark:text-surface-200">Description:</strong>
+                                                    <span class="ml-1" x-text="getToolCachedDescription(toolId)"></span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- NAMESPACE: Special Expansion without ID/Description -->
+                                        <div x-show="isItemExpanded(toolId) && toolId.endsWith(':*')" x-collapse
+                                             class="border-t border-purple-200 dark:border-purple-700">
+                                            <div class="p-3">
+                                                <div x-show="loadingWildcards[toolId] === 'full' || (loadingWildcards[toolId] && !loadedWildcardTools[toolId]?.entries)" class="flex items-center justify-center py-4">
+                                                    <div class="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-purple-500"></div>
+                                                    <span class="ml-2 text-sm text-purple-600 dark:text-purple-400">Loading tools in namespace...</span>
+                                                </div>
+                                                <div x-show="!loadingWildcards[toolId] && wildcardLoadError[toolId] && !loadedWildcardTools[toolId]?.entries" class="text-center py-2 text-red-600 dark:text-red-400 text-xs">
+                                                    <iconify-icon icon="tabler:alert-circle" class="inline-block mr-1 w-4 h-4"></iconify-icon>
+                                                    Error loading tools: <span x-text="wildcardLoadError[toolId]"></span>
+                                                    <button @click="loadWildcardTools(toolId, true, false)" class="ml-2 text-primary-600 dark:text-primary-400 hover:underline text-xs font-medium">(Retry)</button>
+                                                </div>
+                                                <div x-show="loadedWildcardTools[toolId]?.entries">
+                                                    <template x-if="loadedWildcardTools[toolId] && loadedWildcardTools[toolId].entries && loadedWildcardTools[toolId].entries.length === 0">
+                                                        <p class="text-xs text-center py-2 text-surface-500 dark:text-surface-400">No tools with type 'tool' found in this namespace.</p>
+                                                    </template>
+                                                    <ul x-show="loadedWildcardTools[toolId] && loadedWildcardTools[toolId].entries && loadedWildcardTools[toolId].entries.length > 0" class="space-y-2">
+                                                        <template x-for="toolInNamespace in loadedWildcardTools[toolId].entries" :key="toolInNamespace.id">
+                                                            <li class="text-xs group/sub-item p-2 rounded-md bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 shadow-sm">
+                                                                <div class="flex items-start justify-between">
+                                                                    <div class="flex-grow min-w-0">
+                                                                        <div class="flex items-center">
+                                                                            <iconify-icon icon="tabler:tool" class="inline-block mr-2 w-4 h-4 text-primary-500 flex-shrink-0 self-center relative top-0.5"></iconify-icon>
+                                                                            <a :href="getKeeperLink(toolInNamespace.id)"
+                                                                               @click.prevent="navigateToKeeper(toolInNamespace.id)"
+                                                                               class="font-medium text-primary-600 dark:text-primary-400 hover:underline truncate"
+                                                                               :title="getToolNameForDisplay(toolInNamespace) + ' (' + toolInNamespace.id + ')'">
+                                                                                <span x-text="getToolNameForDisplay(toolInNamespace)"></span>
+                                                                            </a>
+                                                                        </div>
+                                                                        <span class="text-[0.7rem] text-purple-500 dark:text-purple-400 pl-6 truncate block mt-0.5" x-text="toolInNamespace.id" :title="toolInNamespace.id"></span>
+                                                                        <p class="mt-1 pl-6 text-surface-500 dark:text-surface-400 text-xs leading-tight" x-text="getToolDescription(toolInNamespace)" :title="getToolDescription(toolInNamespace)"></p>
+                                                                    </div>
+                                                                </div>
+                                                            </li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Notification Section (Toast) -->
+    <div x-data="{ notification: { show: false, type: 'success', message: '', timeout: null } }"
+         @shownotification.window="
+             notification.show = false;
+             clearTimeout(notification.timeout);
+             $nextTick(() => {
+                 notification = { ...$event.detail, show: true };
+                 notification.timeout = setTimeout(() => notification.show = false, 5000);
+             });
+         "
+         x-show="notification.show"
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+         x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 max-w-sm w-full z-50">
+        <div class="p-4 rounded-md shadow-lg"
+             :class="{
+                'bg-green-50 border border-green-200 dark:bg-green-900 dark:border-green-800': notification.type === 'success',
+                'bg-red-50 border border-red-200 dark:bg-red-900 dark:border-red-800': notification.type === 'error',
+                'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900 dark:border-yellow-800': notification.type === 'warning'
+             }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <iconify-icon
+                            :icon="notification.type === 'success' ? 'tabler:circle-check' : (notification.type === 'error' ? 'tabler:alert-circle' : 'tabler:alert-triangle')"
+                            :class="{
+                                'text-green-600 dark:text-green-400': notification.type === 'success',
+                                'text-red-600 dark:text-red-400': notification.type === 'error',
+                                'text-yellow-600 dark:text-yellow-400': notification.type === 'warning'
+                            }"
+                            width="20" height="20"></iconify-icon>
+                </div>
+                <div class="ml-3 w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium"
+                       :class="{
+                           'text-green-800 dark:text-green-200': notification.type === 'success',
+                           'text-red-800 dark:text-red-200': notification.type === 'error',
+                           'text-yellow-800 dark:text-yellow-200': notification.type === 'warning'
+                       }"
+                       x-text="notification.message"></p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button type="button" @click="notification.show = false; clearTimeout(notification.timeout);"
+                            class="inline-flex rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            :class="{
+                                'text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 focus:ring-green-600 dark:focus:ring-offset-green-900': notification.type === 'success',
+                                'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:ring-red-600 dark:focus:ring-offset-red-900': notification.type === 'error',
+                                'text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 focus:ring-yellow-600 dark:focus:ring-offset-yellow-900': notification.type === 'warning'
+                            }">
+                        <span class="sr-only">Close</span>
+                        <iconify-icon icon="tabler:x" width="16" height="16"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('traitViewApp', () => ({
+            // State variables
+            traitData: null,
+            originalTraitData: null,
+            isLoading: true,
+            loadError: null,
+            isSaving: false,
+            metadataChanged: false,
+            dataChanged: false,
+
+            activeTab: 'general',
+            tabs: [
+                { id: 'general', label: 'General', icon: 'tabler:file-description' },
+                { id: 'tools', label: 'Tools', icon: 'tabler:tool' }
+            ],
+
+            traitTools: [], // Holds IDs of tools added to the trait
+            namespaceInput: '',
+            namespaceError: '',
+            isAddingTool: false, // Used for namespace wildcard adding state
+
+            toolSearchQuery: '', // For filtering the list of all available tools
+            toolCache: {}, // Caches details of tools (both from allAvailableTools and fetched ones)
+            allAvailableTools: [], // Holds all tools fetched from the system
+            filteredAvailableTools: [], // Holds the list of tools to display after filtering
+            isFetchingAllToolsList: false, // Tracks initial loading of allAvailableTools
+
+            availableNamespaces: [],
+            isLoadingNamespaces: false,
+            wippyApi: null,
+
+            expandedItems: {}, // For expanding/collapsing items in the right-side "Current Tools" list
+            loadedWildcardTools: {}, // Caches tools loaded for namespace wildcards
+            loadingWildcards: {}, // Tracks loading state for individual wildcards
+            wildcardLoadError: {}, // Tracks errors for individual wildcard loads
+
+            get isDirty() {
+                if (!this.originalTraitData || !this.traitData) return false;
+                const commentChanged = this.metadataChanged ||
+                    (this.originalTraitData.meta?.comment || '') !== (this.traitData.meta?.comment || '');
+                const promptChanged = this.dataChanged ||
+                    (this.originalTraitData.data?.prompt || '') !== (this.traitData.data?.prompt || '');
+                const originalTools = JSON.stringify((this.originalTraitData.data?.tools || []).sort());
+                const currentTools = JSON.stringify([...this.traitTools].sort());
+                const toolsChanged = originalTools !== currentTools;
+                return commentChanged || promptChanged || toolsChanged;
+            },
+
+            get isValidNamespaceInput() {
+                return this.namespaceInput && !this.namespaceError;
+            },
+
+            get effectiveTotalToolCount() {
+                let count = 0;
+                if (!this.traitTools) return 0;
+                for (const toolId of this.traitTools) {
+                    if (toolId.endsWith(':*')) {
+                        if (this.loadedWildcardTools[toolId] && typeof this.loadedWildcardTools[toolId].total === 'number') {
+                            count += this.loadedWildcardTools[toolId].total;
+                        }
+                    } else {
+                        count += 1;
+                    }
+                }
+                return count;
+            },
+
+            async initialize() {
+                this.isLoading = true;
+                this.loadError = null;
+                this.activeTab = 'general';
+                this.metadataChanged = false;
+                this.dataChanged = false;
+                this.toolSearchQuery = '';
+                this.filteredAvailableTools = [];
+                this.expandedItems = {};
+                this.loadedWildcardTools = {};
+                this.loadingWildcards = {};
+                this.wildcardLoadError = {};
+                this.allAvailableTools = [];
+                this.isFetchingAllToolsList = false;
+
+
+                try {
+                    if (typeof window.initWippyApi !== 'function') {
+                        throw new Error('Wippy API initialization function (initWippyApi) not found.');
+                    }
+                    this.wippyApi = await window.initWippyApi();
+
+                    await this.loadAllToolsOnce(); // Fetch all tools for the left-side list
+
+                    const entryId = this.wippyApi?.config?.path;
+                    if (!entryId) throw new Error('No trait ID provided in Wippy configuration.');
+
+                    await this.loadTrait(entryId); // Load the specific trait's data
+                    this.loadNamespaces(); // Load available namespaces for wildcard selection
+
+                } catch (err) {
+                    console.error('Failed to initialize TraitViewApp:', err);
+                    this.loadError = `Initialization Error: ${err.message}`;
+                    if (this.wippyApi?.iframe?.handleError && this.isFatalError(err)) {
+                        this.wippyApi.iframe.handleError('other', err);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            async loadAllToolsOnce() {
+                if (this.allAvailableTools.length > 0 && !this.isFetchingAllToolsList) return; // Don't re-fetch if already populated unless forced
+                this.isFetchingAllToolsList = true;
+                this.filteredAvailableTools = []; // Clear while loading
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entries?meta.type=tool&limit=5000`);
+                    const data = response.data;
+                    if (data.success && data.entries) {
+                        this.allAvailableTools = data.entries;
+                        this.filteredAvailableTools = [...this.allAvailableTools]; // Initialize filtered list
+                        data.entries.forEach(tool => { // Populate cache
+                            if (!this.toolCache[tool.id]) {
+                                this.toolCache[tool.id] = tool;
+                            }
+                        });
+                    } else {
+                        this.allAvailableTools = [];
+                        this.filteredAvailableTools = [];
+                        throw new Error(data.error || "Failed to load all tools");
+                    }
+                } catch (error) {
+                    console.error('Error loading all tools:', error);
+                    this.showNotification('error', `Failed to pre-load tools: ${error.message}`);
+                    this.allAvailableTools = [];
+                    this.filteredAvailableTools = [];
+                } finally {
+                    this.isFetchingAllToolsList = false;
+                }
+            },
+
+            async loadNamespaces() {
+                this.isLoadingNamespaces = true;
+                this.availableNamespaces = [];
+                try {
+                    const response = await this.wippyApi.api.get('/api/v1/keeper/registry/namespaces');
+                    const data = response.data;
+                    if (data.success && data.namespaces) {
+                        this.availableNamespaces = data.namespaces.map(ns => ns.name);
+                    } else {
+                        throw new Error(data.error || "Failed to fetch namespaces");
+                    }
+                } catch (error) {
+                    console.error('Error loading namespaces:', error);
+                    this.showNotification('error', `Failed to load namespaces: ${error.message}`);
+                } finally {
+                    this.isLoadingNamespaces = false;
+                }
+            },
+
+            filterAvailableToolsList() {
+                // Filters the local 'allAvailableTools' list based on 'toolSearchQuery'
+                if (!this.toolSearchQuery || this.toolSearchQuery.length < 1) {
+                    this.filteredAvailableTools = [...this.allAvailableTools];
+                    return;
+                }
+                const query = this.toolSearchQuery.toLowerCase();
+                this.filteredAvailableTools = (this.allAvailableTools || []).filter(entry => {
+                    if (!entry.meta) return false;
+                    const id = (entry.id || '').toLowerCase();
+                    const name = (entry.meta.name || '').toLowerCase();
+                    const title = (entry.meta.title || '').toLowerCase();
+                    const comment = (entry.meta.comment || '').toLowerCase();
+                    const description = (entry.meta.description || '').toLowerCase();
+                    const llmDescription = (entry.meta.llm_description || '').toLowerCase();
+                    return name.includes(query) || title.includes(query) || id.includes(query) || comment.includes(query) || description.includes(query) || llmDescription.includes(query);
+                });
+            },
+
+            isToolAdded(toolId) {
+                return this.traitTools.includes(toolId);
+            },
+
+            async loadTrait(id) {
+                this.isLoading = true;
+                this.loadError = null;
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(id)}`);
+                    const data = response.data;
+                    if (!data.success || !data.entry) throw new Error(data.error || 'Invalid server response loading trait.');
+                    const entry = data.entry;
+                    entry.meta = entry.meta || {};
+                    entry.data = entry.data || {};
+                    entry.data.tools = Array.isArray(entry.data.tools) ? entry.data.tools : [];
+                    this.traitData = entry;
+                    this.traitTools = [...entry.data.tools]; // Initialize with trait's current tools
+                    this.originalTraitData = JSON.parse(JSON.stringify(this.traitData));
+                    this.metadataChanged = false;
+                    this.dataChanged = false;
+
+                    await this.fetchToolDetails(); // Fetch details for tools already in the trait for right-side display
+
+                    const wildcardLoadPromises = this.traitTools
+                        .filter(toolId => toolId.endsWith(':*'))
+                        .map(wildcardId => this.loadWildcardTools(wildcardId, false, true)); // Load counts for wildcards
+                    await Promise.all(wildcardLoadPromises);
+
+                } catch (error) {
+                    console.error('Error loading trait data:', error);
+                    this.loadError = `Failed to load trait: ${error.message}`;
+                    if (this.wippyApi?.iframe?.handleError && (error.response?.status === 401 || error.response?.status === 403)) {
+                        this.wippyApi.iframe.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            async fetchToolDetails() {
+                // Fetches details for tools listed in traitTools if not already cached
+                const specificToolsToFetch = this.traitTools.filter(toolId => !toolId.endsWith(':*') && !this.toolCache[toolId]);
+                if (specificToolsToFetch.length === 0) return;
+                const promises = specificToolsToFetch.map(toolId => this.fetchToolDetailsForId(toolId));
+                await Promise.all(promises);
+            },
+
+            getToolNameForDisplay(tool) {
+                // Helper to get a displayable name for a tool (object or ID string)
+                if (typeof tool === 'string') {
+                    const cached = this.toolCache[tool];
+                    if (cached && cached.meta) return cached.meta.title || cached.meta.name || this.getToolName(cached.id);
+                    return this.getToolName(tool);
+                }
+                return tool.meta?.title || tool.meta?.name || this.getToolName(tool.id);
+            },
+
+            getToolDescription(tool) {
+                // Helper to get a description for a tool (object or ID string)
+                if (typeof tool === 'string') {
+                    const cached = this.toolCache[tool];
+                    if (cached && cached.meta) {
+                        return cached.meta.llm_description || cached.meta.description || cached.meta.comment || 'No description available';
+                    }
+                    return 'Description loading or unavailable...'; // Potentially trigger fetch if not found
+                }
+                return tool.meta?.llm_description || tool.meta?.description || tool.meta?.comment || 'No description available';
+            },
+
+            validateNamespaceInput() {
+                this.namespaceError = '';
+                if (!this.namespaceInput) return;
+                const wildcardId = `${this.namespaceInput}:*`;
+                if (this.traitTools.includes(wildcardId)) {
+                    this.namespaceError = 'This namespace access rule is already added.';
+                }
+            },
+
+            async addNamespaceWildcard() {
+                if (!this.isValidNamespaceInput || this.isAddingTool) return;
+                const wildcardId = `${this.namespaceInput}:*`;
+                if (!this.traitTools.includes(wildcardId)) {
+                    this.isAddingTool = true;
+                    this.traitTools.push(wildcardId);
+                    this.dataChanged = true;
+                    await this.loadWildcardTools(wildcardId, true, true); // Load count for the new wildcard
+                    this.namespaceInput = '';
+                    this.namespaceError = '';
+                    this.isAddingTool = false;
+                } else {
+                    this.showNotification('warning', 'This namespace access rule is already added.');
+                }
+            },
+
+            removeTool(index) { // Removes tool from the right-side "Current Tools" list
+                if (index >= 0 && index < this.traitTools.length) {
+                    const removedToolId = this.traitTools[index];
+                    this.traitTools.splice(index, 1);
+                    this.dataChanged = true;
+                    delete this.expandedItems[removedToolId]; // Clear expansion state
+                    if (removedToolId.endsWith(':*')) { // Clear wildcard-specific data
+                        delete this.loadedWildcardTools[removedToolId];
+                        delete this.loadingWildcards[removedToolId];
+                        delete this.wildcardLoadError[removedToolId];
+                    }
+                }
+            },
+
+            async addToolById(toolId) { // Adds a tool from the left-side "Available Tools" list
+                if (!toolId) return;
+                if (this.isToolAdded(toolId)) { // Should be prevented by x-show, but good to double-check
+                    this.showNotification('warning', `${this.getToolDisplayName(this.toolCache[toolId] || toolId)} is already added.`);
+                    return;
+                }
+                this.traitTools.push(toolId); // Add to the trait's tool list
+                this.dataChanged = true;
+                // Ensure details are cached/fetched for display on the right side if it's not already
+                if (!this.toolCache[toolId]) {
+                    await this.fetchToolDetailsForId(toolId);
+                }
+            },
+
+            getToolDisplayName(toolIdOrObject) {
+                // Gets display name, preferring cached object's meta if available
+                const tool = (typeof toolIdOrObject === 'string') ? this.toolCache[toolIdOrObject] : toolIdOrObject;
+                if (tool && tool.meta) {
+                    return tool.meta.title || tool.meta.name || this.getToolName(tool.id);
+                }
+                return this.getToolName( (typeof toolIdOrObject === 'string') ? toolIdOrObject : toolIdOrObject.id );
+            },
+
+            getKeeperLink(id) {
+                if(!id) return '#';
+                return `${this.wippyApi?.config?.feature?.routePrefix || ''}/keeper/${id}`;
+            },
+
+            navigateToKeeper(id) {
+                if (id && this.wippyApi?.iframe?.navigate) {
+                    this.wippyApi.iframe.navigate(`/keeper/${id}`);
+                } else if (id) {
+                    console.warn('Navigation API not available. Falling back to href.');
+                    window.location.href = this.getKeeperLink(id);
+                }
+            },
+
+            getToolCachedDescription(toolId) {
+                // Gets description from cache; if not found and not a wildcard, triggers fetch
+                if (this.toolCache[toolId] && this.toolCache[toolId].meta) {
+                    return this.getToolDescription(this.toolCache[toolId]);
+                }
+                if (!toolId.endsWith(':*')) { // Only fetch for specific tools
+                    this.fetchToolDetailsForId(toolId); // Attempt to fetch if not in cache
+                }
+                return 'Loading description...';
+            },
+
+            async fetchToolDetailsForId(toolId) { // Fetches details for a single tool ID and caches it
+                if (!toolId || toolId.endsWith(':*')) return; // Don't fetch for wildcards or if no ID
+                // Avoid re-fetching if already cached and has meaningful meta (e.g., more than just ID and type)
+                if (this.toolCache[toolId] && Object.keys(this.toolCache[toolId].meta || {}).length > 2) return;
+
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(toolId)}`);
+                    if (response.data.success && response.data.entry) {
+                        this.toolCache[toolId] = response.data.entry;
+                        this.$nextTick(() => { this.toolCache = {...this.toolCache}; }); // Trigger reactivity if needed
+                    }
+                } catch (error) {
+                    console.error(`Error fetching details for tool ${toolId}:`, error);
+                    // Optionally, cache a "failed to load" state or leave it to re-attempt
+                }
+            },
+
+            getToolName(toolId) {
+                if (!toolId) return '';
+                const parts = toolId.split(':');
+                return parts.length > 1 ? parts[1] : toolId;
+            },
+
+            async saveTrait() {
+                if (this.isSaving || !this.isDirty) {
+                    if (!this.isDirty) this.showNotification('warning', 'No changes to save.');
+                    return;
+                }
+                this.isSaving = true;
+                try {
+                    if (!this.traitData?.id) throw new Error('Trait ID is missing for save.');
+                    const updatePayload = {
+                        id: this.traitData.id,
+                        kind: this.traitData.kind,
+                        meta: { comment: this.traitData.meta.comment || '' },
+                        data: { prompt: this.traitData.data.prompt || '', tools: [...new Set(this.traitTools)] }, // Use current traitTools
+                        merge: true
+                    };
+                    const response = await this.wippyApi.api.put(
+                        `/api/v1/keeper/registry/entry?id=${encodeURIComponent(this.traitData.id)}`,
+                        updatePayload
+                    );
+                    const data = response.data;
+                    if (!data.success) throw new Error(data.error || 'Failed to save trait data.');
+
+                    // Update local state to reflect saved data
+                    this.traitData.meta.comment = updatePayload.meta.comment;
+                    this.traitData.data.prompt = updatePayload.data.prompt;
+                    this.traitData.data.tools = [...updatePayload.data.tools]; // Ensure this matches
+                    // this.traitTools is already up-to-date from UI interactions
+
+                    this.originalTraitData = JSON.parse(JSON.stringify(this.traitData)); // Reset baseline
+                    this.metadataChanged = false;
+                    this.dataChanged = false; // This also covers tool changes implicitly via isDirty
+                    this.showNotification('success', 'Trait saved successfully.');
+                } catch (error) {
+                    console.error('Error saving trait:', error);
+                    this.showNotification('error', `Save Failed: ${error.message}`);
+                    if (this.wippyApi?.iframe?.handleError && (error.response?.status === 401 || error.response?.status === 403)) {
+                        this.wippyApi.iframe.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isSaving = false;
+                }
+            },
+
+            isItemExpanded(itemId) {
+                return !!this.expandedItems[itemId];
+            },
+
+            async toggleItemExpansion(itemId) {
+                const isCurrentlyExpanded = this.isItemExpanded(itemId);
+                this.expandedItems[itemId] = !isCurrentlyExpanded;
+                // If expanding a wildcard, load its tools if not already loaded or if there was an error
+                if (itemId.endsWith(':*') && this.expandedItems[itemId]) {
+                    if (!this.loadedWildcardTools[itemId]?.entries || this.wildcardLoadError[itemId]) {
+                        await this.loadWildcardTools(itemId, false, false); // Load full details (not just count)
+                    }
+                }
+            },
+
+            async loadWildcardTools(wildcardId, forceReload = false, countOnly = false) {
+                if (!wildcardId.endsWith(':*')) return;
+
+                const currentLoadingState = this.loadingWildcards[wildcardId];
+                const alreadyLoadedCount = this.loadedWildcardTools[wildcardId]?.total !== undefined;
+                const alreadyLoadedFull = !!this.loadedWildcardTools[wildcardId]?.entries;
+
+                if (!forceReload) {
+                    if (countOnly && alreadyLoadedCount && !this.wildcardLoadError[wildcardId]) return;
+                    if (!countOnly && alreadyLoadedFull && !this.wildcardLoadError[wildcardId]) return;
+                    if (currentLoadingState === (countOnly ? 'count' : 'full')) return; // Already loading what's requested
+                }
+
+                const namespace = wildcardId.replace(':*', '');
+                this.loadingWildcards[wildcardId] = countOnly ? 'count' : 'full';
+                if (!countOnly) { // Reset error only when attempting full load
+                    this.wildcardLoadError[wildcardId] = null;
+                }
+
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entries?namespace=${encodeURIComponent(namespace)}&meta.type=tool&limit=1000`);
+                    const data = response.data;
+
+                    if (data.success) {
+                        const totalCount = (typeof data.total === 'number') ? data.total : (data.entries ? data.entries.length : 0);
+
+                        if (!this.loadedWildcardTools[wildcardId]) { // Initialize if not exists
+                            this.loadedWildcardTools[wildcardId] = { entries: null, total: 0};
+                        }
+                        this.loadedWildcardTools[wildcardId].total = totalCount; // Always update total count
+
+                        if (!countOnly) { // If full load requested
+                            this.loadedWildcardTools[wildcardId].entries = data.entries || [];
+                            (data.entries || []).forEach(tool => { // Cache individual tools from wildcard
+                                if (!this.toolCache[tool.id]) this.toolCache[tool.id] = tool;
+                            });
+                            this.wildcardLoadError[wildcardId] = null; // Clear error on successful full load
+                        }
+                        // If it was countOnly, but there was an error, and we now have entries (e.g. from a prior full load)
+                        // we might want to clear the error IF the full load was successful.
+                        // This part is tricky; for now, errors are only cleared on successful full load.
+
+                    } else {
+                        throw new Error(data.error || 'Failed to load tools for namespace.');
+                    }
+                } catch (error) {
+                    console.error(`Error loading tools for wildcard ${wildcardId} (countOnly: ${countOnly}):`, error);
+                    if (!countOnly || !alreadyLoadedFull) { // Set error if full load failed, or if count load failed without prior full data
+                        this.wildcardLoadError[wildcardId] = error.message || 'Unknown error';
+                    }
+                    // Reset data appropriately on error
+                    if (!countOnly && !alreadyLoadedFull) this.loadedWildcardTools[wildcardId] = { entries: null, total: 0 };
+                    else if (countOnly && !alreadyLoadedCount) this.loadedWildcardTools[wildcardId] = { ...this.loadedWildcardTools[wildcardId], total: undefined };
+
+                } finally {
+                    // Clear loading state if it matches the current request type
+                    if (this.loadingWildcards[wildcardId] === (countOnly ? 'count' : 'full')) {
+                        delete this.loadingWildcards[wildcardId];
+                    }
+                }
+            },
+
+            getToolLoadIndicatorColor(count) {
+                if (count === 0) return { text: 'text-surface-500 dark:text-surface-400', bg: 'bg-surface-200 dark:bg-surface-700 text-surface-700 dark:text-surface-200' };
+                if (count <= 7) return { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200' };
+                if (count <= 15) return { text: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-800 text-yellow-700 dark:text-yellow-200' };
+                if (count <= 25) return { text: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-200' };
+                return { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200' };
+            },
+
+            getToolLoadIndicatorLabel(count) {
+                if (count === 0) return 'None';
+                if (count <= 7) return 'Low';
+                if (count <= 15) return 'Medium';
+                if (count <= 25) return 'High';
+                return 'Very High';
+            },
+
+            isFatalError(error) {
+                return error.fatal === true || error.message?.toLowerCase().includes('critical') || error.message?.toLowerCase().includes('auth');
+            },
+            getNamespace(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts[0] || '';
+            },
+            getName(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts.length > 1 ? parts.slice(1).join(':') : (parts[0] || '');
+            },
+            getTabIconColor(tabId) {
+                return this.activeTab === tabId ?
+                    'text-primary-600 dark:text-primary-400' :
+                    'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300';
+            },
+            showNotification(type, message) {
+                window.dispatchEvent(new CustomEvent('shownotification', { detail: { type, message } }));
+            }
+        }));
+    });
+</script>
+{{ end }}

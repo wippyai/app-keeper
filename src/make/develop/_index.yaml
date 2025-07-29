@@ -1,0 +1,136 @@
+version: "1.0"
+namespace: keeper.make.develop
+
+entries:
+  # keeper.make.develop:arena
+  - name: arena
+    kind: registry.entry
+    meta:
+      type: agent.arena
+      title: Developer Assistant Task Execution Arena
+      comment: Standard arena for all developer_assistant class agents (Coder, Views, Registry) to execute their delegated tasks.
+      tags:
+        - developer-assistant
+        - arena
+        - task-execution
+        - react
+    prompt: |
+      You are a specialized Wippy Developer Assistant executing a specific task delegated by a Supervisor.
+      Your specific role and expertise (Coder, Views, or Registry) are defined by your core agent definition.
+    
+      **Your Current Task:**
+      You have been provided with:
+      1.  A `task_query` from the Supervisor detailing what you need to accomplish.
+      2.  Optional `context_data` from the Supervisor (e.g., existing code, Wippy entry IDs, YAML).
+      3.  An `expected_outcome_from_supervisor` description, clarifying what deliverable the Supervisor needs back from you.
+      4.  Optional `provided_context` - additional context items that the Supervisor has shared with you to help with the task.
+    
+      **Operational Guidelines:**
+      -   Focus SOLELY on the provided `task_query`.
+      -   Utilize your specialized tools (defined in your core agent definition) to perform the task.
+      -   If you have `provided_context`, review it first to understand the broader context of your task.
+      -   If the `task_query` is unclear or lacks critical information that prevents you from proceeding, your FIRST action should be to use the `finish_task` tool with `success: false` and a clear `error_message` explaining what clarification is needed. Do NOT attempt to guess or perform unrelated actions.
+      -   Refer to your core agent definition's memory/prompt for your specific domain rules and best practices.
+      -   Once the task is completed successfully, use the `finish_task` tool to return the results.
+      -   If the task cannot be completed due to an error you encounter (and not just a lack of clarity, which should be reported immediately), use `finish_task` with `success: false` and a detailed `error_message`.
+      -   When you create, modify, or delete Wippy registry entries, you MUST track these changes and include them in your final result for the Supervisor's awareness.
+    
+      **Context Tracking:**
+      When you complete your task, you should provide:
+      - A summary of what was accomplished
+      - Details about any registry entries that were created, modified, or deleted
+      - Context about the changes for future reference
+    
+      Your goal is to accurately and efficiently complete the delegated sub-task using your specialized skills and tools, then report the outcome back to the Supervisor with full context about what was changed.
+    end_function: keeper.make.develop:develop_finalizer
+    iterations:
+      max: 20
+      min: 1
+    output:
+      schema:
+        name: finish_task
+        description: Finalizes the execution of the delegated task, reporting success or failure and providing results or error details.
+        definition: |-
+          {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean",
+                "description": "True if the task was completed successfully, false otherwise."
+              },
+              "result_summary": {
+                "type": "string",
+                "description": "If success is true, a concise summary of what was done and any key outputs (e.g., 'Created new function.lua app.utils:my_func'). If success is false, this can be omitted or a brief note."
+              },
+              "created_or_modified_entries": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "entry_id": {
+                      "type": "string",
+                      "description": "The full registry ID of the entry that was created or modified"
+                    },
+                    "action": {
+                      "type": "string",
+                      "enum": ["created", "modified", "deleted"],
+                      "description": "What action was performed on this entry"
+                    },
+                    "comment": {
+                      "type": "string",
+                      "description": "Description of what this entry does and why it was created/modified"
+                    },
+                    "entry_type": {
+                      "type": "string",
+                      "description": "The type/kind of entry (e.g., 'function.lua', 'agent.gen1', 'view.page')"
+                    }
+                  },
+                  "required": ["entry_id", "action", "comment"]
+                },
+                "description": "List of registry entries that were created, modified, or deleted during this task"
+              },
+              "error": {
+                "type": "string",
+                "description": "If success is false, a clear and detailed explanation of why the task failed or what clarification is needed from the supervisor."
+              }
+            },
+            "required": ["success"]
+          }
+    start_function: keeper.make.develop:develop_init
+    
+  # keeper.make.develop:develop_finalizer
+  - name: develop_finalizer
+    kind: function.lua
+    meta:
+      type: function
+      title: Developer Assistant Finalizer
+      description: Finalizes development tasks by processing agent results and storing created/modified registry entries as context
+    source: file://develop_finalizer.lua
+    modules:
+      - json
+      - uuid
+      - ctx
+      - registry
+      - yaml
+    imports:
+      consts: dataflow:consts
+      data_reader: dataflow.persist:data_reader
+    method: execute
+    
+  # keeper.make.develop:develop_init
+  - name: develop_init
+    kind: function.lua
+    meta:
+      type: function
+      title: Developer Assistant Initialization
+      description: Initializes developer assistant by unpacking provided context and preparing task execution environment
+    source: file://develop_init.lua
+    modules:
+      - json
+      - ctx
+      - uuid
+    imports:
+      consts: dataflow:consts
+      context_reader: dataflow.node:context
+    method: execute
+    

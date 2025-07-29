@@ -1,0 +1,39 @@
+version: "1.0"
+namespace: keeper.views.session
+
+entries:
+  # keeper.views.session:list
+  - name: list
+    kind: template.jet
+    meta:
+      name: views.session.list
+      type: view.page
+      title: Sessions
+      group: Keeper
+      icon: tabler:message-circle
+      description: View and manage your sessions
+      order: 125
+      content_type: text/html
+      announced: true
+      group_icon: tabler:settings
+      group_order: 9999
+      group_placement: bottom
+      secure: true
+    source: file://list.jet
+    set: keeper.views.common:templates
+    
+  # keeper.views.session:view
+  - name: view
+    kind: template.jet
+    meta:
+      name: views.session.view
+      type: view.page
+      title: Session Debug
+      group: Keeper
+      icon: tabler:bug
+      description: Debug view for examining session messages and tool calls
+      content_type: text/html
+      secure: true
+    source: file://view.jet
+    set: keeper.views.common:templates
+    

@@ -1,0 +1,524 @@
+{{ extends "/common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}HTTP Endpoint Information{{ end }}
+{{ block metaDescription() }}View and edit HTTP endpoint configuration{{ end }}
+
+{{ block mainContent() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden max-w-5xl mx-auto"
+     x-data="endpointViewApp"
+     x-init="initialize()"
+     x-cloak>
+
+    <!-- Page Header -->
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+        <div class="flex items-center">
+            <iconify-icon icon="tabler:world" class="text-3xl text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0"></iconify-icon>
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">HTTP Endpoint Information</h3>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400"
+                   x-show="endpointData?.id">
+                    <span x-text="endpointData?.id ? getNamespace(endpointData.id) : ''"></span>:<span x-text="endpointData?.id ? getName(endpointData.id) : ''"></span>
+                    <span class="ml-1">(HTTP Endpoint)</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex space-x-3">
+            <button
+                    id="saveButton"
+                    type="button"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="isSaving || isLoading || !isDirty || !isPathValid(endpointData.data.path)"
+                    @click="saveMetadataAndData()">
+                <template x-if="isSaving">
+                    <iconify-icon icon="tabler:loader" class="animate-spin mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="!isSaving">
+                    <iconify-icon icon="tabler:device-floppy" class="mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="flex justify-center items-center py-12" x-show="isLoading">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading endpoint details...</span>
+    </div>
+
+    <!-- Error Indicator -->
+    <div id="errorIndicator" class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400"
+         x-show="!isLoading && loadError">
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="loadError"></p>
+            <button @click="initialize()"
+                    class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+                <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="px-4 py-5 sm:p-6 space-y-6" x-show="!isLoading && !loadError && endpointData?.id">
+
+        <!-- Description Section (Editable by default) -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:file-description" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Description</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Details and purpose of this HTTP endpoint. Changes are saved with the "Save Changes" button above.</p>
+                </div>
+            </div>
+            <div class="mt-2 space-y-2">
+                <textarea x-model="endpointData.meta.comment"
+                          class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                          rows="4"
+                          placeholder="Enter endpoint description..."></textarea>
+            </div>
+        </div>
+
+        <!-- HTTP Method & Path Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- HTTP Method -->
+                <div class="md:col-span-1">
+                    <div class="flex items-start mb-2 md:mb-0">
+                        <iconify-icon icon="tabler:switch-horizontal" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                        <div>
+                            <h4 class="text-base font-semibold text-surface-900 dark:text-white">HTTP Method</h4>
+                            <div class="mt-2 flex items-center">
+                                <span class="px-3 py-1 rounded-md text-sm" :class="{
+                                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': endpointData?.data?.method === 'GET',
+                                    'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': endpointData?.data?.method === 'POST',
+                                    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200': endpointData?.data?.method === 'PUT',
+                                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': endpointData?.data?.method === 'DELETE',
+                                    'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': endpointData?.data?.method && ['PATCH', 'OPTIONS', 'HEAD'].includes(endpointData.data.method.toUpperCase())
+                                }">
+                                    <span class="font-mono font-bold" x-text="endpointData?.data?.method?.toUpperCase() || 'GET'"></span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Path -->
+                <div class="md:col-span-2">
+                    <div class="flex items-start">
+                        <iconify-icon icon="tabler:route" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                        <div class="flex-grow">
+                            <h4 class="text-base font-semibold text-surface-900 dark:text-white">Endpoint Path</h4>
+                            <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">The relative path for this endpoint (e.g., /users/{id}).</p>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <input type="text" x-model="endpointData.data.path"
+                               placeholder="/example/path"
+                               @input="validatePathInput($event.target.value)"
+                               :class="{'!border-red-500': pathError}"
+                               class="block w-full font-mono border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+                        <p x-show="pathError" class="mt-1 text-xs text-red-600 dark:text-red-400" x-text="pathError"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Routing & Handler Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700" x-show="endpointData?.meta?.router || endpointData?.data?.func">
+            <div class="flex items-start mb-4">
+                <iconify-icon icon="tabler:arrows-split" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div>
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Routing & Handler</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Configuration for how this endpoint is routed and processed.</p>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <div x-show="endpointData?.meta?.router"
+                     class="p-3 bg-white dark:bg-surface-700 rounded-md border border-surface-200 dark:border-surface-600">
+                    <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">Router:</p>
+                    <a :href="getKeeperLink(endpointData?.meta?.router)"
+                       class="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center"
+                       @click.prevent="navigateToKeeper(endpointData?.meta?.router)">
+                        <iconify-icon icon="tabler:server-2" class="mr-1.5 flex-shrink-0" width="16" height="16"></iconify-icon>
+                        <span class="truncate" x-text="endpointData?.meta?.router"></span>
+                    </a>
+                </div>
+
+                <div x-show="endpointData?.data?.func"
+                     class="p-3 bg-white dark:bg-surface-700 rounded-md border border-surface-200 dark:border-surface-600">
+                    <p class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-1">Handler Function:</p>
+                    <a :href="getKeeperLink(getHandlerFunctionId())"
+                       class="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center"
+                       @click.prevent="navigateToKeeper(getHandlerFunctionId())">
+                        <iconify-icon icon="tabler:code" class="mr-1.5 flex-shrink-0" width="16" height="16"></iconify-icon>
+                        <span class="truncate" x-text="getHandlerFunctionId()"></span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dependencies Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700" x-show="endpointData?.meta?.depends_on && endpointData.meta.depends_on.length > 0">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:puzzle" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div>
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Dependencies</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Other registry entries this endpoint relies on (e.g., functions, libraries).</p>
+                </div>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-2">
+                <template x-for="depId in endpointData?.meta?.depends_on || []" :key="depId">
+                    <a :href="getKeeperLink(depId)"
+                       @click.prevent="navigateToKeeper(depId)"
+                       class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-surface-200 dark:bg-surface-600 hover:bg-surface-300 dark:hover:bg-surface-500 text-surface-700 dark:text-surface-200 cursor-pointer">
+                        <iconify-icon :icon="getDependencyIcon(depId)" class="mr-1.5" width="14" height="14"></iconify-icon>
+                        <span x-text="depId"></span>
+                    </a>
+                </template>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Status Notification Section (Toast) -->
+    <div x-data="{ notification: { show: false, type: 'success', message: '', timeout: null } }"
+         @shownotification.window="
+             notification.show = false;
+             clearTimeout(notification.timeout);
+             $nextTick(() => {
+                 notification = { ...$event.detail, show: true };
+                 notification.timeout = setTimeout(() => notification.show = false, 5000);
+             });
+         "
+         x-show="notification.show"
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+         x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 max-w-sm w-full z-50">
+        <div class="p-4 rounded-md shadow-lg"
+             :class="{
+                'bg-green-50 border border-green-200 dark:bg-green-900 dark:border-green-800': notification.type === 'success',
+                'bg-red-50 border border-red-200 dark:bg-red-900 dark:border-red-800': notification.type === 'error',
+                'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900 dark:border-yellow-800': notification.type === 'warning'
+             }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <iconify-icon
+                            :icon="notification.type === 'success' ? 'tabler:circle-check' : (notification.type === 'error' ? 'tabler:alert-circle' : 'tabler:alert-triangle')"
+                            :class="{
+                                'text-green-600 dark:text-green-400': notification.type === 'success',
+                                'text-red-600 dark:text-red-400': notification.type === 'error',
+                                'text-yellow-600 dark:text-yellow-400': notification.type === 'warning'
+                            }"
+                            width="20" height="20"></iconify-icon>
+                </div>
+                <div class="ml-3 w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium"
+                       :class="{
+                           'text-green-800 dark:text-green-200': notification.type === 'success',
+                           'text-red-800 dark:text-red-200': notification.type === 'error',
+                           'text-yellow-800 dark:text-yellow-200': notification.type === 'warning'
+                       }"
+                       x-text="notification.message"></p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button type="button" @click="notification.show = false; clearTimeout(notification.timeout);"
+                            class="inline-flex rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            :class="{
+                                'text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 focus:ring-green-600 dark:focus:ring-offset-green-900': notification.type === 'success',
+                                'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:ring-red-600 dark:focus:ring-offset-red-900': notification.type === 'error',
+                                'text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 focus:ring-yellow-600 dark:focus:ring-offset-yellow-900': notification.type === 'warning'
+                            }">
+                        <span class="sr-only">Close</span>
+                        <iconify-icon icon="tabler:x" width="16" height="16"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('endpointViewApp', () => ({
+            endpointData: null,
+            originalEndpointData: null,
+            isLoading: true,
+            loadError: null,
+            dataError: null,
+            isSaving: false,
+            wippyApi: null,
+            pathError: '', // For path validation
+
+            async initialize() {
+                this.isLoading = true;
+                this.loadError = null;
+                this.isSaving = false;
+                this.pathError = '';
+
+                try {
+                    if (typeof initWippyApi !== 'function') {
+                        console.warn('Wippy API function not found. Using fallback for local testing.');
+                        this.wippyApi = {
+                            config: { path: new URLSearchParams(window.location.search).get('id') || 'fallback:api/my_endpoint', feature: { routePrefix: '/apps' }, auth: { token: 'fallback-token' } },
+                            iframe: {
+                                navigate: (v, p) => console.log(`Fallback Nav: ${v}`, p || ''),
+                                handleError: (type, err) => console.error(`Fallback Error Handler (${type}):`, err)
+                            },
+                            api: {
+                                get: async (url) => {
+                                    console.log('Fallback API GET:', url);
+                                    if (url.includes('fallback:api/my_endpoint')) {
+                                        await new Promise(resolve => setTimeout(resolve, 500));
+                                        return {
+                                            data: {
+                                                success: true,
+                                                entry: {
+                                                    id: 'fallback:api/my_endpoint',
+                                                    kind: 'registry.entry.http_endpoint',
+                                                    meta: {
+                                                        comment: 'This is a fallback HTTP endpoint description.',
+                                                        router: 'default:router/main_router',
+                                                        depends_on: ['core:utils/validation_function', 'shared:data_models/user_library']
+                                                    },
+                                                    data: {
+                                                        method: 'POST',
+                                                        path: '/users/{userId}/profile',
+                                                        func: 'user_profile_handler' // short name, namespace will be prepended
+                                                    }
+                                                }
+                                            }
+                                        };
+                                    }
+                                    return { data: { success: false, error: 'Not Found' } };
+                                },
+                                put: async (url, payload) => {
+                                    console.log('Fallback API PUT:', url, payload);
+                                    await new Promise(resolve => setTimeout(resolve, 300));
+                                    const updatedEntry = JSON.parse(JSON.stringify(this.endpointData));
+                                    if (!updatedEntry.meta) updatedEntry.meta = {};
+                                    if (!updatedEntry.data) updatedEntry.data = {};
+                                    updatedEntry.meta.comment = payload.meta.comment;
+                                    updatedEntry.data.path = payload.data.path;
+                                    return { data: { success: true, entry: updatedEntry } };
+                                }
+                            }
+                        };
+                    } else {
+                        this.wippyApi = await window.initWippyApi();
+                    }
+
+                    const entryId = this.wippyApi?.config?.path;
+                    if (!entryId) {
+                        throw new Error('No endpoint ID provided in configuration.');
+                    }
+                    await this.loadEndpoint(entryId);
+                } catch (err) {
+                    console.error('Failed to initialize EndpointViewApp:', err);
+                    this.loadError = `Initialization Error: ${err.message}`;
+                    if (this.wippyApi && this.isFatalError(err)) {
+                        this.wippyApi.iframe?.handleError('other', err);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            get isDirty() {
+                if (!this.originalEndpointData || !this.endpointData) return false;
+                const commentChanged = this.originalEndpointData.meta?.comment !== this.endpointData.meta?.comment;
+                const pathChanged = this.originalEndpointData.data?.path !== this.endpointData.data?.path;
+                return commentChanged || pathChanged;
+            },
+
+            isFatalError(error) {
+                return error.fatal === true ||
+                    error.message?.includes('critical') ||
+                    error.message?.includes('auth');
+            },
+
+            getNamespace(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts[0] || '';
+            },
+
+            getName(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts.length > 1 ? parts.slice(1).join(':') : (parts[0] || '');
+            },
+
+            getHandlerFunctionId() {
+                if (!this.endpointData?.data?.func) return '';
+                if (this.endpointData.data.func.includes(':')) {
+                    return this.endpointData.data.func;
+                }
+                return `${this.getNamespace(this.endpointData.id)}:${this.endpointData.data.func}`;
+            },
+
+            isPathValid(path) {
+                if (path === undefined || path === null) return false; // Path must exist
+                const pathStr = String(path);
+                if (!pathStr.startsWith('/')) return false;
+                if (pathStr.includes(' ')) return false;
+                // Basic check for valid path characters (alphanumeric, /, -, _, ., {, })
+                // More complex regex might be needed for stricter validation
+                if (!/^[a-zA-Z0-9\/\-\_\.\{\}]+$/.test(pathStr) && pathStr !== '/') return false;
+                return true;
+            },
+
+            validatePathInput(pathValue) {
+                if (!this.isPathValid(pathValue)) {
+                    if (!String(pathValue).startsWith('/')) {
+                        this.pathError = 'Path must start with a leading slash (/).';
+                    } else if (String(pathValue).includes(' ')) {
+                        this.pathError = 'Path cannot contain spaces.';
+                    } else {
+                        this.pathError = 'Path contains invalid characters.';
+                    }
+                } else {
+                    this.pathError = '';
+                }
+            },
+
+            getKeeperLink(id) {
+                if(!id) return '#';
+                return `${this.wippyApi?.config?.feature?.routePrefix || ''}/keeper/${id}`;
+            },
+
+            navigateToKeeper(id) {
+                if (id && this.wippyApi?.iframe?.navigate) {
+                    this.wippyApi.iframe.navigate(`/keeper/${id}`);
+                } else if (id) {
+                    console.warn('Navigation API not available. Falling back to href.');
+                    window.location.href = this.getKeeperLink(id);
+                }
+            },
+
+            getDependencyIcon(depId) {
+                if (!depId || typeof depId !== 'string') return 'tabler:file-question';
+                if (depId.startsWith('fn:') || depId.includes('/functions/') || depId.includes(':fn.')) return 'tabler:function';
+                if (depId.startsWith('lib:') || depId.includes('/libraries/') || depId.includes(':lib.')) return 'tabler:book';
+                if (depId.startsWith('ep:') || depId.includes('/endpoints/') || depId.includes(':ep.')) return 'tabler:world';
+                // Add more type checks as needed
+                return 'tabler:link'; // Generic link
+            },
+
+            async loadEndpoint(id) {
+                this.isLoading = true;
+                this.loadError = null;
+                this.pathError = '';
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(id)}`);
+                    const data = response.data;
+
+                    if (!data.success || !data.entry) {
+                        throw new Error(data.error || 'Invalid server response loading endpoint.');
+                    }
+
+                    const entry = data.entry;
+                    // Defensive initialization
+                    if (!entry.meta) entry.meta = { comment: '', depends_on: [], router: '' };
+                    if (typeof entry.meta.comment !== 'string') entry.meta.comment = String(entry.meta.comment || '');
+                    if (!Array.isArray(entry.meta.depends_on)) entry.meta.depends_on = [];
+                    if (!entry.data) entry.data = { method: 'GET', path: '/', func: '' };
+                    if (typeof entry.data.path !== 'string') entry.data.path = String(entry.data.path || '/');
+                    if (typeof entry.data.method !== 'string' || !entry.data.method) entry.data.method = 'GET';
+
+                    this.endpointData = entry;
+                    this.originalEndpointData = JSON.parse(JSON.stringify(entry));
+                    this.validatePathInput(this.endpointData.data.path); // Validate initial path
+
+                } catch (error) {
+                    console.error('Error loading endpoint data:', error);
+                    this.loadError = `Failed to load endpoint: ${error.message}`;
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.wippyApi.iframe?.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            async saveMetadataAndData() {
+                this.validatePathInput(this.endpointData.data.path); // Re-validate before save
+                if (this.isSaving || !this.isDirty || this.pathError) {
+                    if (!this.isDirty && !this.pathError) this.showNotification('warning', 'No changes to save.');
+                    else if (this.pathError) this.showNotification('error', 'Please fix validation errors before saving.');
+                    return;
+                }
+                this.isSaving = true;
+                this.dataError = null;
+
+                try {
+                    if (!this.endpointData?.id) {
+                        throw new Error('Endpoint ID is missing for save.');
+                    }
+                    const updatePayload = {
+                        id: this.endpointData.id,
+                        kind: this.endpointData.kind,
+                        meta: {
+                            ...(this.originalEndpointData.meta || {}),
+                            comment: this.endpointData.meta.comment
+                            // router and depends_on are typically not edited here, so we send original or let backend merge
+                        },
+                        data: {
+                            ...(this.originalEndpointData.data || {}),
+                            path: this.endpointData.data.path
+                            // method and func are typically not edited here
+                        },
+                        merge: true
+                    };
+
+                    const response = await this.wippyApi.api.put(
+                        `/api/v1/keeper/registry/entry?id=${encodeURIComponent(this.endpointData.id)}`,
+                        updatePayload
+                    );
+
+                    const data = response.data;
+                    if (!data.success) {
+                        throw new Error(data.error || 'Failed to save endpoint data.');
+                    }
+
+                    const savedEntry = data.entry || this.endpointData;
+                    // Defensive re-initialization after save
+                    if (!savedEntry.meta) savedEntry.meta = { comment: '', depends_on: [], router: '' };
+                    if (typeof savedEntry.meta.comment !== 'string') savedEntry.meta.comment = String(savedEntry.meta.comment || '');
+                    if (!Array.isArray(savedEntry.meta.depends_on)) savedEntry.meta.depends_on = [];
+                    if (!savedEntry.data) savedEntry.data = { method: 'GET', path: '/', func: '' };
+                    if (typeof savedEntry.data.path !== 'string') savedEntry.data.path = String(savedEntry.data.path || '/');
+
+                    this.endpointData = savedEntry;
+                    this.originalEndpointData = JSON.parse(JSON.stringify(savedEntry));
+                    this.validatePathInput(this.endpointData.data.path); // Re-validate path from server
+
+
+                    this.showNotification('success', 'Endpoint configuration saved successfully.');
+
+                } catch (error) {
+                    console.error('Error saving endpoint data:', error);
+                    this.dataError = `Save Failed: ${error.message}`;
+                    this.showNotification('error', `Save Failed: ${error.message}`);
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.wippyApi.iframe?.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isSaving = false;
+                }
+            },
+
+            showNotification(type, message) {
+                window.dispatchEvent(new CustomEvent('shownotification', { detail: { type, message } }));
+            }
+        }));
+    });
+</script>
+{{ end }}

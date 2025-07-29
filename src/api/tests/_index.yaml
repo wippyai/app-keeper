@@ -1,0 +1,57 @@
+version: "1.0"
+namespace: keeper.api.tests
+
+entries:
+  # keeper.api.tests:discover.endpoint
+  - name: discover.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Discovers all available tests cases
+      depends_on:
+        - app:api
+      router: app:api
+    method: GET
+    func: discovery
+    path: /keeper/tests/discover
+    
+  # keeper.api.tests:discovery
+  - name: discovery
+    kind: function.lua
+    meta:
+      comment: Discovers all available test cases without running them
+    source: file://discovery.lua
+    modules:
+      - http
+      - time
+      - json
+    imports:
+      registry: wippy.test:registry
+    method: discover_tests
+    
+  # keeper.api.tests:run_specific
+  - name: run_specific
+    kind: function.lua
+    meta:
+      comment: Runs a specific test or test group
+    source: file://run_specific.lua
+    modules:
+      - http
+      - time
+      - json
+      - funcs
+    imports:
+      registry: wippy.test:registry
+    method: run_specific_test
+    
+  # keeper.api.tests:run_specific.endpoint
+  - name: run_specific.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Runs specific test or test group
+      depends_on:
+        - app:api
+      router: app:api
+    method: GET
+    func: run_specific
+    path: /keeper/tests/run
+    

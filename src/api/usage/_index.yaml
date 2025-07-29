@@ -1,0 +1,103 @@
+version: "1.0"
+namespace: keeper.api.usage
+
+entries:
+  # keeper.api.usage:get_summary
+  - name: get_summary
+    kind: function.lua
+    meta:
+      comment: Get token usage summary statistics
+      depends_on:
+        - ns:app
+        - ns:wippy.usage
+      router: app:api
+    source: file://get_summary.lua
+    modules:
+      - http
+      - json
+      - security
+      - time
+    imports:
+      token_usage_repo: wippy.usage:token_usage_repo
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.usage:get_summary.endpoint
+  - name: get_summary.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that returns token usage summary
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: get_summary
+    path: /keeper/usage/summary
+    
+  # keeper.api.usage:get_usage_by_model
+  - name: get_usage_by_model
+    kind: function.lua
+    meta:
+      comment: Get token usage data by model
+      depends_on:
+        - ns:app
+        - ns:wippy.usage
+      router: app:api
+    source: file://get_usage_by_model.lua
+    modules:
+      - http
+      - json
+      - security
+      - time
+    imports:
+      token_usage_repo: wippy.usage:token_usage_repo
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.usage:get_usage_by_model.endpoint
+  - name: get_usage_by_model.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that returns token usage by model
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: get_usage_by_model
+    path: /keeper/usage/by-model
+    
+  # keeper.api.usage:get_usage_by_time
+  - name: get_usage_by_time
+    kind: function.lua
+    meta:
+      comment: Get token usage data over time
+      depends_on:
+        - ns:app
+        - ns:wippy.usage
+      router: app:api
+    source: file://get_usage_by_time.lua
+    modules:
+      - http
+      - json
+      - security
+      - time
+    imports:
+      token_usage_repo: wippy.usage:token_usage_repo
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.usage:get_usage_by_time.endpoint
+  - name: get_usage_by_time.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that returns token usage over time
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: get_usage_by_time
+    path: /keeper/usage/by-time
+    

@@ -1,0 +1,34 @@
+version: "1.0"
+namespace: keeper.views.editors.exec
+
+entries:
+  # keeper.views.editors.exec:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for process executor entries
+      target_kind: exec.native
+    editors:
+      - title: General
+        icon: tabler:terminal
+        order: 1
+        id: default
+        page_name: keeper.views.editors.exec:info
+    
+  # keeper.views.editors.exec:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/executor
+      type: view.page
+      title: Executor Information
+      icon: tabler:terminal
+      description: View and edit process executor configuration
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

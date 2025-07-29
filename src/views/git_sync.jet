@@ -1,0 +1,1053 @@
+{{ extends "common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}Git Synchronization{{ end }}
+{{ block metaDescription() }}Manage Git operations for Wippy platform resources{{ end }}
+
+{{ block mainContent() }}
+<div x-data="gitSyncApp" x-init="initialize()" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Repository Status -->
+    <div class="lg:col-span-2">
+        {{ yield repositoryStatusSection() }}
+        {{ yield commitChangesSection() }}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="lg:col-span-1">
+        {{ yield branchManagementSection() }}
+        {{ yield remoteOperationsSection() }}
+    </div>
+
+    <!-- Status Messages -->
+    {{ yield statusMessageSection() }}
+</div>
+{{ end }}
+
+{* Repository Status Section *}
+{{ block repositoryStatusSection() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden mb-6">
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+        <div>
+            <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Repository Status</h3>
+            <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">Current state of the Git repository</p>
+        </div>
+        <div class="flex space-x-2">
+            <!-- Git Assistant Button -->
+            <button @click="startGitAgentChat" :disabled="isAgentChatLoading" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <template x-if="!isAgentChatLoading">
+                    <iconify-icon icon="tabler:robot" class="mr-1.5" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="isAgentChatLoading">
+                    <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                </template>
+                <span x-text="isAgentChatLoading ? 'Starting chat...' : 'Ask Git Assistant'"></span>
+            </button>
+            <!-- Refresh Button -->
+            <button @click="loadRepositoryData" :disabled="isLoading" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <template x-if="!isLoading">
+                    <iconify-icon icon="tabler:refresh" class="mr-1.5" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="isLoading">
+                    <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                </template>
+                <span x-text="isLoading ? 'Loading...' : 'Refresh'"></span>
+            </button>
+        </div>
+    </div>
+    <div class="px-4 py-5 sm:p-6">
+        <div class="flex items-center mb-4">
+            <div class="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900">
+                <iconify-icon icon="tabler:git-branch" class="h-15 w-15 text-primary-600 dark:text-primary-400"></iconify-icon>
+            </div>
+            <div class="ml-4">
+                <h4 class="text-lg font-medium text-surface-900 dark:text-surface-100" x-text="currentStatus.branch || 'Loading...'"></h4>
+                <p class="text-sm text-surface-500 dark:text-surface-400" x-text="lastCommitText"></p>
+            </div>
+        </div>
+
+        <!-- Status Summary -->
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-surface-50 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 p-4">
+                <h5 class="text-sm font-medium text-surface-900 dark:text-surface-100 mb-1">Changed Files</h5>
+                <p class="text-2xl font-semibold text-amber-600 dark:text-amber-400" x-text="repoStatus.counts?.unstaged || '0'"></p>
+            </div>
+            <div class="bg-surface-50 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 p-4">
+                <h5 class="text-sm font-medium text-surface-900 dark:text-surface-100 mb-1">New Files</h5>
+                <p class="text-2xl font-semibold text-blue-600 dark:text-blue-400" x-text="repoStatus.counts?.untracked || '0'"></p>
+            </div>
+            <div class="bg-surface-50 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 p-4">
+                <h5 class="text-sm font-medium text-surface-900 dark:text-surface-100 mb-1">Commits Ahead</h5>
+                <p class="text-2xl font-semibold text-purple-600 dark:text-purple-400" x-text="currentStatus.ahead || '0'"></p>
+            </div>
+        </div>
+
+        <!-- Changed Files List -->
+        <div class="mt-6">
+            <h4 class="text-sm font-medium text-surface-900 dark:text-surface-100 mb-2">Changed Files</h4>
+            <div class="border border-surface-200 dark:border-surface-600 overflow-hidden">
+                <div class="max-h-60 overflow-y-auto">
+                    <template x-if="isLoading">
+                        <div class="p-4 text-center text-surface-500 dark:text-surface-400">
+                            Loading files...
+                        </div>
+                    </template>
+                    <template x-if="!isLoading && allStatusFiles.length === 0">
+                        <div class="p-4 text-center text-surface-500 dark:text-surface-400">
+                            No changes detected
+                        </div>
+                    </template>
+                    <template x-if="!isLoading && allStatusFiles.length > 0">
+                        <ul class="divide-y divide-surface-200 dark:divide-surface-600">
+                            <!-- Staged files heading -->
+                            <template x-if="stagedFiles.length > 0">
+                                <li class="px-4 py-2 bg-surface-100 dark:bg-surface-600">
+                                    <span class="font-medium text-surface-800 dark:text-surface-200">Staged for commit:</span>
+                                </li>
+                            </template>
+
+                            <!-- Staged Files -->
+                            <template x-for="file in stagedFiles" :key="file.file">
+                                <li class="px-4 py-2 flex items-center justify-between hover:bg-surface-100 dark:hover:bg-surface-700">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 rounded-full" :class="{'bg-green-500': file.status !== 'deleted', 'bg-red-500': file.status === 'deleted'}"></span>
+                                        <span class="ml-2 text-surface-800 dark:text-surface-200" :class="{'line-through': file.status === 'deleted'}" x-text="file.file"></span>
+                                    </div>
+                                    <span class="text-xs" :class="{'text-green-600 dark:text-green-400': file.status !== 'deleted', 'text-red-600 dark:text-red-400': file.status === 'deleted'}" x-text="file.status.charAt(0).toUpperCase() + file.status.slice(1)"></span>
+                                </li>
+                            </template>
+
+                            <!-- Divider for unstaged files if both exist -->
+                            <template x-if="(unstagedFiles.length > 0 || untrackedFiles.length > 0) && stagedFiles.length > 0">
+                                <li class="px-4 py-2 bg-surface-100 dark:bg-surface-600">
+                                    <span class="font-medium text-surface-800 dark:text-surface-200">Not staged for commit:</span>
+                                </li>
+                            </template>
+
+                            <!-- Unstaged Files -->
+                            <template x-for="file in unstagedFiles" :key="file.file">
+                                <li class="px-4 py-2 flex items-center justify-between hover:bg-surface-100 dark:hover:bg-surface-700">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                                        <span class="ml-2 text-surface-800 dark:text-surface-200" x-text="file.file"></span>
+                                    </div>
+                                    <button @click="trackFile(file.file)" class="inline-flex items-center px-2 py-1 text-xs border border-surface-300 dark:border-surface-600 rounded text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700">
+                                        <iconify-icon icon="tabler:plus" class="mr-1" width="12" height="12"></iconify-icon>
+                                        Track
+                                    </button>
+                                </li>
+                            </template>
+
+                            <!-- Untracked Files -->
+                            <template x-for="file in untrackedFiles" :key="file.file">
+                                <li class="px-4 py-2 flex items-center justify-between hover:bg-surface-100 dark:hover:bg-surface-700">
+                                    <div class="flex items-center">
+                                        <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                                        <span class="ml-2 text-surface-800 dark:text-surface-200" x-text="file.file"></span>
+                                    </div>
+                                    <button @click="trackFile(file.file)" class="inline-flex items-center px-2 py-1 text-xs border border-surface-300 dark:border-surface-600 rounded text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700">
+                                        <iconify-icon icon="tabler:plus" class="mr-1" width="12" height="12"></iconify-icon>
+                                        Track
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                </div>
+
+                <div class="p-3 border-t border-surface-200 dark:border-surface-500 bg-surface-50 dark:bg-surface-700 text-sm">
+                    <div class="flex items-center justify-between">
+                        <div class="text-surface-600 dark:text-surface-300 flex flex-wrap gap-3">
+                            <span class="inline-flex items-center">
+                                <span class="w-3 h-3 rounded-full bg-amber-500 mr-1"></span> Changed
+                            </span>
+                            <span class="inline-flex items-center">
+                                <span class="w-3 h-3 rounded-full bg-red-500 mr-1"></span> Deleted
+                            </span>
+                            <span class="inline-flex items-center">
+                                <span class="w-3 h-3 rounded-full bg-blue-500 mr-1"></span> New
+                            </span>
+                            <span class="inline-flex items-center">
+                                <span class="w-3 h-3 rounded-full bg-green-500 mr-1"></span> Staged
+                            </span>
+                        </div>
+                        <div>
+                            <button @click="trackAllFiles" :disabled="isTrackAllLoading" class="inline-flex items-center px-2 py-1 text-xs border border-surface-300 dark:border-surface-600 rounded text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700">
+                                <template x-if="!isTrackAllLoading">
+                                    <iconify-icon icon="tabler:plus" class="mr-1" width="12" height="12"></iconify-icon>
+                                </template>
+                                <template x-if="isTrackAllLoading">
+                                    <iconify-icon icon="tabler:loader" class="mr-1 animate-spin" width="12" height="12"></iconify-icon>
+                                </template>
+                                <span x-text="isTrackAllLoading ? 'Tracking...' : 'Track All'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Commit Changes Section *}
+{{ block commitChangesSection() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden mb-6">
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Commit Changes</h3>
+        <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">Save your changes to the repository</p>
+    </div>
+    <div class="px-4 py-5 sm:p-6">
+        <!-- Staged Files Notice Banner -->
+        <div x-show="stagedFiles.length === 0" class="mb-4 p-3 bg-amber-50 dark:bg-amber-900 border border-amber-200 dark:border-amber-800 rounded-md">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <iconify-icon icon="tabler:alert-triangle" class="h-5 w-5 text-amber-400" width="20" height="20"></iconify-icon>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-amber-700 dark:text-amber-300">
+                        You must stage files before committing them. Use the "Track" buttons next to untracked files or the "Track All" button to stage changes.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staged Files Count -->
+        <div class="mb-4 flex items-center">
+            <span class="text-sm font-medium text-surface-700 dark:text-surface-300">Files staged for commit:</span>
+            <span class="ml-2 py-0.5 px-2 text-xs font-medium bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100 rounded-full" x-text="stagedFiles.length"></span>
+        </div>
+
+        <form @submit.prevent="createCommit">
+            <div class="mb-4">
+                <label for="commitMessage" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Commit Message</label>
+                <textarea id="commitMessage" x-model="commitMessage" rows="9" class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-400 focus:border-primary-400 sm:text-sm" placeholder="Describe your changes..."></textarea>
+            </div>
+
+            <!-- Commit and Push Warning -->
+            <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800 rounded-md">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <iconify-icon icon="tabler:shield-check" class="h-5 w-5 text-blue-500" width="20" height="20"></iconify-icon>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-blue-800 dark:text-blue-200">Safe Operation Notice</h4>
+                        <p class="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                            <strong>Commit and Push</strong> will save your changes locally and immediately upload them to the remote repository.
+                            This operation is safe and will not overwrite others' work - Git will handle merging automatically or notify you of conflicts.
+                            Use this when you're confident your changes are ready to share with the team.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between space-x-3">
+                <button type="button" @click="generateCommitMessage" :disabled="isGeneratingMessage || stagedFiles.length === 0" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <template x-if="!isGeneratingMessage">
+                        <iconify-icon icon="tabler:message-circle" class="mr-1.5" width="16" height="16"></iconify-icon>
+                    </template>
+                    <template x-if="isGeneratingMessage">
+                        <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                    </template>
+                    <span x-text="isGeneratingMessage ? 'Generating...' : 'Generate Message'"></span>
+                </button>
+
+                <div class="flex space-x-2">
+                    <button type="submit" :disabled="isCommitting || stagedFiles.length === 0 || !commitMessage.trim()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <template x-if="!isCommitting">
+                            <iconify-icon icon="tabler:git-commit" class="mr-1.5" width="16" height="16"></iconify-icon>
+                        </template>
+                        <template x-if="isCommitting">
+                            <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                        </template>
+                        <span x-text="isCommitting ? 'Committing...' : 'Commit Changes'"></span>
+                    </button>
+
+                    <button type="button" @click="commitAndPush" :disabled="isCommittingAndPushing || stagedFiles.length === 0 || !commitMessage.trim()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <template x-if="!isCommittingAndPushing">
+                            <iconify-icon icon="tabler:device-floppy" class="mr-1.5" width="16" height="16"></iconify-icon>
+                        </template>
+                        <template x-if="isCommittingAndPushing">
+                            <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                        </template>
+                        <span x-text="isCommittingAndPushing ? 'Saving...' : 'Commit and Push'"></span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{{ end }}
+
+{* Branch Management Section *}
+{{ block branchManagementSection() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden mb-6">
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Branch Management</h3>
+        <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">Switch or create branches</p>
+    </div>
+    <div class="px-4 py-5 sm:p-6">
+        <div class="mb-4">
+            <label for="branchSelect" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Current Branch</label>
+            <div class="relative">
+                <select id="branchSelect" x-model="selectedBranch" class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 pl-3 pr-10 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-400 focus:border-primary-400 sm:text-sm">
+                    <option value="" disabled>Select a branch</option>
+                    <template x-for="branch in branches" :key="branch">
+                        <option :value="branch" x-text="branch"></option>
+                    </template>
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <iconify-icon icon="tabler:chevron-down" class="h-4 w-4 text-surface-500 dark:text-surface-400"></iconify-icon>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <button @click="switchBranch" :disabled="isSwitchingBranch || !selectedBranch || selectedBranch === currentStatus.branch" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <template x-if="!isSwitchingBranch">
+                    <iconify-icon icon="tabler:git-branch" class="mr-1.5" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="isSwitchingBranch">
+                    <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                </template>
+                <span x-text="isSwitchingBranch ? 'Switching...' : 'Switch Branch'"></span>
+            </button>
+        </div>
+
+        <div class="border-t border-surface-200 dark:border-surface-600 pt-4 mt-4">
+            <h4 class="text-sm font-medium text-surface-900 dark:text-surface-100 mb-2">Create New Branch</h4>
+            <div class="mb-3">
+                <label for="newBranchName" class="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Branch Name</label>
+                <input type="text" id="newBranchName" x-model="newBranchName" class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-400 focus:border-primary-400 sm:text-sm" placeholder="feature/new-branch">
+            </div>
+            <button @click="createBranch" :disabled="isCreatingBranch || !newBranchName.trim()" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <template x-if="!isCreatingBranch">
+                    <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="isCreatingBranch">
+                    <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                </template>
+                <span x-text="isCreatingBranch ? 'Creating...' : 'Create Branch'"></span>
+            </button>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Remote Operations Section *}
+{{ block remoteOperationsSection() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Remote Operations</h3>
+        <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">Sync with remote repository</p>
+    </div>
+    <div class="px-4 py-5 sm:p-6">
+        <div class="space-y-3">
+            <button @click="pullChanges" :disabled="isPulling" class="w-full inline-flex justify-center items-center px-4 py-2 border border-surface-300 dark:border-surface-600 rounded-md shadow-sm text-sm font-medium text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <template x-if="!isPulling">
+                    <iconify-icon icon="tabler:arrow-down" class="mr-1.5" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="isPulling">
+                    <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                </template>
+                <span x-text="isPulling ? 'Pulling...' : 'Pull Changes'"></span>
+            </button>
+
+            <button @click="pushChanges" :disabled="isPushing" :class="{'bg-primary-600 hover:bg-primary-700 text-white': parseInt(currentStatus.ahead || '0') > 0, 'bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-300': parseInt(currentStatus.ahead || '0') === 0}" class="w-full inline-flex justify-center items-center px-4 py-2 border border-surface-300 dark:border-surface-600 rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <template x-if="!isPushing">
+                    <iconify-icon icon="tabler:arrow-up" class="mr-1.5" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="isPushing">
+                    <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                </template>
+                <span x-text="isPushing ? 'Pushing...' : 'Push Changes'"></span>
+                <span x-show="parseInt(currentStatus.ahead || '0') > 0" class="ml-1.5 py-0.5 px-2 text-xs font-medium bg-primary-100 dark:bg-primary-800 text-primary-800 dark:text-primary-100 rounded-full" x-text="currentStatus.ahead"></span>
+            </button>
+
+            <button @click="fetchUpdates" :disabled="isFetching" class="w-full inline-flex justify-center items-center px-4 py-2 border border-surface-300 dark:border-surface-600 rounded-md shadow-sm text-sm font-medium text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <template x-if="!isFetching">
+                    <iconify-icon icon="tabler:refresh" class="mr-1.5" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="isFetching">
+                    <iconify-icon icon="tabler:loader" class="mr-1.5 animate-spin" width="16" height="16"></iconify-icon>
+                </template>
+                <span x-text="isFetching ? 'Fetching...' : 'Fetch Updates'"></span>
+            </button>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Status Message Section *}
+{{ block statusMessageSection() }}
+<div x-show="statusMessage.show" x-transition:enter="transform ease-out duration-300 transition" x-transition:enter-start="translate-y-full opacity-0" x-transition:enter-end="translate-y-0 opacity-100" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="translate-y-0 opacity-100" x-transition:leave-end="translate-y-full opacity-0" class="fixed bottom-4 right-4 max-w-md z-50">
+    <div class="flex items-center p-4 rounded-lg shadow-lg" :class="{
+        'bg-green-50 dark:bg-green-900': statusMessage.type === 'success',
+        'bg-red-50 dark:bg-red-900': statusMessage.type === 'error',
+        'bg-blue-50 dark:bg-blue-900': statusMessage.type === 'info',
+        'bg-amber-50 dark:bg-amber-900': statusMessage.type === 'warning'
+    }">
+        <div class="flex-shrink-0 mr-3">
+            <template x-if="statusMessage.type === 'success'">
+                <iconify-icon icon="tabler:check-circle" class="h-6 w-6 text-green-500" width="24" height="24"></iconify-icon>
+            </template>
+            <template x-if="statusMessage.type === 'error'">
+                <iconify-icon icon="tabler:alert-circle" class="h-6 w-6 text-red-500" width="24" height="24"></iconify-icon>
+            </template>
+            <template x-if="statusMessage.type === 'info'">
+                <iconify-icon icon="tabler:info-circle" class="h-6 w-6 text-blue-500" width="24" height="24"></iconify-icon>
+            </template>
+            <template x-if="statusMessage.type === 'warning'">
+                <iconify-icon icon="tabler:alert-triangle" class="h-6 w-6 text-amber-500" width="24" height="24"></iconify-icon>
+            </template>
+        </div>
+        <div class="flex-1">
+            <p class="text-sm font-medium" :class="{
+                'text-green-800 dark:text-green-100': statusMessage.type === 'success',
+                'text-red-800 dark:text-red-100': statusMessage.type === 'error',
+                'text-blue-800 dark:text-blue-100': statusMessage.type === 'info',
+                'text-amber-800 dark:text-amber-100': statusMessage.type === 'warning'
+            }" x-text="statusMessage.text"></p>
+        </div>
+        <div class="flex-shrink-0 ml-3">
+            <button @click="hideStatusMessage" class="inline-flex text-surface-400 hover:text-surface-500 focus:outline-none">
+                <iconify-icon icon="tabler:x" class="h-5 w-5" width="20" height="20"></iconify-icon>
+            </button>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('gitSyncApp', () => ({
+        {{ yield jsStateManagement() }}
+        {{ yield jsInitialization() }}
+        {{ yield jsComputedProperties() }}
+        {{ yield jsGitStatusFunctions() }}
+        {{ yield jsBranchFunctions() }}
+        {{ yield jsCommitFunctions() }}
+        {{ yield jsRemoteOperations() }}
+        {{ yield jsUIHelpers() }}
+    }));
+    });
+</script>
+{{ end }}
+
+{{ block jsStateManagement() }}
+// === State variables ===
+// API related
+wippyApi: null,
+navigateApi: null,
+
+// Loading states
+isLoading: true,
+isTrackAllLoading: false,
+isCommitting: false,
+isCommittingAndPushing: false,
+isGeneratingMessage: false,
+isSwitchingBranch: false,
+isCreatingBranch: false,
+isPulling: false,
+isPushing: false,
+isFetching: false,
+isAgentChatLoading: false,
+
+// Repository status
+repoStatus: {
+status: {},
+counts: {}
+},
+currentStatus: {
+branch: '',
+ahead: '0',
+last_commit: null
+},
+branches: [],
+
+// Staged/unstaged files
+stagedFiles: [],
+unstagedFiles: [],
+untrackedFiles: [],
+
+// Form values
+commitMessage: '',
+selectedBranch: '',
+newBranchName: '',
+
+// Status message
+statusMessage: {
+show: false,
+type: 'info',
+text: '',
+timeout: null
+},
+{{ end }}
+
+{{ block jsInitialization() }}
+// === Initialization ===
+async initialize() {
+console.log('Initializing Git Sync Alpine component...');
+this.isLoading = true;
+
+try {
+// Initialize Wippy API
+if (typeof window.initWippyApi !== 'function') {
+throw new Error("initWippyApi function not found.");
+}
+
+const result = await window.initWippyApi();
+this.wippyApi = result;
+
+if (this.wippyApi?.iframe) {
+this.navigateApi = this.wippyApi.iframe;
+} else {
+console.warn('Navigate API not available');
+}
+
+console.log('Wippy API initialized for Git Sync');
+
+// Load initial repository data
+await this.loadRepositoryData();
+} catch (err) {
+console.error('Failed to initialize Git Sync:', err);
+this.showStatus('error', `Failed to initialize: ${err.message}`);
+this.isLoading = false;
+}
+},
+
+// Load repository data
+async loadRepositoryData() {
+try {
+this.isLoading = true;
+
+// Get repository status
+const status = await this.fetchGitStatus();
+
+// Get branch list
+const branches = await this.fetchBranches();
+
+// Update data state
+this.updateStatusData(status);
+this.updateBranchData(branches);
+
+console.log('Repository data loaded successfully');
+} catch (error) {
+console.error('Error loading repository data:', error);
+this.showStatus('error', `Failed to load repository data: ${error.message}`);
+} finally {
+this.isLoading = false;
+}
+},
+
+// Update status data
+updateStatusData(data) {
+this.repoStatus = data;
+this.currentStatus = data.status || {};
+
+// Update file lists
+this.stagedFiles = Array.isArray(data.status.staged) ? data.status.staged : [];
+this.unstagedFiles = Array.isArray(data.status.unstaged) ? data.status.unstaged : [];
+this.untrackedFiles = Array.isArray(data.status.untracked) ? data.status.untracked : [];
+},
+
+// Update branch data
+updateBranchData(data) {
+if (data.branches && Array.isArray(data.branches.list)) {
+this.branches = data.branches.list;
+
+// Select current branch in dropdown
+const currentBranch = data.branches.current;
+if (currentBranch && this.branches.includes(currentBranch)) {
+this.selectedBranch = currentBranch;
+}
+}
+},
+{{ end }}
+
+{{ block jsComputedProperties() }}
+// === Computed properties ===
+// Last commit text
+get lastCommitText() {
+if (!this.currentStatus.last_commit) {
+return 'No commits yet';
+}
+
+const commit = this.currentStatus.last_commit;
+const shortHash = commit.hash.substring(0, 7);
+const commitDate = new Date(commit.date);
+const timeAgo = this.getTimeAgo(commitDate);
+
+return `Last commit: ${shortHash} - ${commit.message} (${timeAgo})`;
+},
+
+// All status files combined
+get allStatusFiles() {
+return [...this.stagedFiles, ...this.unstagedFiles, ...this.untrackedFiles];
+},
+{{ end }}
+
+{{ block jsGitStatusFunctions() }}
+// === Git Status API Functions ===
+// Fetch Git repository status
+async fetchGitStatus() {
+try {
+const response = await this.wippyApi.api.get('/api/v1/keeper/git/status');
+
+if (!response.data.success) {
+throw new Error(`Failed to fetch Git status: ${response.data.error || 'Unknown error'}`);
+}
+
+return response.data;
+} catch (error) {
+console.error('Error fetching Git status:', error);
+throw new Error(`Error fetching Git status: ${error.message}`);
+}
+},
+
+// Start chat with Git agent
+async startGitAgentChat() {
+try {
+this.isAgentChatLoading = true;
+
+// Get the start token for the git agent
+const response = await this.wippyApi.api.get('/api/v1/keeper/agents/start-agent', {
+params: { agent: 'wippy.git' }
+});
+
+if (!response.data.success || !response.data.start_token) {
+throw new Error(response.data.error || 'Failed to get agent start token');
+}
+
+// Start chat with Git agent
+console.log('Starting chat with Git agent');
+
+if (!this.navigateApi || typeof this.navigateApi.startChat !== 'function') {
+throw new Error('Chat API not available');
+}
+
+const chat = await this.navigateApi.startChat(response.data.start_token, true); // true to open in a sidebar
+console.log('Chat started:', chat);
+
+this.showStatus('success', 'Git assistant chat started');
+} catch (err) {
+console.error('Failed to start chat with Git agent:', err);
+this.showStatus('error', `Failed to start chat with Git agent: ${err.message}`);
+} finally {
+this.isAgentChatLoading = false;
+}
+},
+
+// Track a single file
+async trackFile(filePath) {
+try {
+// Call the API to stage the file
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/stage', {
+files: [filePath]
+});
+
+if (!response.data.success) {
+throw new Error(`Failed to stage file: ${response.data.error || 'Unknown error'}`);
+}
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+this.showStatus('success', `File "${filePath}" staged successfully.`);
+} catch (error) {
+console.error('Error staging file:', error);
+this.showStatus('error', `Failed to stage file: ${error.message}`);
+}
+},
+
+// Track all files
+async trackAllFiles() {
+try {
+this.isTrackAllLoading = true;
+
+// Call the API to stage all files
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/stage', {
+stage_all: true
+});
+
+if (!response.data.success) {
+throw new Error(`Failed to stage all files: ${response.data.error || 'Unknown error'}`);
+}
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+this.showStatus('success', 'All files staged successfully.');
+} catch (error) {
+console.error('Error staging all files:', error);
+this.showStatus('error', `Failed to stage all files: ${error.message}`);
+} finally {
+this.isTrackAllLoading = false;
+}
+},
+{{ end }}
+
+{{ block jsBranchFunctions() }}
+// === Branch Management Functions ===
+// Fetch Git branches
+async fetchBranches() {
+try {
+const response = await this.wippyApi.api.get('/api/v1/keeper/git/branches');
+
+if (!response.data.success) {
+throw new Error(`Failed to fetch branches: ${response.data.error || 'Unknown error'}`);
+}
+
+return response.data;
+} catch (error) {
+console.error('Error fetching branches:', error);
+throw new Error(`Error fetching branches: ${error.message}`);
+}
+},
+
+// Switch to a different branch
+async switchBranch() {
+const branchName = this.selectedBranch;
+
+if (!branchName) {
+this.showStatus('error', 'Please select a branch.');
+return;
+}
+
+if (branchName === this.currentStatus.branch) {
+this.showStatus('info', `Already on branch '${branchName}'.`);
+return;
+}
+
+try {
+this.isSwitchingBranch = true;
+
+// Call the API to switch branches
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/branches/switch', {
+branch_name: branchName
+});
+
+if (!response.data.success) {
+throw new Error(`Failed to switch branch: ${response.data.error || 'Unknown error'}`);
+}
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+this.showStatus('success', `Switched to branch "${branchName}" successfully.`);
+} catch (error) {
+console.error('Error switching branch:', error);
+this.showStatus('error', `Failed to switch branch: ${error.message}`);
+} finally {
+this.isSwitchingBranch = false;
+}
+},
+
+// Create a new branch
+async createBranch() {
+const branchName = this.newBranchName.trim();
+
+if (!branchName) {
+this.showStatus('error', 'Please enter a branch name.');
+return;
+}
+
+try {
+this.isCreatingBranch = true;
+
+// Call the API to create a new branch
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/branches/create', {
+branch_name: branchName,
+switch_to_branch: true  // Switch to the new branch after creation
+});
+
+if (!response.data.success) {
+throw new Error(`Failed to create branch: ${response.data.error || 'Unknown error'}`);
+}
+
+// Clear the branch name input
+this.newBranchName = '';
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+this.showStatus('success', `Branch "${branchName}" created successfully.`);
+} catch (error) {
+console.error('Error creating branch:', error);
+this.showStatus('error', `Failed to create branch: ${error.message}`);
+} finally {
+this.isCreatingBranch = false;
+}
+},
+{{ end }}
+
+{{ block jsCommitFunctions() }}
+// === Commit Functions ===
+// Generate commit message
+async generateCommitMessage() {
+// Check if there are staged files first
+if (this.stagedFiles.length === 0) {
+this.showStatus('error', 'You must stage files before generating a commit message.');
+return;
+}
+
+try {
+this.isGeneratingMessage = true;
+
+// Call the API to generate a commit message
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/generate-message');
+
+if (!response.data.success) {
+throw new Error(`Failed to generate commit message: ${response.data.error || 'Unknown error'}`);
+}
+
+// Set the commit message
+this.commitMessage = response.data.message;
+
+this.showStatus('success', 'Commit message generated successfully.');
+} catch (error) {
+console.error('Error generating commit message:', error);
+this.showStatus('error', `Failed to generate commit message: ${error.message}`);
+} finally {
+this.isGeneratingMessage = false;
+}
+},
+
+// Create a commit
+async createCommit() {
+const message = this.commitMessage.trim();
+
+// Check if there are staged files
+if (this.stagedFiles.length === 0) {
+this.showStatus('error', 'You must stage files before committing.');
+return;
+}
+
+// Check for commit message
+if (!message) {
+this.showStatus('error', 'Please enter a commit message.');
+return;
+}
+
+try {
+this.isCommitting = true;
+
+// Call the API to create a commit
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/commit', {
+message: message
+});
+
+if (!response.data.success) {
+throw new Error(`Failed to create commit: ${response.data.error || 'Unknown error'}`);
+}
+
+// Clear the commit message
+this.commitMessage = '';
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+// Show notification about pushing changes
+const commitsAhead = parseInt(this.currentStatus.ahead || '0');
+if (commitsAhead > 0) {
+this.showStatus('info', 'Commit created successfully. Remember to push your changes to the remote repository.');
+} else {
+this.showStatus('success', 'Commit created successfully.');
+}
+} catch (error) {
+console.error('Error creating commit:', error);
+this.showStatus('error', `Failed to create commit: ${error.message}`);
+} finally {
+this.isCommitting = false;
+}
+},
+
+// Commit and Push in one operation
+async commitAndPush() {
+const message = this.commitMessage.trim();
+
+// Check if there are staged files
+if (this.stagedFiles.length === 0) {
+this.showStatus('error', 'You must stage files before committing.');
+return;
+}
+
+// Check for commit message
+if (!message) {
+this.showStatus('error', 'Please enter a commit message.');
+return;
+}
+
+try {
+this.isCommittingAndPushing = true;
+
+// Step 1: Create commit
+const commitResponse = await this.wippyApi.api.post('/api/v1/keeper/git/commit', {
+message: message
+});
+
+if (!commitResponse.data.success) {
+throw new Error(`Failed to create commit: ${commitResponse.data.error || 'Unknown error'}`);
+}
+
+// Step 2: Push changes
+const pushResponse = await this.wippyApi.api.post('/api/v1/keeper/git/push');
+
+if (!pushResponse.data.success) {
+throw new Error(`Failed to push changes: ${pushResponse.data.error || 'Unknown error'}`);
+}
+
+// Clear the commit message
+this.commitMessage = '';
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+this.showStatus('success', 'Changes committed and pushed successfully!');
+} catch (error) {
+console.error('Error in commit and push:', error);
+this.showStatus('error', `Failed to commit and push: ${error.message}`);
+} finally {
+this.isCommittingAndPushing = false;
+}
+},
+{{ end }}
+
+{{ block jsRemoteOperations() }}
+// === Remote Operations ===
+// Pull changes from remote
+async pullChanges() {
+try {
+this.isPulling = true;
+
+// Call the API to pull changes
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/pull');
+
+if (!response.data.success) {
+throw new Error(`Failed to pull changes: ${response.data.error || 'Unknown error'}`);
+}
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+this.showStatus('success', 'Changes pulled successfully.');
+} catch (error) {
+console.error('Error pulling changes:', error);
+this.showStatus('error', `Failed to pull changes: ${error.message}`);
+} finally {
+this.isPulling = false;
+}
+},
+
+// Push changes to remote
+async pushChanges() {
+try {
+this.isPushing = true;
+
+// Call the API to push changes
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/push');
+
+if (!response.data.success) {
+throw new Error(`Failed to push changes: ${response.data.error || 'Unknown error'}`);
+}
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+this.showStatus('success', 'Changes pushed successfully.');
+} catch (error) {
+console.error('Error pushing changes:', error);
+this.showStatus('error', `Failed to push changes: ${error.message}`);
+} finally {
+this.isPushing = false;
+}
+},
+
+// Fetch updates from remote
+async fetchUpdates() {
+try {
+this.isFetching = true;
+
+// Call the API to fetch updates
+const response = await this.wippyApi.api.post('/api/v1/keeper/git/fetch');
+
+if (!response.data.success) {
+throw new Error(`Failed to fetch updates: ${response.data.error || 'Unknown error'}`);
+}
+
+// Refresh repository data
+await this.loadRepositoryData();
+
+this.showStatus('success', 'Updates fetched successfully.');
+} catch (error) {
+console.error('Error fetching updates:', error);
+this.showStatus('error', `Failed to fetch updates: ${error.message}`);
+} finally {
+this.isFetching = false;
+}
+},
+{{ end }}
+
+{{ block jsUIHelpers() }}
+// === UI Helper Functions ===
+// Show status message
+showStatus(type, text, duration = 5000) {
+// Clear any existing timeout
+if (this.statusMessage.timeout) {
+clearTimeout(this.statusMessage.timeout);
+}
+
+// Update status message
+this.statusMessage.type = type;
+this.statusMessage.text = text;
+this.statusMessage.show = true;
+
+// Set timeout to hide message
+this.statusMessage.timeout = setTimeout(() => {
+this.hideStatusMessage();
+}, duration);
+},
+
+// Hide status message
+hideStatusMessage() {
+this.statusMessage.show = false;
+
+if (this.statusMessage.timeout) {
+clearTimeout(this.statusMessage.timeout);
+this.statusMessage.timeout = null;
+}
+},
+
+// Helper function to format time ago
+getTimeAgo(date) {
+const now = new Date();
+const seconds = Math.floor((now - date) / 1000);
+
+if (seconds < 60) {
+return 'just now';
+}
+
+const minutes = Math.floor(seconds / 60);
+if (minutes < 60) {
+return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+}
+
+const hours = Math.floor(minutes / 60);
+if (hours < 24) {
+return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+}
+
+const days = Math.floor(hours / 24);
+if (days < 30) {
+return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+}
+
+const months = Math.floor(days / 30);
+if (months < 12) {
+return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+}
+
+const years = Math.floor(months / 12);
+return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+}
+{{ end }}

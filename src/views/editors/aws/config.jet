@@ -1,0 +1,616 @@
+{{ extends "/common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}AWS Configuration{{ end }}
+{{ block metaDescription() }}View and edit AWS credential configuration{{ end }}
+
+{{ block mainContent() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden max-w-5xl mx-auto"
+     x-data="awsConfigApp"
+     x-init="initialize()"
+     x-cloak>
+
+    <!-- Page Header -->
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+        <div class="flex items-center">
+            <iconify-icon icon="tabler:brand-aws" class="text-3xl text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0"></iconify-icon>
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">AWS Configuration</h3>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400"
+                   x-show="entry?.id">
+                    <span x-text="getNamespace(entry?.id)"></span>:<span x-text="getName(entry?.id)"></span>
+                    <span class="ml-1">(AWS Configuration)</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex space-x-3">
+            <button
+                    id="saveButton"
+                    type="button"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="isSaving || isLoading || !isDirty || !!regionError"
+                    @click="saveEntry()">
+                <template x-if="isSaving">
+                    <iconify-icon icon="tabler:loader" class="animate-spin mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="!isSaving">
+                    <iconify-icon icon="tabler:device-floppy" class="mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="flex justify-center items-center py-12" x-show="isLoading">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading AWS configuration...</span>
+    </div>
+
+    <!-- Error Indicator -->
+    <div id="errorIndicator" class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400"
+         x-show="!isLoading && loadError">
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="loadError"></p>
+            <button @click="initialize()"
+                    class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+                <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="px-4 py-5 sm:p-6 space-y-6" x-show="!isLoading && !loadError && entry">
+
+        <!-- Description Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:file-description" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Description</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Details and purpose of this AWS configuration. Changes are saved with the "Save Changes" button above.</p>
+                </div>
+            </div>
+            <div class="mt-2">
+                <textarea
+                        :value="entry?.meta?.comment || ''"
+                        @input="updateComment($event.target.value)"
+                        class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                        rows="4"
+                        placeholder="Enter configuration description..."
+                        :disabled="isLoading || isSaving"></textarea>
+            </div>
+        </div>
+
+        <!-- AWS Configuration Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:settings" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div>
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">AWS Configuration</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">AWS credentials and region settings.</p>
+                </div>
+            </div>
+
+            <div class="mt-3 space-y-4">
+                <!-- AWS Region -->
+                <div>
+                    <label for="awsRegion" class="block text-sm font-medium text-surface-700 dark:text-surface-300">AWS Region</label>
+                    <div class="mt-1 relative rounded-md shadow-sm">
+                        <input type="text" id="awsRegion"
+                               :value="entry?.data?.region || ''"
+                               @input="updateRegion($event.target.value)"
+                               class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                               :class="{'border-red-300 focus:ring-red-500 focus:border-red-500': regionError}"
+                               placeholder="us-east-1"
+                               :disabled="isLoading || isSaving">
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3" x-show="suggestingRegion">
+                            <iconify-icon icon="tabler:loader" class="animate-spin text-surface-400" width="16" height="16"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="mt-1 flex items-center justify-between">
+                        <p class="text-xs text-surface-500 dark:text-surface-400">
+                            The AWS region where your resources are located (e.g., us-east-1, eu-west-2).
+                        </p>
+                        <p x-show="regionError" class="text-xs text-red-600 dark:text-red-400" x-text="regionError"></p>
+                    </div>
+
+                    <!-- Region Suggestions -->
+                    <div class="mt-1 flex flex-wrap gap-2" x-show="showRegionSuggestions">
+                        <template x-for="region in commonRegions" :key="region.code">
+                            <button type="button"
+                                    @click="selectRegion(region.code)"
+                                    class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-surface-200 dark:bg-surface-600 hover:bg-surface-300 dark:hover:bg-surface-500 text-surface-700 dark:text-surface-200">
+                                <span x-text="region.code"></span>
+                                <span class="ml-1 text-surface-500 dark:text-surface-400" x-text="'(' + region.name + ')'"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Access Key ID Environment Variable -->
+                <div>
+                    <label for="accessKeyIdEnv" class="block text-sm font-medium text-surface-700 dark:text-surface-300">Access Key ID Environment Variable</label>
+                    <input type="text" id="accessKeyIdEnv"
+                           :value="entry?.data?.access_key_id_env || ''"
+                           @input="updateAccessKeyIdEnv($event.target.value)"
+                           class="mt-1 block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                           placeholder="AWS_ACCESS_KEY_ID"
+                           :disabled="isLoading || isSaving">
+                    <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">
+                        The environment variable name that contains your AWS access key ID.
+                    </p>
+                </div>
+
+                <!-- Secret Access Key Environment Variable -->
+                <div>
+                    <label for="secretAccessKeyEnv" class="block text-sm font-medium text-surface-700 dark:text-surface-300">Secret Access Key Environment Variable</label>
+                    <input type="text" id="secretAccessKeyEnv"
+                           :value="entry?.data?.secret_access_key_env || ''"
+                           @input="updateSecretAccessKeyEnv($event.target.value)"
+                           class="mt-1 block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                           placeholder="AWS_SECRET_ACCESS_KEY"
+                           :disabled="isLoading || isSaving">
+                    <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">
+                        The environment variable name that contains your AWS secret access key.
+                    </p>
+                </div>
+
+                <!-- Security Notice -->
+                <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-md border border-blue-200 dark:border-blue-800">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <iconify-icon icon="tabler:info-circle" class="text-blue-600 dark:text-blue-400" width="20" height="20"></iconify-icon>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700 dark:text-blue-300">
+                                <strong>Security Notice:</strong> This configuration stores only environment variable names, not the actual AWS credentials. Ensure that these environment variables are properly set in your deployment environment.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div x-data="{ notification: { show: false, type: 'success', message: '', timeout: null } }"
+         @shownotification.window="
+             notification.show = false;
+             clearTimeout(notification.timeout);
+             $nextTick(() => {
+                 notification = { ...$event.detail, show: true };
+                 notification.timeout = setTimeout(() => notification.show = false, 5000);
+             });
+         "
+         x-show="notification.show"
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+         x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 max-w-sm w-full z-50">
+        <div class="p-4 rounded-md shadow-lg"
+             :class="{
+                'bg-green-50 border border-green-200 dark:bg-green-900 dark:border-green-800': notification.type === 'success',
+                'bg-red-50 border border-red-200 dark:bg-red-900 dark:border-red-800': notification.type === 'error',
+                'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900 dark:border-yellow-800': notification.type === 'warning'
+             }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <iconify-icon
+                            :icon="notification.type === 'success' ? 'tabler:circle-check' : (notification.type === 'error' ? 'tabler:alert-circle' : 'tabler:alert-triangle')"
+                            :class="{
+                                'text-green-600 dark:text-green-400': notification.type === 'success',
+                                'text-red-600 dark:text-red-400': notification.type === 'error',
+                                'text-yellow-600 dark:text-yellow-400': notification.type === 'warning'
+                            }"
+                            width="20" height="20"></iconify-icon>
+                </div>
+                <div class="ml-3 w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium"
+                       :class="{
+                           'text-green-800 dark:text-green-200': notification.type === 'success',
+                           'text-red-800 dark:text-red-200': notification.type === 'error',
+                           'text-yellow-800 dark:text-yellow-200': notification.type === 'warning'
+                       }"
+                       x-text="notification.message"></p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button type="button" @click="notification.show = false; clearTimeout(notification.timeout);"
+                            class="inline-flex rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            :class="{
+                                'text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 focus:ring-green-600 dark:focus:ring-offset-green-900': notification.type === 'success',
+                                'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:ring-red-600 dark:focus:ring-offset-red-900': notification.type === 'error',
+                                'text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 focus:ring-yellow-600 dark:focus:ring-offset-yellow-900': notification.type === 'warning'
+                            }">
+                        <span class="sr-only">Close</span>
+                        <iconify-icon icon="tabler:x" width="16" height="16"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('awsConfigApp', () => ({
+            // State variables
+            entry: null,
+            originalEntry: null,
+            isLoading: true,
+            loadError: null,
+            isSaving: false,
+            regionError: null,
+
+            // Region suggestions
+            suggestingRegion: false,
+            showRegionSuggestions: false,
+            commonRegions: [
+                { code: 'us-east-1', name: 'US East (N. Virginia)' },
+                { code: 'us-east-2', name: 'US East (Ohio)' },
+                { code: 'us-west-1', name: 'US West (N. California)' },
+                { code: 'us-west-2', name: 'US West (Oregon)' },
+                { code: 'ca-central-1', name: 'Canada (Central)' },
+                { code: 'eu-west-1', name: 'EU (Ireland)' },
+                { code: 'eu-west-2', name: 'EU (London)' },
+                { code: 'eu-west-3', name: 'EU (Paris)' },
+                { code: 'eu-central-1', name: 'EU (Frankfurt)' },
+                { code: 'ap-northeast-1', name: 'Asia Pacific (Tokyo)' },
+                { code: 'ap-northeast-2', name: 'Asia Pacific (Seoul)' },
+                { code: 'ap-southeast-1', name: 'Asia Pacific (Singapore)' },
+                { code: 'ap-southeast-2', name: 'Asia Pacific (Sydney)' },
+                { code: 'ap-south-1', name: 'Asia Pacific (Mumbai)' },
+                { code: 'sa-east-1', name: 'South America (São Paulo)' }
+            ],
+
+            // Change tracking
+            dirtyFields: {
+                comment: false,
+                region: false,
+                accessKeyIdEnv: false,
+                secretAccessKeyEnv: false
+            },
+
+            // API connection
+            wippyApi: null,
+
+            // Initialize the app
+            async initialize() {
+                this.isLoading = true;
+                this.loadError = null;
+                this.resetState();
+
+                try {
+                    // Initialize Wippy API
+                    if (typeof initWippyApi !== 'function') {
+                        console.warn('Using fallback API for local testing');
+                        this.wippyApi = this.createFallbackWippyApi();
+                    } else {
+                        this.wippyApi = await window.initWippyApi();
+                    }
+
+                    // Get the entry ID
+                    const entryId = this.wippyApi?.config?.path;
+                    if (!entryId) {
+                        throw new Error('No AWS configuration ID provided');
+                    }
+
+                    // Load the entry
+                    await this.loadEntry(entryId);
+                } catch (err) {
+                    console.error('Failed to initialize:', err);
+                    this.loadError = `Initialization error: ${err.message}`;
+
+                    if (this.wippyApi && this.isFatalError(err)) {
+                        this.wippyApi.iframe?.handleError('other', err);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            resetState() {
+                this.entry = null;
+                this.originalEntry = null;
+                this.regionError = null;
+                this.suggestingRegion = false;
+                this.showRegionSuggestions = false;
+                this.dirtyFields = {
+                    comment: false,
+                    region: false,
+                    accessKeyIdEnv: false,
+                    secretAccessKeyEnv: false
+                };
+            },
+
+            // Create a fallback API for testing
+            createFallbackWippyApi() {
+                const fallbackId = new URLSearchParams(window.location.search).get('id') || 'fallback:aws_config';
+
+                return {
+                    config: {
+                        path: fallbackId,
+                        feature: { routePrefix: '/apps' },
+                        auth: { token: 'fallback-token' }
+                    },
+                    iframe: {
+                        navigate: (v, p) => console.log(`Fallback Nav: ${v}`, p || ''),
+                        handleError: (type, err) => console.error(`Fallback Error Handler (${type}):`, err)
+                    },
+                    api: {
+                        get: async (url) => {
+                            console.log('Fallback API GET:', url);
+                            await new Promise(resolve => setTimeout(resolve, 500));
+
+                            return {
+                                data: {
+                                    success: true,
+                                    entry: {
+                                        id: fallbackId,
+                                        kind: 'config.aws',
+                                        meta: {
+                                            comment: 'AWS configuration for S3 bucket access',
+                                        },
+                                        data: {
+                                            region: 'us-east-1',
+                                            access_key_id_env: 'AWS_ACCESS_KEY_ID',
+                                            secret_access_key_env: 'AWS_SECRET_ACCESS_KEY'
+                                        }
+                                    }
+                                }
+                            };
+                        },
+                        put: async (url, payload) => {
+                            console.log('Fallback API PUT:', url, payload);
+                            await new Promise(resolve => setTimeout(resolve, 300));
+
+                            return {
+                                data: {
+                                    success: true,
+                                    message: "Entry updated successfully",
+                                    id: payload.id,
+                                    kind: payload.kind,
+                                    version: 27,
+                                    merge: true,
+                                    updated: {
+                                        data: true,
+                                        kind: true,
+                                        meta: true
+                                    }
+                                }
+                            };
+                        }
+                    }
+                };
+            },
+
+            // Helper functions
+            isFatalError(error) {
+                return error.fatal === true ||
+                    error.message?.includes('critical') ||
+                    error.message?.includes('auth');
+            },
+
+            getNamespace(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts[0] || '';
+            },
+
+            getName(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts.length > 1 ? parts.slice(1).join(':') : (parts[0] || '');
+            },
+
+            // Load entry data
+            async loadEntry(id) {
+                this.isLoading = true;
+                this.loadError = null;
+
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(id)}`);
+                    const data = response.data;
+
+                    if (!data.success || !data.entry) {
+                        throw new Error(data.error || 'Invalid server response loading AWS configuration');
+                    }
+
+                    // Store the entry data
+                    this.entry = data.entry;
+
+                    // Ensure required structures exist
+                    if (!this.entry.meta) this.entry.meta = {};
+                    if (!this.entry.data) this.entry.data = {};
+
+                    // Show region suggestions if region is empty
+                    this.showRegionSuggestions = !this.entry.data.region;
+
+                    // Store original data for comparison
+                    this.originalEntry = JSON.parse(JSON.stringify(this.entry));
+
+                    // Reset dirty flags
+                    this.dirtyFields = {
+                        comment: false,
+                        region: false,
+                        accessKeyIdEnv: false,
+                        secretAccessKeyEnv: false
+                    };
+                } catch (error) {
+                    console.error('Error loading AWS configuration data:', error);
+                    this.loadError = `Failed to load AWS configuration: ${error.message}`;
+
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.wippyApi.iframe?.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            // Form field update handlers
+            updateComment(value) {
+                if (!this.entry) return;
+                if (!this.entry.meta) this.entry.meta = {};
+
+                this.entry.meta.comment = value;
+                this.dirtyFields.comment = true;
+            },
+
+            updateRegion(value) {
+                if (!this.entry) return;
+                if (!this.entry.data) this.entry.data = {};
+
+                this.entry.data.region = value;
+                this.dirtyFields.region = true;
+
+                // Validate the region
+                this.validateRegion(value);
+
+                // Show suggestions if field is empty
+                this.showRegionSuggestions = !value;
+            },
+
+            updateAccessKeyIdEnv(value) {
+                if (!this.entry) return;
+                if (!this.entry.data) this.entry.data = {};
+
+                this.entry.data.access_key_id_env = value;
+                this.dirtyFields.accessKeyIdEnv = true;
+            },
+
+            updateSecretAccessKeyEnv(value) {
+                if (!this.entry) return;
+                if (!this.entry.data) this.entry.data = {};
+
+                this.entry.data.secret_access_key_env = value;
+                this.dirtyFields.secretAccessKeyEnv = true;
+            },
+
+            // Select a region from the suggestions
+            selectRegion(regionCode) {
+                if (!this.entry) return;
+                if (!this.entry.data) this.entry.data = {};
+
+                this.entry.data.region = regionCode;
+                this.dirtyFields.region = true;
+                this.showRegionSuggestions = false;
+                this.validateRegion(regionCode);
+            },
+
+            // Validate the region format
+            validateRegion(region) {
+                this.regionError = null;
+
+                if (!region) {
+                    this.regionError = 'Region is required';
+                    return false;
+                }
+
+                // Optional: Add more specific AWS region validation here if needed
+
+                return true;
+            },
+
+            // Save the entry
+            async saveEntry() {
+                if (this.isSaving || !this.isDirty) {
+                    if (!this.isDirty) this.showNotification('warning', 'No changes to save');
+                    return;
+                }
+
+                // Validate region
+                if (!this.validateRegion(this.entry?.data?.region)) {
+                    this.showNotification('error', 'Cannot save: ' + this.regionError);
+                    return;
+                }
+
+                if (!this.entry) {
+                    this.showNotification('error', 'Cannot save: no entry data loaded');
+                    return;
+                }
+
+                this.isSaving = true;
+
+                try {
+                    // Prepare the update payload
+                    const updatePayload = {
+                        id: this.entry.id,
+                        kind: this.entry.kind,
+                        meta: {
+                            comment: this.entry.meta.comment || ''
+                        },
+                        data: {
+                            region: this.entry.data.region || ''
+                        },
+                        merge: true
+                    };
+
+                    // Only include optional fields if they have values
+                    if (this.entry.data.access_key_id_env) {
+                        updatePayload.data.access_key_id_env = this.entry.data.access_key_id_env;
+                    }
+
+                    if (this.entry.data.secret_access_key_env) {
+                        updatePayload.data.secret_access_key_env = this.entry.data.secret_access_key_env;
+                    }
+
+                    // Submit the update
+                    const response = await this.wippyApi.api.put(
+                        `/api/v1/keeper/registry/entry?id=${encodeURIComponent(this.entry.id)}`,
+                        updatePayload
+                    );
+
+                    if (!response.data.success) {
+                        throw new Error(response.data.error || 'Failed to save configuration');
+                    }
+
+                    // Update original entry reference
+                    this.originalEntry = JSON.parse(JSON.stringify(this.entry));
+
+                    // Reset dirty flags
+                    this.dirtyFields = {
+                        comment: false,
+                        region: false,
+                        accessKeyIdEnv: false,
+                        secretAccessKeyEnv: false
+                    };
+
+                    this.showNotification('success', 'AWS configuration saved successfully');
+                } catch (error) {
+                    console.error('Error saving configuration:', error);
+                    this.showNotification('error', `Failed to save: ${error.message}`);
+
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.wippyApi.iframe?.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isSaving = false;
+                }
+            },
+
+            // Computed properties
+            get isDirty() {
+                return this.dirtyFields.comment ||
+                    this.dirtyFields.region ||
+                    this.dirtyFields.accessKeyIdEnv ||
+                    this.dirtyFields.secretAccessKeyEnv;
+            },
+
+            // UI feedback
+            showNotification(type, message) {
+                window.dispatchEvent(new CustomEvent('shownotification', {
+                    detail: { type, message }
+                }));
+            }
+        }));
+    });
+</script>
+{{ end }}

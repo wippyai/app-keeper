@@ -1,0 +1,678 @@
+{{ extends "/common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}Security Policy Configuration{{ end }}
+{{ block metaDescription() }}View and edit security policy rules and conditions{{ end }}
+
+{{ block mainContent() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden max-w-5xl mx-auto"
+     x-data="securityPolicyApp"
+     x-init="initialize()"
+     x-cloak>
+
+    <!-- Page Header (Unchanged) -->
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+        <!-- ... header ... -->
+        <div class="flex items-center">
+            <iconify-icon icon="tabler:shield-check" class="text-3xl text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0"></iconify-icon>
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Security Policy Configuration</h3>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400"
+                   x-show="entry?.id">
+                    <span x-text="getNamespace(entry?.id)"></span>:<span x-text="getName(entry?.id)"></span>
+                    <span class="ml-1">(Security Policy)</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex space-x-3">
+            <button
+                    id="saveButton"
+                    type="button"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="isSaving || isLoading || !isDirty || hasVisibleErrors()"
+                    @click="saveEntry()">
+                <template x-if="isSaving">
+                    <iconify-icon icon="tabler:loader" class="animate-spin mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="!isSaving">
+                    <iconify-icon icon="tabler:device-floppy" class="mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading/Error Indicators (Unchanged) -->
+    <div id="loadingIndicator" class="flex justify-center items-center py-12" x-show="isLoading">
+        <!-- ... loading ... -->
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading security policy...</span>
+    </div>
+    <div id="errorIndicator" class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400" x-show="!isLoading && loadError">
+        <!-- ... error ... -->
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="loadError"></p>
+            <button @click="initialize()"
+                    class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+                <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                Retry
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Main Content Area -->
+    <div class="px-4 py-5 sm:p-6 space-y-6" x-show="!isLoading && !loadError && entry">
+
+        <!-- Description Section (Unchanged) -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <!-- ... description ... -->
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:file-description" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Description</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Details and purpose of this security policy.</p>
+                </div>
+            </div>
+            <div class="mt-2">
+                <textarea
+                        :value="entry?.meta?.comment || ''"
+                        @input="updateField('meta.comment', $event.target.value)"
+                        class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                        rows="3"
+                        placeholder="Enter policy description..."
+                        :disabled="isLoading || isSaving"></textarea>
+            </div>
+        </div>
+
+        <!-- Groups Section (MOVED UP and CHANGED to list editor) -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:users-group" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Policy Groups</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">List of group IDs this policy applies to (e.g., `app:user`, `system:admin`).</p>
+                </div>
+            </div>
+            <div class="mt-2">
+                <div class="space-y-2">
+                    <template x-for="(group, index) in entry.data.groups" :key="'group-'+index">
+                        <div class="flex items-center">
+                            <input type="text"
+                                   :value="group"
+                                   @input="updateGroup(index, $event.target.value)"
+                                   class="flex-grow border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                   placeholder="namespace:group_name"
+                                   :disabled="isLoading || isSaving">
+                            <button type="button" @click="removeGroup(index)"
+                                    class="ml-2 p-2 text-surface-500 hover:text-red-600 dark:text-surface-400 dark:hover:text-red-400 focus:outline-none disabled:opacity-50"
+                                    :disabled="isLoading || isSaving" title="Remove Group">
+                                <iconify-icon icon="tabler:trash" width="16" height="16"></iconify-icon>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+                <button type="button" @click="addGroup()"
+                        class="mt-3 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 text-sm font-medium rounded-md shadow-sm text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 disabled:opacity-50"
+                        :disabled="isLoading || isSaving">
+                    <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                    Add Group
+                </button>
+            </div>
+        </div>
+
+        <!-- Policy Definition Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:adjustments-alt" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Policy Rules</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Define actions, resources, conditions, and effect.</p>
+                </div>
+            </div>
+            <div class="mt-3 space-y-6" x-show="entry?.data?.policy">
+
+                <!-- Actions (Unchanged from previous version) -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">Actions</label>
+                    <!-- ... actions input ... -->
+                    <p class="text-xs text-surface-500 dark:text-surface-400 mb-1">List of actions or "*" for all (e.g., "read", "write", "registry.get").</p>
+                    <input type="text"
+                           x-model="actionsInput"
+                           @blur="formatActions()"
+                           class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                           :class="{'border-red-300 dark:border-red-500': errors.actions, 'border-surface-300 dark:border-surface-600': !errors.actions}"
+                           placeholder="read, write OR *"
+                           :disabled="isLoading || isSaving">
+                    <p x-show="errors.actions" class="mt-1 text-xs text-red-600 dark:text-red-400" x-text="errors.actions"></p>
+                </div>
+
+                <!-- Resources (Unchanged from previous version) -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">Resources</label>
+                    <!-- ... resources input ... -->
+                    <p class="text-xs text-surface-500 dark:text-surface-400 mb-1">List of resources or "*" for all (e.g., "user:123", "object/*").</p>
+                    <input type="text"
+                           x-model="resourcesInput"
+                           @blur="formatResources()"
+                           class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 sm:text-sm"
+                           :class="{'border-red-300 dark:border-red-500': errors.resources, 'border-surface-300 dark:border-surface-600': !errors.resources}"
+                           placeholder="user:123, config:* OR *"
+                           :disabled="isLoading || isSaving">
+                    <p x-show="errors.resources" class="mt-1 text-xs text-red-600 dark:text-red-400" x-text="errors.resources"></p>
+                </div>
+
+                <!-- Effect (Unchanged) -->
+                <div>
+                    <label for="effect" class="block text-sm font-medium text-surface-700 dark:text-surface-300">Effect</label>
+                    <!-- ... effect select ... -->
+                    <select id="effect" name="effect"
+                            x-model="entry.data.policy.effect"
+                            @change="updateField('data.policy.effect', $event.target.value)"
+                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-surface-300 dark:border-surface-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100"
+                            :disabled="isLoading || isSaving">
+                        <option value="allow">Allow</option>
+                        <option value="deny">Deny</option>
+                    </select>
+                    <p x-show="errors.effect" class="mt-1 text-xs text-red-600 dark:text-red-400" x-text="errors.effect"></p>
+                </div>
+
+                <!-- Conditions (FIXED Value input disabled state) -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-700 dark:text-surface-300">Conditions</label>
+                    <p class="text-xs text-surface-500 dark:text-surface-400 mb-2">Optional conditions that must be met for the policy to apply.</p>
+                    <div class="space-y-3">
+                        <template x-for="(condition, index) in entry.data.policy.conditions" :key="index">
+                            <div class="p-3 border border-surface-200 dark:border-surface-600 rounded-md bg-white dark:bg-surface-700 space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-semibold text-surface-600 dark:text-surface-300" x-text="'Condition ' + (index + 1)"></span>
+                                    <button type="button" @click="removeCondition(index)"
+                                            class="p-1 text-surface-400 hover:text-red-600 dark:hover:text-red-400 focus:outline-none disabled:opacity-50"
+                                            :disabled="isLoading || isSaving" title="Remove Condition">
+                                        <iconify-icon icon="tabler:trash" width="16" height="16"></iconify-icon>
+                                    </button>
+                                </div>
+                                <div class="grid grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-4">
+                                    <div>
+                                        <label :for="'conditionField' + index" class="block text-xs font-medium text-surface-700 dark:text-surface-300">Field</label>
+                                        <input type="text" :id="'conditionField' + index" x-model="condition.field"
+                                               @input="validateConditionField(index, 'field', $event.target.value)"
+                                               class="mt-0.5 block w-full border rounded-md shadow-sm py-1.5 px-2 text-xs bg-surface-50 dark:bg-surface-600 text-surface-900 dark:text-surface-100"
+                                               :class="getConditionErrorClass(index, 'field')"
+                                               placeholder="actor.meta.role" :disabled="isLoading || isSaving">
+                                        <p x-show="errors.conditions && errors.conditions[index] && errors.conditions[index].field" class="mt-0.5 text-xs text-red-600 dark:text-red-400" x-text="errors.conditions[index].field"></p>
+                                    </div>
+                                    <div>
+                                        <label :for="'conditionOperator' + index" class="block text-xs font-medium text-surface-700 dark:text-surface-300">Operator</label>
+                                        <select :id="'conditionOperator' + index" x-model="condition.operator"
+                                                @change="validateConditionField(index, 'operator', $event.target.value); condition.value = null; condition.value_from = ''"
+                                                class="mt-0.5 block w-full pl-2 pr-8 py-1.5 text-xs border-surface-300 dark:border-surface-600 rounded-md bg-surface-50 dark:bg-surface-600 text-surface-900 dark:text-surface-100"
+                                                :class="getConditionErrorClass(index, 'operator')"
+                                                :disabled="isLoading || isSaving">
+                                            <option value="">Select Operator</option>
+                                            <option value="eq">Equals (eq)</option>
+                                            <option value="ne">Not Equals (ne)</option>
+                                            <option value="lt">Less Than (lt)</option>
+                                            <option value="gt">Greater Than (gt)</option>
+                                            <option value="lte">Less Than or Equals (lte)</option>
+                                            <option value="gte">Greater Than or Equals (gte)</option>
+                                            <option value="in">In (value is comma-separated list)</option>
+                                            <option value="exists">Exists (field is present)</option>
+                                            <option value="contains">Contains (string or array)</option>
+                                            <option value="matches">Matches Regex (value is regex)</option>
+                                        </select>
+                                        <p x-show="errors.conditions && errors.conditions[index] && errors.conditions[index].operator" class="mt-0.5 text-xs text-red-600 dark:text-red-400" x-text="errors.conditions[index].operator"></p>
+                                    </div>
+                                </div>
+                                <div x-show="condition.operator !== 'exists'">
+                                    <label :for="'conditionValue' + index" class="block text-xs font-medium text-surface-700 dark:text-surface-300">Value</label>
+                                    <!-- FIXED: :disabled condition -->
+                                    <input type="text" :id="'conditionValue' + index" x-model="condition.value"
+                                           @input="validateConditionField(index, 'value', $event.target.value); if($event.target.value) condition.value_from = ''"
+                                           class="mt-0.5 block w-full border rounded-md shadow-sm py-1.5 px-2 text-xs bg-surface-50 dark:bg-surface-600 text-surface-900 dark:text-surface-100"
+                                           :class="getConditionErrorClass(index, 'value')"
+                                           placeholder="Static value (e.g., admin, true, 100)"
+                                           :disabled="isLoading || isSaving || !!condition.value_from">
+                                    <p x-show="errors.conditions && errors.conditions[index] && errors.conditions[index].value" class="mt-0.5 text-xs text-red-600 dark:text-red-400" x-text="errors.conditions[index].value"></p>
+                                </div>
+                                <div class="text-xs text-center text-surface-400 dark:text-surface-500" x-show="condition.operator !== 'exists'">OR</div>
+                                <div x-show="condition.operator !== 'exists'">
+                                    <label :for="'conditionValueFrom' + index" class="block text-xs font-medium text-surface-700 dark:text-surface-300">Value From (Field Reference)</label>
+                                    <!-- FIXED: :disabled condition and clear other field on input -->
+                                    <input type="text" :id="'conditionValueFrom' + index" x-model="condition.value_from"
+                                           @input="validateConditionField(index, 'value_from', $event.target.value); if($event.target.value) condition.value = null"
+                                           class="mt-0.5 block w-full border rounded-md shadow-sm py-1.5 px-2 text-xs bg-surface-50 dark:bg-surface-600 text-surface-900 dark:text-surface-100"
+                                           :class="getConditionErrorClass(index, 'value_from')"
+                                           placeholder="actor.id"
+                                           :disabled="isLoading || isSaving || condition.value !== null && condition.value !== ''">
+                                    <p x-show="errors.conditions && errors.conditions[index] && errors.conditions[index].value_from" class="mt-0.5 text-xs text-red-600 dark:text-red-400" x-text="errors.conditions[index].value_from"></p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <button type="button" @click="addCondition()"
+                            class="mt-3 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 text-sm font-medium rounded-md shadow-sm text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 disabled:opacity-50"
+                            :disabled="isLoading || isSaving">
+                        <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                        Add Condition
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast (Standard) -->
+    <!-- ... toast ... -->
+    <div x-data="{ notification: { show: false, type: 'success', message: '', timeout: null } }"
+         @shownotification.window="
+             notification.show = false; clearTimeout(notification.timeout);
+             $nextTick(() => {
+                 notification = { ...$event.detail, show: true };
+                 notification.timeout = setTimeout(() => notification.show = false, 5000);
+             });
+         "
+         x-show="notification.show"
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+         x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 max-w-sm w-full z-50">
+        <div class="p-4 rounded-md shadow-lg"
+             :class="{
+                'bg-green-50 border border-green-200 dark:bg-green-900 dark:border-green-800': notification.type === 'success',
+                'bg-red-50 border border-red-200 dark:bg-red-900 dark:border-red-800': notification.type === 'error',
+                'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900 dark:border-yellow-800': notification.type === 'warning'
+             }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <iconify-icon
+                            :icon="notification.type === 'success' ? 'tabler:circle-check' : (notification.type === 'error' ? 'tabler:alert-circle' : 'tabler:alert-triangle')"
+                            :class="{
+                                'text-green-600 dark:text-green-400': notification.type === 'success',
+                                'text-red-600 dark:text-red-400': notification.type === 'error',
+                                'text-yellow-600 dark:text-yellow-400': notification.type === 'warning'
+                            }"
+                            width="20" height="20"></iconify-icon>
+                </div>
+                <div class="ml-3 w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium"
+                       :class="{
+                           'text-green-800 dark:text-green-200': notification.type === 'success',
+                           'text-red-800 dark:text-red-200': notification.type === 'error',
+                           'text-yellow-800 dark:text-yellow-200': notification.type === 'warning'
+                       }"
+                       x-text="notification.message"></p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button type="button" @click="notification.show = false; clearTimeout(notification.timeout);"
+                            class="inline-flex rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            :class="{
+                                'text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 focus:ring-green-600 dark:focus:ring-offset-green-900': notification.type === 'success',
+                                'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:ring-red-600 dark:focus:ring-offset-red-900': notification.type === 'error',
+                                'text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 focus:ring-yellow-600 dark:focus:ring-offset-yellow-900': notification.type === 'warning'
+                            }">
+                        <span class="sr-only">Close</span>
+                        <iconify-icon icon="tabler:x" width="16" height="16"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('securityPolicyApp', () => ({
+            // Core State
+            entry: null,
+            originalEntry: null,
+            isLoading: true,
+            loadError: null,
+            isSaving: false,
+
+            // UI-bound input fields for actions, resources (comma-separated strings)
+            actionsInput: '',
+            resourcesInput: '',
+            // Removed groupsInput, groups will be managed directly in entry.data.groups
+
+            // Error State
+            errors: {
+                actions: null,
+                resources: null,
+                effect: null,
+                conditions: [],
+            },
+            dirtyFields: {},
+            wippyApi: null,
+
+            // --- Initialization & State Management ---
+            async initialize() {
+                this.isLoading = true; this.loadError = null; this.resetState();
+                try {
+                    this.wippyApi = typeof initWippyApi === 'function'
+                        ? await window.initWippyApi()
+                        : this.createFallbackWippyApi();
+
+                    const entryId = this.wippyApi?.config?.path;
+                    if (!entryId) throw new Error('No Security Policy Config ID provided');
+                    await this.loadEntry(entryId);
+                } catch (err) {
+                    this.loadError = `Init error: ${err.message}`;
+                    console.error("Initialization failed:", err);
+                } finally { this.isLoading = false; }
+            },
+
+            resetState() {
+                this.entry = null; this.originalEntry = null;
+                this.actionsInput = ''; this.resourcesInput = '';
+                this.errors = { actions: null, resources: null, effect: null, conditions: [] };
+                this.dirtyFields = {};
+            },
+
+            createFallbackWippyApi() {
+                // ... (fallback API remains the same as previous, ensure it initializes groups as array)
+                const fallbackId = new URLSearchParams(window.location.search).get('id') || 'app.security:general.access';
+                console.warn("Using Fallback Wippy API for Security Policy Editor");
+                let policyData = {
+                    policy: {
+                        actions: '*', resources: '*', effect: 'allow',
+                        conditions: fallbackId.includes('cond') ? [{ field: 'actor.meta.role', operator: 'eq', value: 'admin' }] : []
+                    },
+                    groups: fallbackId.includes('group') ? ['app.security:user'] : []
+                };
+                if (fallbackId === 'app.security:registry.forbid_write') {
+                    policyData = {
+                        policy: {
+                            resources: '*', actions: '*',
+                            conditions: [{ field: 'action', operator: 'matches', value: '^registry\\.apply.*$' }],
+                            effect: 'deny'
+                        },
+                        groups: ['app.security:user', 'app.security:ingress']
+                    };
+                }
+                return {
+                    config: { path: fallbackId, feature: { routePrefix: '/apps' } },
+                    iframe: { navigate: (v, p) => console.log(`Fallback Nav: ${v}`, p || '') },
+                    api: {
+                        get: async () => ({ data: { success: true, entry: {
+                                    id: fallbackId, kind: 'security.policy',
+                                    meta: { comment: `Security Policy: ${fallbackId}` },
+                                    data: policyData
+                                }}}),
+                        put: async (url, payload) => {
+                            console.log('Fallback API PUT (Security Policy):', url, payload);
+                            const updatedEntry = JSON.parse(JSON.stringify(this.entry));
+                            if (payload.meta) updatedEntry.meta = { ...updatedEntry.meta, ...payload.meta };
+                            if (payload.data) {
+                                updatedEntry.data.policy = payload.data.policy !== undefined ? payload.data.policy : updatedEntry.data.policy;
+                                updatedEntry.data.groups = payload.data.groups !== undefined ? payload.data.groups : updatedEntry.data.groups;
+                            }
+                            this.entry = updatedEntry;
+                            this.originalEntry = JSON.parse(JSON.stringify(this.entry));
+                            this.dirtyFields = {};
+                            this.actionsInput = this.convertArrayOrStringToInput(this.entry.data.policy.actions);
+                            this.resourcesInput = this.convertArrayOrStringToInput(this.entry.data.policy.resources);
+                            // Groups are now directly in entry.data.groups array
+                            return { data: { success: true, entry: updatedEntry }};
+                        }
+                    }
+                };
+            },
+
+            // --- Data Loading & Normalization ---
+            async loadEntry(id) {
+                this.isLoading = true; this.loadError = null; this.resetState();
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(id)}`);
+                    const data = response.data;
+                    if (!data.success || !data.entry) throw new Error(data.error || 'Invalid server response');
+
+                    this.entry = data.entry;
+                    if (!this.entry.meta) this.entry.meta = {};
+                    if (!this.entry.data) this.entry.data = { policy: { actions: '*', resources: '*', effect: 'allow', conditions: [] }, groups: [] };
+                    if (!this.entry.data.policy) this.entry.data.policy = { actions: '*', resources: '*', effect: 'allow', conditions: [] };
+                    if (!this.entry.data.policy.conditions) this.entry.data.policy.conditions = [];
+                    if (!Array.isArray(this.entry.data.groups)) this.entry.data.groups = []; // Ensure groups is an array
+
+                    // Populate UI input fields for actions/resources
+                    this.actionsInput = this.convertArrayOrStringToInput(this.entry.data.policy.actions);
+                    this.resourcesInput = this.convertArrayOrStringToInput(this.entry.data.policy.resources);
+                    // Groups are now directly bound to entry.data.groups via x-for
+
+                    this.originalEntry = JSON.parse(JSON.stringify(this.entry));
+                    this.dirtyFields = {};
+                    this.validateAllFields();
+                } catch (error) { this.loadError = `Load error: ${error.message}`; console.error("Load failed:", error); }
+                finally { this.isLoading = false; }
+            },
+
+            convertArrayOrStringToInput(value) {
+                if (Array.isArray(value)) { return value.join(', '); }
+                return String(value || '');
+            },
+
+            // --- Field Updates & Dirty Checking ---
+            updateField(path, value) {
+                let current = this.entry; const keys = path.split('.');
+                for (let i = 0; i < keys.length - 1; i++) {
+                    if (!current[keys[i]] || typeof current[keys[i]] !== 'object') { current[keys[i]] = {}; }
+                    current = current[keys[i]];
+                }
+                if (current) {
+                    current[keys[keys.length - 1]] = value;
+                    this.dirtyFields[path] = true;
+                    if (path.startsWith('data.policy.')) {
+                        this.validatePolicyField(path.split('.').pop(), value);
+                    }
+                } else { console.error("Failed to update field: parent object not found for path", path); }
+            },
+
+            formatActions() { /* ... unchanged ... */
+                this.entry.data.policy.actions = this.parseInputToArrayOrString(this.actionsInput);
+                this.dirtyFields['data.policy.actions'] = true;
+                this.validatePolicyField('actions', this.entry.data.policy.actions);
+            },
+            formatResources() { /* ... unchanged ... */
+                this.entry.data.policy.resources = this.parseInputToArrayOrString(this.resourcesInput);
+                this.dirtyFields['data.policy.resources'] = true;
+                this.validatePolicyField('resources', this.entry.data.policy.resources);
+            },
+            // Removed formatGroups, groups are now managed as an array directly
+            parseInputToArrayOrString(inputStr) { /* ... unchanged ... */
+                const trimmed = inputStr.trim();
+                if (trimmed === '*') return '*';
+                if (trimmed.includes(',')) {
+                    return trimmed.split(',').map(s => s.trim()).filter(s => s !== '');
+                }
+                return trimmed; // Single string
+            },
+
+            get isDirty() { /* ... unchanged ... */
+                if (!this.originalEntry || !this.entry) return false;
+                const currentDataToCompare = {
+                    meta_comment: this.entry.meta?.comment || '',
+                    policy_actions: this.entry.data?.policy?.actions,
+                    policy_resources: this.entry.data?.policy?.resources,
+                    policy_effect: this.entry.data?.policy?.effect,
+                    policy_conditions: this.entry.data?.policy?.conditions,
+                    groups: this.entry.data?.groups // Now comparing the array directly
+                };
+                const originalDataToCompare = {
+                    meta_comment: this.originalEntry.meta?.comment || '',
+                    policy_actions: this.originalEntry.data?.policy?.actions,
+                    policy_resources: this.originalEntry.data?.policy?.resources,
+                    policy_effect: this.originalEntry.data?.policy?.effect,
+                    policy_conditions: this.originalEntry.data?.policy?.conditions,
+                    groups: this.originalEntry.data?.groups // Now comparing the array directly
+                };
+                return JSON.stringify(currentDataToCompare) !== JSON.stringify(originalDataToCompare);
+            },
+
+            // --- Group Management ---
+            addGroup() {
+                if (!Array.isArray(this.entry.data.groups)) this.entry.data.groups = [];
+                this.entry.data.groups.push('');
+                this.dirtyFields['data.groups'] = true;
+            },
+            removeGroup(index) {
+                this.entry.data.groups.splice(index, 1);
+                this.dirtyFields['data.groups'] = true;
+            },
+            updateGroup(index, value) {
+                if (index >= 0 && index < this.entry.data.groups.length) {
+                    this.entry.data.groups[index] = value.trim();
+                    this.dirtyFields['data.groups'] = true;
+                }
+            },
+
+
+            // --- Policy Conditions Management (Unchanged) ---
+            addCondition() { /* ... */
+                if (!this.entry.data.policy.conditions) this.entry.data.policy.conditions = [];
+                this.entry.data.policy.conditions.push({ field: '', operator: '', value: null, value_from: '' });
+                this.dirtyFields['data.policy.conditions'] = true;
+                if (!this.errors.conditions) this.errors.conditions = [];
+                this.errors.conditions.push({});
+            },
+            removeCondition(index) { /* ... */
+                this.entry.data.policy.conditions.splice(index, 1);
+                this.errors.conditions.splice(index, 1);
+                this.dirtyFields['data.policy.conditions'] = true;
+                this.validateAllFields();
+            },
+
+            // --- Validation (Condition validation logic adjusted for mutual exclusivity) ---
+            validatePolicyField(fieldName, value) { /* ... unchanged ... */
+                this.errors[fieldName] = null; // Clear previous error
+                if (fieldName === 'actions' || fieldName === 'resources') {
+                    if (typeof value === 'string') {
+                        if (value.trim() === "") this.errors[fieldName] = `${fieldName} string cannot be empty.`;
+                    } else if (Array.isArray(value)) {
+                        if (value.length === 0) this.errors[fieldName] = `${fieldName} list cannot be empty.`;
+                        value.forEach(item => { if (typeof item !== 'string' || item.trim() === "") this.errors[fieldName] = `All items in ${fieldName} list must be non-empty strings.`; });
+                    } else { this.errors[fieldName] = `${fieldName} must be a string or a list of strings.`; }
+                } else if (fieldName === 'effect') {
+                    if (value !== 'allow' && value !== 'deny') this.errors.effect = 'Effect must be "allow" or "deny".';
+                }
+            },
+            validateConditionField(index, field, value) {
+                if (!this.errors.conditions[index]) this.errors.conditions[index] = {};
+                this.errors.conditions[index][field] = null;
+
+                const condition = this.entry.data.policy.conditions[index];
+                let hasError = false;
+
+                if (field === 'field' && String(value || '').trim() === '') { this.errors.conditions[index].field = 'Field is required.'; hasError = true; }
+                if (field === 'operator' && String(value || '').trim() === '') { this.errors.conditions[index].operator = 'Operator is required.'; hasError = true; }
+                else if (field === 'operator' && value && !["eq", "ne", "lt", "gt", "lte", "gte", "in", "exists", "contains", "matches"].includes(value)) {
+                    this.errors.conditions[index].operator = 'Invalid operator.'; hasError = true;
+                }
+
+                // Check for value/value_from mutual exclusivity and requirement
+                if (condition.operator !== 'exists') {
+                    const val = condition.value;
+                    const valFrom = String(condition.value_from || '').trim();
+
+                    if ((val === null || String(val).trim() === '') && valFrom === '') {
+                        // Only set error if this specific field being validated is now making it invalid
+                        if (field === 'value' || field === 'value_from') {
+                            if (!this.errors.conditions[index].value) this.errors.conditions[index].value = 'Either Value or Value From is required.';
+                            if (!this.errors.conditions[index].value_from) this.errors.conditions[index].value_from = 'Either Value or Value From is required.';
+                        }
+                        hasError = true;
+                    } else {
+                        // If one has a value, clear the error message for the other.
+                        if (valFrom !== '') this.errors.conditions[index].value = null;
+                        if (val !== null && String(val).trim() !== '') this.errors.conditions[index].value_from = null;
+                    }
+                }
+                this.dirtyFields['data.policy.conditions'] = true;
+                return !hasError;
+            },
+
+            validateAllFields() { /* ... unchanged ... */
+                if (!this.entry?.data?.policy) { this.resetState(); return; }
+                this.validatePolicyField('actions', this.entry.data.policy.actions);
+                this.validatePolicyField('resources', this.entry.data.policy.resources);
+                this.validatePolicyField('effect', this.entry.data.policy.effect);
+
+                this.errors.conditions = [];
+                (this.entry.data.policy.conditions || []).forEach((condition, index) => {
+                    if (!this.errors.conditions[index]) this.errors.conditions[index] = {};
+                    this.validateConditionField(index, 'field', condition.field);
+                    this.validateConditionField(index, 'operator', condition.operator);
+                    if (condition.operator !== 'exists') {
+                        this.validateConditionField(index, 'value', condition.value);
+                    }
+                });
+            },
+            getConditionErrorClass(index, field) { /* ... unchanged ... */
+                return (this.errors.conditions && this.errors.conditions[index] && this.errors.conditions[index][field]) ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-surface-300 dark:border-surface-600';
+            },
+            hasVisibleErrors() { /* ... unchanged ... */
+                if (this.errors.actions || this.errors.resources || this.errors.effect) return true;
+                return this.errors.conditions.some(condErr => Object.values(condErr).some(e => e !== null));
+            },
+
+            // --- Saving ---
+            async saveEntry() {
+                this.formatActions(); // Ensure actionsInput is parsed
+                this.formatResources(); // Ensure resourcesInput is parsed
+                // Groups are now directly in entry.data.groups, no separate formatGroups needed before save
+                this.validateAllFields();
+
+                if (this.hasVisibleErrors()) {
+                    this.showNotification('error', 'Please fix validation errors.');
+                    return;
+                }
+                if (this.isSaving || !this.isDirty) { if (!this.isDirty) this.showNotification('warning', 'No changes to save.'); return; }
+                if (!this.entry) { this.showNotification('error', 'No entry data.'); return; }
+
+                this.isSaving = true;
+                try {
+                    const dataPayload = {
+                        policy: {
+                            actions: this.entry.data.policy.actions,
+                            resources: this.entry.data.policy.resources,
+                            effect: this.entry.data.policy.effect,
+                            conditions: (this.entry.data.policy.conditions || []).map(c => ({
+                                field: c.field, operator: c.operator,
+                                value: (c.value_from || c.operator === 'exists') ? null : this.autoConvertValueType(c.value),
+                                value_from: (c.value_from && c.operator !== 'exists') ? c.value_from : undefined
+                            })).filter(c => c.field && c.operator)
+                        },
+                        groups: (this.entry.data.groups || []).filter(g => g.trim() !== '') // Filter out empty group strings
+                    };
+
+                    const payload = { id: this.entry.id, kind: this.entry.kind, meta: { comment: this.entry.meta?.comment || '' }, data: dataPayload, merge: true };
+                    const response = await this.wippyApi.api.put( `/api/v1/keeper/registry/entry?id=${encodeURIComponent(this.entry.id)}`, payload );
+                    if (!response.data.success) throw new Error(response.data.error || 'Save failed');
+
+                    await this.loadEntry(this.entry.id);
+                    this.showNotification('success', 'Security Policy configuration saved.');
+                } catch (error) { this.showNotification('error', `Save Failed: ${error.message}`); console.error("Save failed:", error); }
+                finally { this.isSaving = false; }
+            },
+            autoConvertValueType(value) { /* ... unchanged ... */
+                if (value === null || value === undefined || String(value).trim() === '') return null;
+                const strVal = String(value);
+                if (strVal.toLowerCase() === 'true') return true;
+                if (strVal.toLowerCase() === 'false') return false;
+                if (!isNaN(parseFloat(strVal)) && isFinite(strVal)) return parseFloat(strVal);
+                return strVal;
+            },
+
+            // --- Helpers ---
+            getNamespace: (id) => id?.split(':')[0] || '',
+            getName: (id) => id?.includes(':') ? id.split(':').slice(1).join(':') : (id || ''),
+            showNotification(type, message) { window.dispatchEvent(new CustomEvent('shownotification', { detail: { type, message } }));}
+
+        }));
+    });
+</script>
+{{ end }}

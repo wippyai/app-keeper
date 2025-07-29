@@ -1,0 +1,533 @@
+{{ extends "/common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}Contract Binding Information{{ end }}
+{{ block metaDescription() }}View and edit contract binding configuration{{ end }}
+
+{{ block mainContent() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden max-w-5xl mx-auto"
+     x-data="contractBindingApp"
+     x-init="initialize()"
+     x-cloak>
+
+    <!-- Page Header -->
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+        <div class="flex items-center">
+            <iconify-icon icon="tabler:link" class="text-3xl text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0"></iconify-icon>
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Contract Binding</h3>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400"
+                   x-show="bindingData?.id">
+                    <span x-text="getNamespace(bindingData?.id)"></span>:<span x-text="getName(bindingData?.id)"></span>
+                    <span class="ml-1">(Contract Binding)</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex space-x-3">
+            <button
+                    type="button"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="isSaving || isLoading || !isDirty"
+                    @click="saveBinding()">
+                <template x-if="isSaving">
+                    <iconify-icon icon="tabler:loader" class="animate-spin mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="!isSaving">
+                    <iconify-icon icon="tabler:device-floppy" class="mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading/Error States -->
+    <div class="flex justify-center items-center py-12" x-show="isLoading">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading contract binding...</span>
+    </div>
+
+    <div class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400" x-show="!isLoading && loadError">
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="loadError"></p>
+            <button @click="initialize()"
+                    class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+                <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="px-4 py-5 sm:p-6 space-y-6" x-show="!isLoading && !loadError && bindingData?.id">
+
+        <!-- Metadata Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:file-description" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Description</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Details and purpose of this contract binding</p>
+                </div>
+            </div>
+            <div class="mt-2">
+                <textarea x-model="bindingData.meta.comment"
+                          @input="markDirty()"
+                          class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                          rows="4"
+                          placeholder="Enter binding description..."
+                          :disabled="isLoading || isSaving"></textarea>
+            </div>
+        </div>
+
+        <!-- Tags Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:tags" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Tags</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Comma-separated tags for categorization</p>
+                </div>
+            </div>
+            <div class="mt-2">
+                <input type="text" x-model="tagsInput"
+                       @input="updateTagsFromInput()"
+                       class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                       placeholder="tag1, tag2, tag3"
+                       :disabled="isLoading || isSaving">
+                <div class="mt-2 flex flex-wrap gap-1" x-show="bindingData.meta.tags && bindingData.meta.tags.length > 0">
+                    <template x-for="tag in bindingData.meta.tags" :key="tag">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-800 dark:text-primary-200">
+                            <span x-text="tag"></span>
+                        </span>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Classes Section (Binding Only) -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700"
+             x-show="bindingData.meta.class !== undefined">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:stack-2" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Classes</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Comma-separated classification values</p>
+                </div>
+            </div>
+            <div class="mt-2">
+                <input type="text" x-model="classInput"
+                       @input="updateClassFromInput()"
+                       class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                       placeholder="class1, class2, class3"
+                       :disabled="isLoading || isSaving">
+                <div class="mt-2 flex flex-wrap gap-1" x-show="bindingData.meta.class && bindingData.meta.class.length > 0">
+                    <template x-for="cls in bindingData.meta.class" :key="cls">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-200">
+                            <span x-text="cls"></span>
+                        </span>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contracts Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:network" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div>
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Contract Implementations</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Contract definitions and their method implementations</p>
+                </div>
+            </div>
+            <div class="mt-4 space-y-4" x-show="bindingData.data && bindingData.data.contracts && bindingData.data.contracts.length > 0">
+                <template x-for="(contract, contractIndex) in bindingData.data.contracts" :key="contractIndex">
+                    <div class="bg-white dark:bg-surface-700 rounded-md border border-surface-200 dark:border-surface-600 p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h5 class="text-sm font-semibold text-surface-900 dark:text-surface-100">Contract Definition</h5>
+                            <button @click="removeContract(contractIndex)"
+                                    class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    :disabled="isLoading || isSaving">
+                                <iconify-icon icon="tabler:trash" width="16" height="16"></iconify-icon>
+                            </button>
+                        </div>
+
+                        <!-- Contract ID -->
+                        <div class="mb-3">
+                            <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Contract ID</label>
+                            <input type="text" x-model="contract.contract"
+                                   @input="markDirty()"
+                                   class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                   placeholder="namespace:contract_name"
+                                   :disabled="isLoading || isSaving">
+                        </div>
+
+                        <!-- Required Context -->
+                        <div class="mb-3" x-show="contract.context_required !== undefined">
+                            <label class="block text-xs font-medium text-surface-700 dark:text-surface-300 mb-1">Required Context (comma-separated)</label>
+                            <input type="text" :value="(contract.context_required || []).join(', ')"
+                                   @input="updateContextRequired(contractIndex, $event.target.value)"
+                                   class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                   placeholder="context_key1, context_key2"
+                                   :disabled="isLoading || isSaving">
+                        </div>
+
+                        <!-- Method Mappings -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-xs font-medium text-surface-700 dark:text-surface-300">Method Mappings</label>
+                                <button @click="addMethodMapping(contractIndex)"
+                                        class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-xs"
+                                        :disabled="isLoading || isSaving">
+                                    <iconify-icon icon="tabler:plus" width="14" height="14" class="inline mr-1"></iconify-icon>
+                                    Add Method
+                                </button>
+                            </div>
+                            <div class="space-y-2" x-show="contract.methods && Object.keys(contract.methods).length > 0">
+                                <template x-for="(functionId, methodName) in contract.methods" :key="methodName">
+                                    <div class="flex items-center space-x-2">
+                                        <input type="text" :value="methodName"
+                                               @input="updateMethodName(contractIndex, methodName, $event.target.value)"
+                                               class="flex-1 border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-1 px-2 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-xs"
+                                               placeholder="method_name"
+                                               :disabled="isLoading || isSaving">
+                                        <span class="text-xs text-surface-500 dark:text-surface-400">→</span>
+                                        <input type="text" :value="functionId"
+                                               @input="updateMethodFunction(contractIndex, methodName, $event.target.value)"
+                                               class="flex-1 border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-1 px-2 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-xs"
+                                               placeholder="namespace:function_name"
+                                               :disabled="isLoading || isSaving">
+                                        <button @click="removeMethodMapping(contractIndex, methodName)"
+                                                class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                                :disabled="isLoading || isSaving">
+                                            <iconify-icon icon="tabler:x" width="14" height="14"></iconify-icon>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                            <div x-show="!contract.methods || Object.keys(contract.methods).length === 0"
+                                 class="text-center py-3 text-xs text-surface-500 dark:text-surface-400 border border-dashed border-surface-300 dark:border-surface-600 rounded-md">
+                                No method mappings defined
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div x-show="!bindingData.data || !bindingData.data.contracts || bindingData.data.contracts.length === 0"
+                 class="text-center py-6 text-surface-500 dark:text-surface-400">
+                <iconify-icon icon="tabler:network-off" class="text-2xl mb-2"></iconify-icon>
+                <p class="text-sm mb-3">No contract implementations defined</p>
+                <button @click="addContract()"
+                        class="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        :disabled="isLoading || isSaving">
+                    <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                    Add Contract Implementation
+                </button>
+            </div>
+            <div class="mt-4" x-show="bindingData.data && bindingData.data.contracts && bindingData.data.contracts.length > 0">
+                <button @click="addContract()"
+                        class="inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-surface-100 hover:bg-surface-200 dark:bg-surface-600 dark:hover:bg-surface-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        :disabled="isLoading || isSaving">
+                    <iconify-icon icon="tabler:plus" class="mr-1.5" width="16" height="16"></iconify-icon>
+                    Add Another Contract
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div x-data="{ notification: { show: false, type: 'success', message: '', timeout: null } }"
+         @shownotification.window="
+             notification.show = false;
+             clearTimeout(notification.timeout);
+             $nextTick(() => {
+                 notification = { ...$event.detail, show: true };
+                 notification.timeout = setTimeout(() => notification.show = false, 5000);
+             });
+         "
+         x-show="notification.show"
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+         x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 max-w-sm w-full z-50">
+        <div class="p-4 rounded-md shadow-lg"
+             :class="{
+                'bg-green-50 border border-green-200 dark:bg-green-900 dark:border-green-800': notification.type === 'success',
+                'bg-red-50 border border-red-200 dark:bg-red-900 dark:border-red-800': notification.type === 'error',
+                'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900 dark:border-yellow-800': notification.type === 'warning'
+             }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <iconify-icon
+                            :icon="notification.type === 'success' ? 'tabler:circle-check' : (notification.type === 'error' ? 'tabler:alert-circle' : 'tabler:alert-triangle')"
+                            :class="{
+                                'text-green-600 dark:text-green-400': notification.type === 'success',
+                                'text-red-600 dark:text-red-400': notification.type === 'error',
+                                'text-yellow-600 dark:text-yellow-400': notification.type === 'warning'
+                            }"
+                            width="20" height="20"></iconify-icon>
+                </div>
+                <div class="ml-3 w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium"
+                       :class="{
+                           'text-green-800 dark:text-green-200': notification.type === 'success',
+                           'text-red-800 dark:text-red-200': notification.type === 'error',
+                           'text-yellow-800 dark:text-yellow-200': notification.type === 'warning'
+                       }"
+                       x-text="notification.message"></p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button type="button" @click="notification.show = false; clearTimeout(notification.timeout);"
+                            class="inline-flex rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            :class="{
+                                'text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 focus:ring-green-600': notification.type === 'success',
+                                'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:ring-red-600': notification.type === 'error',
+                                'text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 focus:ring-yellow-600': notification.type === 'warning'
+                            }">
+                        <span class="sr-only">Close</span>
+                        <iconify-icon icon="tabler:x" width="16" height="16"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('contractBindingApp', () => ({
+            bindingData: null,
+            originalData: null,
+            isLoading: true,
+            loadError: null,
+            isSaving: false,
+            tagsInput: '',
+            classInput: '',
+            wippyApi: null,
+
+            get isDirty() {
+                if (!this.originalData || !this.bindingData) return false;
+                return JSON.stringify(this.originalData) !== JSON.stringify(this.bindingData);
+            },
+
+            async initialize() {
+                this.isLoading = true;
+                this.loadError = null;
+
+                try {
+                    if (typeof initWippyApi !== 'function') {
+                        this.wippyApi = this.createFallbackApi();
+                    } else {
+                        this.wippyApi = await window.initWippyApi();
+                    }
+
+                    const entryId = this.wippyApi?.config?.path;
+                    if (!entryId) {
+                        throw new Error('No binding ID provided.');
+                    }
+
+                    await this.loadBinding(entryId);
+                } catch (err) {
+                    console.error('Initialization failed:', err);
+                    this.loadError = `Initialization error: ${err.message}`;
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            createFallbackApi() {
+                const fallbackId = new URLSearchParams(window.location.search).get('id') || 'app.kb:semantic_query_impl';
+                return {
+                    config: { path: fallbackId },
+                    api: {
+                        get: async (url) => {
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            return {
+                                data: {
+                                    success: true,
+                                    entry: {
+                                        id: fallbackId,
+                                        kind: 'contract.binding',
+                                        meta: {
+                                            comment: 'Semantic search implementation using embeddings system',
+                                            tags: ['embeddings', 'semantic', 'implementation'],
+                                            class: ['search', 'vector']
+                                        },
+                                        data: {
+                                            contracts: [
+                                                {
+                                                    contract: 'app.kb:query_service',
+                                                    methods: {
+                                                        query: 'app.kb:semantic_query_func'
+                                                    },
+                                                    context_required: ['knowledge_base_id', 'user_access_level']
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            };
+                        },
+                        put: async (url, payload) => {
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                            return { data: { success: true, message: 'Contract binding updated successfully' } };
+                        }
+                    }
+                };
+            },
+
+            async loadBinding(id) {
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(id)}`);
+                    if (!response.data.success || !response.data.entry) {
+                        throw new Error(response.data.error || 'Failed to load contract binding.');
+                    }
+
+                    this.bindingData = response.data.entry;
+                    if (!this.bindingData.meta) this.bindingData.meta = {};
+                    if (!this.bindingData.meta.tags) this.bindingData.meta.tags = [];
+                    if (!this.bindingData.data) this.bindingData.data = {};
+                    if (!this.bindingData.data.contracts) this.bindingData.data.contracts = [];
+
+                    this.tagsInput = (this.bindingData.meta.tags || []).join(', ');
+                    this.classInput = (this.bindingData.meta.class || []).join(', ');
+                    this.originalData = JSON.parse(JSON.stringify(this.bindingData));
+                } catch (error) {
+                    console.error('Error loading binding:', error);
+                    this.loadError = `Failed to load binding: ${error.message}`;
+                }
+            },
+
+            markDirty() {
+                // Trigger reactivity
+            },
+
+            updateTagsFromInput() {
+                const tags = this.tagsInput
+                    .split(',')
+                    .map(tag => tag.trim())
+                    .filter(tag => tag.length > 0);
+                this.bindingData.meta.tags = tags;
+                this.markDirty();
+            },
+
+            updateClassFromInput() {
+                const classes = this.classInput
+                    .split(',')
+                    .map(cls => cls.trim())
+                    .filter(cls => cls.length > 0);
+                if (!this.bindingData.meta.class) this.bindingData.meta.class = [];
+                this.bindingData.meta.class = classes;
+                this.markDirty();
+            },
+
+            addContract() {
+                if (!this.bindingData.data.contracts) this.bindingData.data.contracts = [];
+                this.bindingData.data.contracts.push({
+                    contract: '',
+                    methods: {},
+                    context_required: []
+                });
+                this.markDirty();
+            },
+
+            removeContract(index) {
+                this.bindingData.data.contracts.splice(index, 1);
+                this.markDirty();
+            },
+
+            addMethodMapping(contractIndex) {
+                const contract = this.bindingData.data.contracts[contractIndex];
+                if (!contract.methods) contract.methods = {};
+                contract.methods['new_method'] = '';
+                this.markDirty();
+            },
+
+            removeMethodMapping(contractIndex, methodName) {
+                const contract = this.bindingData.data.contracts[contractIndex];
+                if (contract.methods) {
+                    delete contract.methods[methodName];
+                    this.markDirty();
+                }
+            },
+
+            updateMethodName(contractIndex, oldMethodName, newMethodName) {
+                const contract = this.bindingData.data.contracts[contractIndex];
+                if (contract.methods && oldMethodName !== newMethodName) {
+                    const functionId = contract.methods[oldMethodName];
+                    delete contract.methods[oldMethodName];
+                    contract.methods[newMethodName] = functionId;
+                    this.markDirty();
+                }
+            },
+
+            updateMethodFunction(contractIndex, methodName, functionId) {
+                const contract = this.bindingData.data.contracts[contractIndex];
+                if (contract.methods) {
+                    contract.methods[methodName] = functionId;
+                    this.markDirty();
+                }
+            },
+
+            updateContextRequired(contractIndex, value) {
+                const contract = this.bindingData.data.contracts[contractIndex];
+                contract.context_required = value
+                    .split(',')
+                    .map(ctx => ctx.trim())
+                    .filter(ctx => ctx.length > 0);
+                this.markDirty();
+            },
+
+            async saveBinding() {
+                if (!this.isDirty || this.isSaving) return;
+
+                this.isSaving = true;
+                try {
+                    const payload = {
+                        id: this.bindingData.id,
+                        kind: this.bindingData.kind,
+                        meta: this.bindingData.meta,
+                        data: this.bindingData.data,
+                        merge: true
+                    };
+
+                    const response = await this.wippyApi.api.put(
+                        `/api/v1/keeper/registry/entry?id=${encodeURIComponent(this.bindingData.id)}`,
+                        payload
+                    );
+
+                    if (!response.data.success) {
+                        throw new Error(response.data.error || 'Failed to save contract binding.');
+                    }
+
+                    this.originalData = JSON.parse(JSON.stringify(this.bindingData));
+                    this.showNotification('success', 'Contract binding saved successfully.');
+                } catch (error) {
+                    console.error('Error saving binding:', error);
+                    this.showNotification('error', `Save failed: ${error.message}`);
+                } finally {
+                    this.isSaving = false;
+                }
+            },
+
+            getNamespace(id) {
+                return (id || '').split(':')[0] || '';
+            },
+
+            getName(id) {
+                const parts = (id || '').split(':');
+                return parts.length > 1 ? parts.slice(1).join(':') : (parts[0] || '');
+            },
+
+            showNotification(type, message) {
+                window.dispatchEvent(new CustomEvent('shownotification', { detail: { type, message } }));
+            }
+        }));
+    });
+</script>
+{{ end }}

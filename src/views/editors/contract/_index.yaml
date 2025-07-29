@@ -1,0 +1,64 @@
+version: "1.0"
+namespace: keeper.views.editors.contract
+
+entries:
+  # keeper.views.editors.contract:binding_editors
+  - name: binding_editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editor for contract binding entries
+      target_kind: contract.binding
+    editors:
+      - title: General
+        icon: tabler:link
+        order: 1
+        id: default
+        page_name: keeper.views.editors.contract:binding_info
+    
+  # keeper.views.editors.contract:binding_info
+  - name: binding_info
+    kind: template.jet
+    meta:
+      name: editors/info/contract_binding
+      type: view.page
+      title: Contract Binding Information
+      icon: tabler:link
+      description: View and edit contract binding configuration
+      content_type: text/html
+      secure: true
+    source: file://binding_info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    
+  # keeper.views.editors.contract:definition_editors
+  - name: definition_editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editor for contract definition entries
+      target_kind: contract.definition
+    editors:
+      - title: General
+        icon: tabler:contract
+        order: 1
+        id: default
+        page_name: keeper.views.editors.contract:definition_info
+    
+  # keeper.views.editors.contract:definition_info
+  - name: definition_info
+    kind: template.jet
+    meta:
+      name: editors/info/contract_definition
+      type: view.page
+      title: Contract Definition Information
+      icon: tabler:contract
+      description: View contract definition metadata (read-only contract structure)
+      content_type: text/html
+      secure: true
+    source: file://definition_info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

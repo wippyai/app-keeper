@@ -1,0 +1,375 @@
+version: "1.0"
+namespace: keeper.agents.registry
+
+entries:
+  # keeper.agents.registry:apply_version
+  - name: apply_version
+    kind: function.lua
+    meta:
+      type: tool
+      title: Apply Version
+      description: Applies (rolls back to) a specific registry version
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "version_id": {
+              "type": "integer",
+              "description": "The version ID to apply"
+            }
+          },
+          "required": ["version_id"]
+        }
+      llm_alias: apply_version
+      llm_description: Reverts the registry to a specific historical version
+    source: file://apply_version.lua
+    modules:
+      - json
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.registry:create_entry
+  - name: create_entry
+    kind: function.lua
+    meta:
+      type: tool
+      title: Create Entry
+      description: Creates a new registry entry
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "description": "The namespace for the new entry"
+            },
+            "name": {
+              "type": "string",
+              "description": "The name for the new entry"
+            },
+            "kind": {
+              "type": "string",
+              "description": "The kind of entry (e.g., 'registry.entry', 'function.lua')"
+            },
+            "meta": {
+              "type": "object",
+              "description": "Metadata for the entry"
+            },
+            "data": {
+              "type": "object",
+              "description": "Data payload for the entry"
+            }
+          },
+          "required": ["namespace", "name", "kind"]
+        }
+      llm_alias: create_entry
+      llm_description: Adds a new entry to the registry with specified namespace, name, kind, metadata, and data
+    source: file://create_entry.lua
+    modules:
+      - json
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.registry:delete_entry
+  - name: delete_entry
+    kind: function.lua
+    meta:
+      name: Delete Entry
+      type: tool
+      description: Deletes a registry entry
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the registry entry to delete in the format 'namespace:name'"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: delete_entry
+      llm_description: Permanently removes an entry from the registry
+    source: file://delete_entry.lua
+    modules:
+      - json
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.registry:find_entries
+  - name: find_entries
+    kind: function.lua
+    meta:
+      type: tool
+      title: Find Entries
+      description: Searches for registry entries using simple search parameters
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "description": "Optional namespace filter (supports % wildcards, e.g. 'system%')"
+            },
+            "name": {
+              "type": "string",
+              "description": "Optional name filter (supports % wildcards, e.g. 'config%')"
+            },
+            "kind": {
+              "type": "string",
+              "description": "Optional kind filter (supports % wildcards, e.g. 'function%')"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of entries to return (optional, default: 100)"
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Offset for pagination (optional, default: 0)"
+            }
+          }
+        }
+      llm_alias: find_entries
+      llm_description: Finds registry entries matching namespace, name, or kind patterns with wildcard support
+    source: file://find_entries.lua
+    modules:
+      - json
+      - registry
+    method: handler
+    
+  # keeper.agents.registry:find_relevant
+  - name: find_relevant
+    kind: function.lua
+    meta:
+      type: tool
+      title: Find Relevant Registry Entries
+      description: Analyzes query against registry headers using LLM to find/prioritize relevant entry IDs (code, docs, agents), proactively including relevant documentation specs. Acts like RAG pre-fetch.
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The natural language query describing the task or information needed."
+            }
+          },
+          "required": ["query"]
+        }
+      llm_alias: find_relevant
+      llm_description: Takes query, analyzes registry headers with LLM, returns YAML list of prioritized relevant entry IDs (up to 25) under 'result'. Proactively includes IDs for relevant core module/library documentation (e.g., wippy.docs:sql.spec). Use first when unsure what entries are needed.
+    source: file://find_relevant.lua
+    modules:
+      - registry
+    imports:
+      llm: wippy.llm:llm
+    method: handler
+    
+  # keeper.agents.registry:get_contextual_entries
+  - name: get_contextual_entries
+    kind: function.lua
+    meta:
+      type: tool
+      title: Find Context
+      description: Finds relevant registry entries based on a query and retrieves their full content. Combines discovery and fetching for comprehensive context gathering.
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Natural language query describing the task or information needed to find relevant context entries (code, docs, config, etc.)."
+            }
+          },
+          "required": ["query"]
+        }
+      llm_alias: find_context
+      llm_description: Takes a query and finds context in registry related to that, use it learn or understand unfamiliar things.
+    source: file://get_contextual_entries.lua
+    modules:
+      - yaml
+      - funcs
+    method: handler
+    
+  # keeper.agents.registry:get_entries
+  - name: get_entries
+    kind: function.lua
+    meta:
+      type: tool
+      title: Read Multiple Entries
+      description: Retrieves multiple registry entries by their IDs and returns them formatted as a single YAML string.
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "ids": {
+              "type": "array",
+              "description": "A list of registry entry IDs to retrieve (e.g., ['namespace:name1', 'namespace:name2'])",
+              "items": {
+                "type": "string",
+                "description": "Entry ID in 'namespace:name' format"
+              }
+            }
+          },
+          "required": ["ids"]
+        }
+      llm_alias: get_entries
+      llm_description: Gets multiple specified registry entries by their IDs and returns the combined result as a YAML formatted string. Useful for retrieving related entries together.
+    source: file://get_entries.lua
+    modules:
+      - yaml
+      - registry
+    method: handler
+    
+  # keeper.agents.registry:get_headers
+  - name: get_headers
+    kind: function.lua
+    meta:
+      type: tool
+      title: Get Headers
+      description: Gets minimal header information for registry entries
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "description": "Optional namespace to filter entries (if not provided, returns entries from all namespaces)"
+            },
+            "kind": {
+              "type": "string",
+              "description": "Optional kind to filter entries (e.g., 'registry.entry', 'function.lua')"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of entries to return (default: 100)"
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Offset for pagination (default: 0)"
+            }
+          },
+          "required": ["limit"]
+        }
+      llm_alias: get_headers
+      llm_description: Returns namespace, kind, name, and comment for entries without full metadata or data
+    source: file://get_headers.lua
+    modules:
+      - json
+      - registry
+    method: handler
+    
+  # keeper.agents.registry:get_versions
+  - name: get_versions
+    kind: function.lua
+    meta:
+      name: Get Versions
+      type: tool
+      description: Retrieves registry version history
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of versions to return (optional, default: 20)"
+            }
+          }
+        }
+      llm_alias: get_versions
+      llm_description: Gets the version history of the registry with details about each version
+    source: file://get_versions.lua
+    modules:
+      - json
+      - registry
+    method: handler
+    
+  # keeper.agents.registry:update_entry
+  - name: update_entry
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update Entry
+      description: Updates an existing registry entry
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the registry entry to update in the format 'namespace:name'"
+            },
+            "kind": {
+              "type": "string",
+              "description": "Updated kind for the entry (optional)"
+            },
+            "meta": {
+              "type": "object",
+              "description": "Updated metadata for the entry (optional)"
+            },
+            "data": {
+              "type": "object",
+              "description": "Updated data payload for the entry (optional)"
+            },
+            "merge": {
+              "type": "boolean",
+              "description": "Whether to merge the updates with existing values (true) or replace them (false, default)"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: update_entry
+      llm_description: Modifies an existing registry entry with new metadata or data
+    source: file://update_entry.lua
+    modules:
+      - json
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.registry:wippy_manager
+  - name: wippy_manager
+    kind: registry.entry
+    meta:
+      name: wippy.registry
+      type: agent.gen1
+      title: Wippy Registry
+      comment: Wippy configurator Agent
+      group:
+        - System Utilities
+      tags:
+        - registry
+        - configuration
+        - system
+        - management
+      icon: tabler:database
+    prompt: "You are the Wippy agent in the platform, providing comprehensive management of the distributed registry system.\n\nRegistry Structure:\n- The registry is a distributed key-value store organized by namespaces\n- Each entry has an ID consisting of a namespace and name (e.g., \"pages:dashboard\")\n- Entries can be of different kinds (e.g., \"registry.entry\", \"function.lua\", \"http.endpoint\")\n- Entries have metadata and data components\n- All changes to the registry are versioned for history tracking\n\nWhen working with registry entries:\n- Use proper ID formats: \"{namespace}:{name}\" or {ns = \"namespace\", name = \"entry-name\"}\n- Handle metadata and data appropriately for different entry kinds\n- Be careful when modifying system entries - always explain risks to users\n- Check if entries exist before attempting to update or delete them\n- Consider version control implications when making changes\n\nCommon Registry Patterns:\n- Configuration entries store application settings\n- Function entries contain executable code\n- HTTP endpoint entries define API routes\n- Views entries store web content\n- Agent entries define AI agent configurations      \n\nYour goal is to help users manage the registry efficiently and safely.\n"
+    model: claude-4-sonnet
+    temperature: 0.5
+    max_tokens: 8000
+    tools:
+      - keeper.agents.registry:*
+    memory:
+      - Registry entries have a unique ID consisting of a namespace and name component.
+      - The registry maintains a complete version history of all changes.
+      - Registry operations are performed on snapshots to provide consistency.
+      - Changes are accumulated in a changeset before being applied atomically.
+      - Different entry kinds have different schema requirements for metadata and data.
+      - The Registry Manager agent can help with creating, updating, or troubleshooting any kind of registry entry.
+      - "# Registry Manager\r\n\r\n## Overview\r\n\r\nThe Wippy Manager provides a comprehensive system for managing the distributed registry in the Wippy platform. It consists of an agent and a set of tools that enable users to create, read, update, and delete any type of registry entry and manage registry versions.\r\n\r\n## Components\r\n\r\n- **Registry Manager Agent**: An AI agent specialized in registry operations\r\n- **Registry Management Tools**: Lua functions for interacting with the registry system\r\n\r\n## Agent Capabilities\r\n\r\nThe Registry Manager Agent can:\r\n\r\n1. **Get Entry**: Retrieve a specific registry entry by ID\r\n2. **Find Entries**: Search for registry entries using criteria\r\n3. **Create Entry**: Add new entries to the registry\r\n4. **Update Entry**: Modify existing registry entries\r\n5. **Delete Entry**: Remove entries from the registry\r\n6. **List Namespace**: View all entries in a specific namespace\r\n7. **Get Versions**: View the registry version history\r\n8. **Apply Version**: Rollback to a specific registry version\r\n9. **Get Headers**: Retrieve minimal header information (namespace, kind, name, comment) for entries without fetching full metadata or data\r\n\r\n## Registry Structure\r\n\r\nThe registry is a distributed key-value store organized by namespaces. Each registry entry:\r\n\r\n- Has a unique ID consisting of a namespace and name (e.g., \"pages:dashboard\")\r\n- Has a specific kind (e.g., \"registry.entry\", \"function.lua\", \"http.endpoint\")\r\n- Contains metadata and data components\r\n- Is versioned for history tracking\r\n\r\n## Working with Registry Entries\r\n\r\n### Entry ID Format\r\n\r\nEntry IDs can be specified in two ways:\r\n\r\n1. String format: `\"namespace:name\"`\r\n2. Table format: `{ ns = \"namespace\", name = \"entry-name\" }`\r\n\r\n### Common Entry Kinds\r\n\r\n- `registry.entry`: General-purpose registry entry\r\n- `function.lua`: Lua function code\r\n- `http.endpoint`: HTTP API endpoint definition\r\n- `agent.gen1`: AI agent definition\r\n\r\n### Registry Operations\r\n\r\nAll registry operations follow these steps:\r\n\r\n1. Get a snapshot of the registry\r\n2. Create a changeset from the snapshot\r\n3. Apply operations to the changeset\r\n4. Apply the changeset to create a new version\r\n\r\n### Finding Entries by Criteria\r\n\r\nThe registry supports various search patterns:\r\n\r\n- Root fields (special prefixes): `.kind`, `.name`\r\n- Metadata field matching operators:\r\n  - Standard equality match: `field`\r\n  - Regex pattern match: `~field`\r\n  - Contains match: `*field`\r\n  - Prefix match: `^field`\r\n  - Suffix match: `$field`\r\n\r\nExample criteria:\r\n```lua\r\n{\r\n  [\".kind\"] = \"registry.entry\",\r\n  [\"meta.type\"] = \"view.page\"\r\n}\r\n```\r\n\r\n## Version Control\r\n\r\nThe registry maintains a complete history of all changes. You can:\r\n\r\n- View the version history\r\n- Get a snapshot at a specific version\r\n- Roll back to a previous version\r\n\r\n## Technical Notes\r\n\r\n- Registry operations are performed on snapshots to provide consistency\r\n- Changes are accumulated in a changeset before being applied atomically\r\n- Different entry kinds have different schema requirements for metadata and data\r\n- Be careful when modifying system entries - always understand the potential impacts\r\n- Consider version control implications when making changes"
+      - Read 1000 headers when you need to learn your own system, it's better to get all headers fast than iterate over.
+      - By changing the registry entry you affect system state, be careful and research first. This system has self modifying capabilities.
+    delegate:
+      wippy.coder:
+        name: to_coder
+        rule: Send used to coder in order to handle code handling tasks.
+      wippy.keeper:
+        name: back_to_keeper
+        rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside documentation
+    

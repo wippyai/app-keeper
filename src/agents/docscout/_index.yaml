@@ -1,0 +1,748 @@
+version: "1.0"
+namespace: keeper.agents.docscout
+
+entries:
+  # keeper.agents.docscout:add_extraction_field
+  - name: add_extraction_field
+    kind: function.lua
+    meta:
+      type: tool
+      title: Add Extraction Field
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+        - update
+        - fields
+        - add
+      description: Adds a new field definition to a DocScout extraction group.
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the DocScout extraction group entry (e.g., 'app.docscout.mna:deferred_consideration')."
+            },
+            "field_name": {
+              "type": "string",
+              "description": "The name for the new field to add (e.g., 'payment_terms')."
+            },
+            "field_config": {
+              "type": "object",
+              "description": "The configuration object for the new field.",
+              "properties": {
+                 "description": { "type": "string", "description": "Description of the field." },
+                 "type": { "type": "string", "description": "Data type (string, number, boolean, enum, array)." },
+                 "search_query": { "type": "string", "description": "Optional semantic search query hint." },
+                 "validation_hints": { "type": "string", "description": "Optional hints for validation." },
+                 "expected_output": { "type": "string", "description": "Optional example of expected output." },
+                 "chunks": { "type": "integer", "description": "Optional number of chunks to retrieve for this field." },
+                 "enum_values": { "type": "array", "items": { "type": "string" }, "description": "Required if type is 'enum' or for constraining array values." },
+                 "item_type": { "type": "string", "description": "Specifies the type of items when 'type' is 'array'. Defaults to 'string' if not provided." }
+               },
+               "required": ["description", "type"],
+               "additionalProperties": true
+            }
+          },
+          "required": ["id", "field_name", "field_config"]
+        }
+      llm_alias: add_extraction_field
+      llm_description: Adds a new field definition (including its type, description, search query, etc.) to an existing DocScout extraction group.
+    source: file://add_extraction_field.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.docscout:agent
+  - name: agent
+    kind: registry.entry
+    meta:
+      name: document-scout
+      type: agent.gen1
+      title: Document Scout
+      comment: Agent for managing file uploads and searching document content, includes ability to configure and test extraction groups
+      group:
+        - Document Management
+      tags:
+        - uploads
+        - files
+        - content
+        - search
+      icon: tabler:file-search
+      depends_on:
+        - ns:wippy.uploads
+        - ns:wippy.embeddings
+    prompt: |-
+      You are the Document Scout agent in the platform, providing operations for file uploads and document search.
+      Core Capabilities: 1. List uploads: Use the list_uploads tool to view uploaded files 2. Get upload details: Use the get_upload tool to get detailed information about uploads 3. Search document: Use the search_document tool to search within document content using semantic search 4. SF Schema Reflection: Use the sf_reflect tool to explore Salesforce object schemas and properties
+      Your goal is to help users view, retrieve, and search their uploaded files and content. Provide clear responses and explain the information in a helpful manner.
+      When handling document searches: - Help users craft effective search queries - Explain similarity scores to help users understand relevance (0-1 scale where 1 is perfect match) - Present search results in a clear, organized way - Highlight the most relevant content from each result - For large documents, help users find specific sections - Offer to search within a specific document if the user mentions one - Suggest more specific queries if results are too broad
+      When showing search results: - Display the similarity score for each result - Show the document/file it came from - Include metadata information when available - Format the results in a readable way - Offer to refine the search if needed
+      When using SF Schema Reflection: - Help users explore Salesforce object schemas - Explain field properties and relationships - Suggest relevant fields based on user needs - Format schema information in a clear, organized way
+      Remember that document searches can be performed: - Across all documents (by providing just a query) - Within a specific document (by providing both a query and upload_id)
+      Always use queries that are the most optimal for semantic search.
+      I always learn which models i can use.
+      I always set scouting to 0 iterations at start when making new extraction groups.
+    model: o4-mini
+    temperature: 0.2
+    max_tokens: 4000
+    tools:
+      - keeper.agents.docscout:*
+    memory:
+      - 'Uploads go through a processing pipeline with statuses: "uploaded", "queued", "processing", "completed", "error".'
+      - Different file types have different processing requirements and capabilities.
+      - Upload metadata can store additional information about the file.
+      - Document content is chunked and embedded for semantic search capabilities.
+      - Each document chunk contains metadata including page numbers and chunk position information.
+      - Search results include similarity scores (0-1) indicating relevance to the query.
+      - Salesforce schema reflection allows for exploring object schemas and properties.
+    
+  # keeper.agents.docscout:create_extraction_group
+  - name: create_extraction_group
+    kind: function.lua
+    meta:
+      name: Create Extraction Group
+      type: tool
+      title: Create Extraction Group
+      comment: "Creates a new DocScout extraction group registry entry.  \nSupports both keyed-field tables and array-style field definitions.  \nNormalizes inputs, validates required parameters, and applies defaults.\n"
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+      description: "Add a new DocScout extraction group configuration to the registry, defining:\n• namespace, name, title  \n• fields to extract (supports object‑keyed or array‑list formats)  \n• optional prefetch queries  \n• scouting/validation settings  \n• extracting settings  \n• general options  \nReturns the full created entry on success.\n"
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "description": "Namespace for the extraction group (e.g., 'app.docscout.finance')."
+            },
+            "name": {
+              "type": "string",
+              "description": "Short identifier for the group (e.g., 'invoice_details')."
+            },
+            "title": {
+              "type": "string",
+              "description": "User‑friendly title for the group (e.g., 'Invoice Details Extractor')."
+            },
+            "comment": {
+              "type": "string",
+              "description": "Optional developer comment or description."
+            },
+            "tags": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Optional tags for categorization."
+            },
+            "fields": {
+              "type": ["object","array"],
+              "description": "Required. Field definitions. Can be:\n  – object keyed by field_name\n  – array of {field_name, type, description, …} entries",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "field_name": { "type": "string", "description": "Unique key for this field." },
+                  "description": { "type": "string", "description": "What this field represents." },
+                  "type": { "type": "string", "description": "Data type (string, number, boolean, enum, array)." },
+                  "search_query": { "type": "string", "description": "Hint for semantic retrieval." },
+                  "validation_hints": { "type": "string", "description": "Tips for validating this field." },
+                  "expected_output": { "type": "string", "description": "Example of expected value." },
+                  "chunks": { "type": "integer", "description": "Number of chunks to fetch for this field." },
+                  "enum_values": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Allowed values when type is 'enum'."
+                  },
+                  "item_type": { "type": "string", "description": "Element type when type is 'array'." }
+                },
+                "required": ["field_name","description","type"]
+              },
+              "additionalProperties": false
+            },
+            "prefetch": {
+              "type": "array",
+              "description": "Optional list of semantic search queries to prime context.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "description": "Unique identifier for this query." },
+                  "description": { "type": "string", "description": "Semantic search text." },
+                  "chunks": { "type": "integer", "description": "Number of chunks to retrieve." }
+                },
+                "required": ["name","description"]
+              }
+            },
+            "scouting": {
+              "type": "object",
+              "description": "Optional validation phase settings.",
+              "properties": {
+                "model": { "type": "string", "description": "LLM model ID for scouting (required)." },
+                "prompt": { "type": "string", "description": "Custom prompt for validation." },
+                "min_confidence": { "type": "number", "description": "Confidence threshold (0–1)." },
+                "max_iterations": { "type": "integer", "description": "Max validation passes." },
+                "max_additional_queries": { "type": "integer", "description": "Max extra retrievals per step." },
+                "max_tokens": { "type": "integer", "description": "Token limit for scouting response." },
+                "schema": { "type": "object", "description": "Custom JSON schema for output validation." },
+                "variables": { "type": "object", "description": "Key‑value pairs for prompt templating." }
+              },
+              "required": ["model"]
+            },
+            "extracting": {
+              "type": "object",
+              "description": "Optional extraction phase settings.",
+              "properties": {
+                "model": { "type": "string", "description": "LLM model ID for extraction (required)." },
+                "prompt": { "type": "string", "description": "Custom extraction prompt." },
+                "structured_output": {
+                  "type": "boolean",
+                  "description": "Return structured JSON output (default: true)."
+                },
+                "max_tokens": { "type": "integer", "description": "Token limit for extraction response." },
+                "variables": { "type": "object", "description": "Prompt variables for templating." }
+              },
+              "required": ["model"]
+            },
+            "options": {
+              "type": "object",
+              "description": "General extractor options.",
+              "properties": {
+                "shared_context": {
+                  "type": "boolean",
+                  "description": "Enable shared context between scouting and extracting (default: true)."
+                }
+              }
+            }
+          },
+          "required": ["namespace","name","title","fields"]
+        }
+    source: file://create_extraction_group.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    llm_alias: create_extraction_group
+    llm_description: "Adds a new DocScout extraction group to the registry.  \nValidates inputs, normalizes field definitions, applies defaults, and returns the created entry.\n"
+    
+  # keeper.agents.docscout:extract_document
+  - name: extract_document
+    kind: function.lua
+    meta:
+      name: Extract Document
+      type: tool
+      title: Extract Document Using Entry
+      tags:
+        - extraction
+        - document
+        - tool
+      description: Extracts data from a document using a specified registry entry
+      depends_on:
+        - ns:wippy.uploads
+        - ns:registry
+        - ns:wippy.llm
+        - ns:wippy.embeddings
+      input_schema: "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"file_uuid\": {\n      \"type\": \"string\",\n      \"description\": \"UUID of the file to extract data from\"\n    },\n    \"entry_id\": {\n      \"type\": \"string\",\n      \"description\": \"ID of the registry entry in the format 'namespace:name'\"\n    },           \n    \"validation_steps\": {\n      \"type\": \"integer\",\n      \"description\": \"Number of validation steps to perform (default: as specified in config)\",\n      \"minimum\": 0\n    },\n    \"scout_model\": {\n      \"type\": \"string\",\n      \"description\": \"Optional model to use for validation/scouting (default: as specified in config)\"\n    },\n    \"extraction_model\": {\n      \"type\": \"string\",\n      \"description\": \"Optional model to use for extraction (default: as specified in config)\"\n    },\n    \"min_confidence\": {\n      \"type\": \"number\",\n      \"description\": \"Minimum confidence to achieve before stopping validation (default: as specified in config)\"\n    },\n    \"max_additional_queries\": {\n      \"type\": \"integer\",\n      \"description\": \"Maximum number of additional queries per validation step (default: as specified in config)\"\n    }    \n  },\n  \"required\": [\"file_uuid\", \"entry_id\"]\n}\n"
+      llm_alias: extract_document
+      llm_description: Extracts structured data from a document based on a predefined registry entry configuration.
+    source: file://extract_document.lua
+    modules:
+      - json
+    imports:
+      extractor: docscout:extractor
+    method: handler
+    
+  # keeper.agents.docscout:list_extraction_groups
+  - name: list_extraction_groups
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Extraction Groups
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+        - list
+      description: Lists all DocScout extraction groups with optional namespace filtering
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "description": "Optional namespace filter for extraction groups"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of groups to return (default: 100)"
+            }
+          }
+        }
+      llm_alias: list_extraction_groups
+      llm_description: Lists available DocScout extraction groups, optionally filtered by namespace, returning metadata including ID, name, title, comment, and tags
+    source: file://list_extraction_groups.lua
+    modules:
+      - registry
+      - yaml
+    method: handler
+    
+  # keeper.agents.docscout:list_files
+  - name: list_files
+    kind: function.lua
+    meta:
+      name: list_files
+      type: tool
+      title: List File Uploads
+      tags:
+        - uploads
+        - tool
+      description: Lists uploaded files with optional filtering
+      depends_on:
+        - ns:wippy.uploads
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "Filter uploads by status (uploaded, queued, processing, completed, error)"
+            },
+            "type_id": {
+              "type": "string",
+              "description": "Filter uploads by type ID"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of uploads to return (default: 100, max: 500)"
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Offset for pagination (default: 0)"
+            }
+          }
+        }
+      llm_alias: list_files
+      llm_description: Lists uploads with optional filtering by status or type. Always filters by current user unless they have view_all permission.
+    source: file://list_files.lua
+    modules:
+      - json
+      - security
+    imports:
+      upload_repo: wippy.uploads:upload_repo
+    method: execute
+    
+  # keeper.agents.docscout:list_models
+  - name: list_models
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Available Models
+      comment: Lists available LLM models for use in document extraction configurations
+      tags:
+        - docscout
+        - extraction
+        - models
+        - tool
+      description: Lists available LLM models that can be used in extraction configurations
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "capabilities": {
+              "type": "array",
+              "description": "Optional. Filter models by required capabilities (e.g., ['tool_use', 'vision'])",
+              "items": { "type": "string" }
+            },
+            "provider": {
+              "type": "string",
+              "description": "Optional. Filter models by provider (e.g., 'openai', 'claude', 'gemini')"
+            },
+            "include_embeddings": {
+              "type": "boolean",
+              "description": "Optional. Include embedding models in the results (default: false)"
+            }
+          }
+        }
+      llm_alias: list_models
+      llm_description: Lists available LLM models that can be used for document extraction, with optional filtering by capabilities and provider.
+      updated_at: 1.744773054e+09
+    source: file://list_models.lua
+    modules:
+      - json
+    imports:
+      models: wippy.llm:models
+    method: handler
+    
+  # keeper.agents.docscout:read_extraction_groups
+  - name: read_extraction_groups
+    kind: function.lua
+    meta:
+      type: tool
+      title: Read Extraction Groups
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+      description: Retrieves metadata for specified DocScout extraction groups
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "ids": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Array of extraction group IDs to retrieve metadata for"
+            }
+          },
+          "required": ["ids"]
+        }
+      llm_alias: read_extraction_groups
+      llm_description: Fetches content for multiple DocScout extraction groups by their IDs, returning name, title, comment, and tags information
+    source: file://read_extraction_groups.lua
+    modules:
+      - registry
+      - yaml
+    method: handler
+    
+  # keeper.agents.docscout:remove_extraction_field
+  - name: remove_extraction_field
+    kind: function.lua
+    meta:
+      type: tool
+      title: Remove Extraction Field
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+        - update
+        - fields
+        - remove
+      description: Removes an existing field definition from a DocScout extraction group.
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the extraction group (e.g., 'app.docscout.finance:invoice_items_demo_v3')."
+            },
+            "field_name": {
+              "type": "string",
+              "description": "Name of the field to remove (e.g., 'line_item_count')."
+            }
+          },
+          "required": ["id","field_name"]
+        }
+      llm_alias: remove_extraction_field
+      llm_description: |
+        Removes a specified field from an existing DocScout extraction group entry.
+        Validates that the group and field exist, then updates the registry entry.
+    source: file://remove_extraction_field.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.docscout:scout_document
+  - name: scout_document
+    kind: function.lua
+    meta:
+      name: scout_document
+      type: tool
+      title: Search Document Content
+      tags:
+        - uploads
+        - content
+        - search
+        - tool
+      description: Searches within document content using semantic search
+      depends_on:
+        - ns:wippy.uploads
+        - ns:wippy.embeddings
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query"
+            },
+            "upload_id": {
+              "type": "string",
+              "description": "Optional: Specific upload ID to search within. If not provided, searches across all documents"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 10)",
+              "default": 10
+            },
+            "min_similarity": {
+              "type": "number",
+              "description": "Minimum similarity score (0-1) to include (default: 0.3)",
+              "default": 0.3
+            }
+          },
+          "required": ["query"]
+        }
+      llm_alias: search_document
+      llm_description: Searches within document content using semantic search. Can search across all documents or within a specific document.
+    source: file://scout_document.lua
+    modules:
+      - json
+      - security
+    imports:
+      embeddings: wippy.embeddings:embeddings
+      upload_repo: wippy.uploads:upload_repo
+    method: execute
+    
+  # keeper.agents.docscout:update_extracting_config
+  - name: update_extracting_config
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update Extracting Config
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+        - update
+        - extracting
+      description: Updates specific parameters within the 'extracting' configuration of a DocScout extraction group.
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the DocScout extraction group entry (e.g., 'app.docscout.mna:deferred_consideration')."
+            },
+            "extracting_updates": {
+              "type": "object",
+              "description": "Object containing only the extracting parameters to update. Existing values will be merged.",
+              "properties": {
+                "model": { "type": "string", "description": "LLM model ID for extraction." },
+                "prompt": { "type": "string", "description": "Custom prompt for extraction." },
+                "structured_output": { "type": "boolean", "description": "Flag to use structured output." },
+                "max_tokens": { "type": "integer", "description": "Max tokens for extraction response." },
+                "variables": { "type": "object", "description": "Key-value pairs for prompt templating." }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["id", "extracting_updates"]
+        }
+      llm_alias: update_extracting_config
+      llm_description: Modifies the extracting settings for a specific DocScout extraction group by merging the provided updates.
+    source: file://update_extracting_config.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.docscout:update_extraction_fields
+  - name: update_extraction_fields
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update Extraction Fields
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+        - update
+        - fields
+      description: |
+        Updates one or more existing fields in a DocScout extraction group. Each entry in field_updates should specify the API name of the field and only those settings you want to change.
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the DocScout extraction group (e.g., 'app.docscout.mna:deferred_consideration')."
+            },
+            "field_updates": {
+              "type": "array",
+              "description": "Required. List of field update objects.",
+              "items": {
+                "type": "object",
+                "required": ["field_name"],
+                "properties": {
+                  "field_name": {
+                    "type": "string",
+                    "description": "API name of the field to update."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "New description for the field."
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "New data type ('string', 'number', 'boolean', 'enum', 'array')."
+                  },
+                  "search_query": {
+                    "type": "string",
+                    "description": "New semantic search query hint."
+                  },
+                  "validation_hints": {
+                    "type": "string",
+                    "description": "New hints for validation."
+                  },
+                  "expected_output": {
+                    "type": "string",
+                    "description": "New example of expected output."
+                  },
+                  "chunks": {
+                    "type": "integer",
+                    "description": "New number of chunks to retrieve."
+                  },
+                  "enum_values": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Required if type is 'enum'."
+                  },
+                  "item_type": {
+                    "type": "string",
+                    "description": "Specifies the item type when 'type' is 'array'. Defaults to 'string'."
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": ["id", "field_updates"]
+        }
+      llm_alias: update_extraction_fields
+      llm_description: |
+        Modifies settings (description, type, search query, enum values, array item_type, etc.) for existing fields in a DocScout extraction group.
+    source: file://update_extraction_fields.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.docscout:update_extraction_group_meta
+  - name: update_extraction_group_meta
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update Extraction Group Metadata
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+        - update
+        - metadata
+      description: Updates the metadata (title, comment, tags) of an existing DocScout extraction group.
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the DocScout extraction group (e.g., 'app.docscout.mna:deferred_consideration')."
+            },
+            "title": {
+              "type": "string",
+              "description": "New title for the extraction group."
+            },
+            "comment": {
+              "type": "string",
+              "description": "New description/comment for the extraction group."
+            },
+            "tags": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "New tags for the extraction group as an array of strings."
+            }
+          },
+          "required": ["id"],
+          "additionalProperties": false
+        }
+      llm_alias: update_extraction_group_meta
+      llm_description: Updates the title, description (comment), and tags of a DocScout extraction group.
+    source: file://update_extraction_group_meta.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.docscout:update_scouting_config
+  - name: update_scouting_config
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update Scouting Config
+      tags:
+        - docscout
+        - extraction
+        - registry
+        - configuration
+        - tool
+        - update
+        - scouting
+      description: Updates specific parameters within the 'scouting' configuration of a DocScout extraction group.
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the DocScout extraction group entry (e.g., 'app.docscout.mna:deferred_consideration')."
+            },
+            "scouting_updates": {
+              "type": "object",
+              "description": "Object containing only the scouting parameters to update. Existing values will be merged.",
+              "properties": {
+                "model": { "type": "string", "description": "LLM model ID for scouting." },
+                "prompt": { "type": "string", "description": "Custom prompt for scouting." },
+                "min_confidence": { "type": "number", "description": "Minimum confidence threshold (0-1)." },
+                "max_iterations": { "type": "integer", "description": "Max validation iterations." },
+                "max_additional_queries": { "type": "integer", "description": "Max additional queries per step." },
+                "max_tokens": { "type": "integer", "description": "Max tokens for scouting response." },
+                "schema": { "type": "object", "description": "Custom JSON schema for scouting output." },
+                "variables": { "type": "object", "description": "Key-value pairs for prompt templating." }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["id", "scouting_updates"]
+        }
+      llm_alias: update_scouting_config
+      llm_description: Modifies the scouting (validation) settings for a specific DocScout extraction group by merging the provided updates.
+    source: file://update_scouting_config.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    

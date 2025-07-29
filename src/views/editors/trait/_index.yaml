@@ -1,0 +1,34 @@
+version: "1.0"
+namespace: keeper.views.editors.trait
+
+entries:
+  # keeper.views.editors.trait:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editor for Agent Trait entries
+      target_meta_type: agent.trait
+    editors:
+      - title: General
+        icon: tabler:message-circle
+        order: 1
+        id: default
+        page_name: keeper.views.editors.trait:info
+    
+  # keeper.views.editors.trait:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/trait
+      type: view.page
+      title: Agent Trait Information
+      icon: tabler:message-circle
+      description: View and edit Agent Trait configuration
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

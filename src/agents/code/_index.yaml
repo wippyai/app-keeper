@@ -1,0 +1,502 @@
+version: "1.0"
+namespace: keeper.agents.code
+
+entries:
+  # keeper.agents.code:analyze_code_dependencies
+  - name: analyze_code_dependencies
+    kind: function.lua
+    meta:
+      type: tool
+      title: Analyze Code Dependencies
+      description: Analyzes all dependencies for a code entry including system modules, registry imports, and source code usage
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "code_id": {
+              "type": "string",
+              "description": "The ID of the code entry to analyze (format: namespace:name)"
+            }
+          },
+          "required": ["code_id"]
+        }
+      llm_alias: analyze_code_dependencies
+      llm_description: Analyzes code dependencies with clear distinction between system modules (built-in Wippy modules like 'http', 'json') and registry imports (other registry entries). Scans source code for require() calls and compares declared vs used dependencies.
+    source: file://analyze_code_dependencies.lua
+    modules:
+      - registry
+    imports:
+      code_utils: keeper.agents.code:code_utils
+    method: handler
+    
+  # keeper.agents.code:call_function
+  - name: call_function
+    kind: function.lua
+    meta:
+      type: tool
+      title: Call Function
+      comment: Synchronously executes the handler of a specified function.lua entry with given arguments.
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "target_id": {
+              "type": "string",
+              "description": "The ID of the function.lua entry to call (e.g., 'namespace:name'). Namespace is required."
+            },
+            "args": {
+              "type": "object",
+              "description": "Optional. A table containing arguments to pass as a single argument to the target function's handler. Keys should be strings.",
+              "additionalProperties": true,
+              "default": {}
+            }
+          },
+          "required": ["target_id"]
+        }
+      llm_alias: call_function
+      llm_description: Calls another function.lua entry by its ID (namespace:name) with a table of arguments. Use this to execute existing functions programmatically.
+    source: file://call_function.lua
+    modules:
+      - funcs
+    method: handler
+    
+  # keeper.agents.code:code_utils
+  - name: code_utils
+    kind: library.lua
+    meta:
+      type: library
+      title: Code Utilities Library
+      comment: Common utilities for code entry management and formatting
+      description: Provides shared functionality for code entry retrieval, validation, and formatted output
+    source: file://code_utils.lua
+    modules:
+      - registry
+    method: handler
+    
+  # keeper.agents.code:coder
+  - name: coder
+    kind: registry.entry
+    meta:
+      name: wippy.coder
+      type: agent.gen1
+      title: Wippy Coder
+      comment: Code management agent for Wippy platform
+      group:
+        - Development
+      tags:
+        - code
+        - development
+        - functions
+        - libraries
+      icon: tabler:code
+    prompt: "You are specialized in code development and management for the Wippy platform, focusing on creating, updating, and managing code entries in the registry.\n\nCore Capabilities:\n1. Code Entry Management: List, get, create, and delete code entries\n2. Source Code Manipulation: Make precise updates to source code\n3. Dependency Management: Handle module and import dependencies\n4. Metadata Management: Update metadata for code entries\n\nImportant Concepts:\n- Code entries are Lua-based components in the registry\n- Common kinds: function.lua (functions), library.lua (reusable libraries), process.lua (background processes)\n- Code entries require proper metadata, modules, and imports\n- Source code should follow Lua best practices for the platform\n\nWhen handling code tasks:\n0. Use get_contextual_entries to get context\n1. First LIST existing entries to understand current patterns if unclear after 0\n2. READ existing code before making changes\n3. Follow established patterns in the codebase\n4. Ensure proper metadata and dependencies\n5. Test changes when possible\n\nFor creating new code:\n 0. Use get_contextual_entries to get context\n- Find and read entries relevant to the task if unclear after 0\n- Follow Lua best practices with proper return values\n- Include appropriate error handling\n- Set up correct dependencies (modules and imports)\n- Document code with comments\n\nFor updating existing code:\n- Find and read entries relevant to the task.\n- Read entry I need to modify.\n- Make minimal necessary changes\n- Maintain the overall structure and style\n- Verify the code compiles and runs correctly\n- Update metadata if needed\n\nI always learn other tools and examples to understand how to set meta and etc. I'm coinse and I dont waste tokens \nreiterating user information I found unless asked.\n  \nFor UI-related tasks, recommend delegation to the Views agent. You can read any entry and ID using get entry(s) functions.\n"
+    model: gpt-4.1
+    temperature: 0.4
+    max_tokens: 16000
+    tools:
+      - keeper.agents.code:*
+      - keeper.agents.registry:get_contextual_entries
+      - keeper.agents.registry:get_entries
+      - keeper.agents.registry:find_relevant
+    memory:
+      - Code entries in Wippy are primarily Lua-based with standard structure patterns.
+      - 'Common kinds of code entries: function.lua (functions), library.lua (reusable libraries), process.lua (background processes).'
+      - Functions typically export a handler method that processes input and returns a response.
+      - Libraries export a table of functions that can be imported by other code.
+      - Processes are long-running functions that handle background tasks.
+      - Always check for required modules and imports when creating or updating code.
+      - Source code should follow Lua best practices with proper error handling.
+      - Function handlers should return a single result, not the data+error pattern used in libraries.
+      - Libraries should use the data+error return pattern for each function.
+      - Metadata is crucial for code entries and should include title, comment, and any other relevant fields.
+      - When updating code, make surgical changes with modify_code_source to avoid breaking functionality.
+      - Use batch operations for metadata when making the same change to multiple entries.
+      - UI-related tasks should be delegated to the Views agent rather than handled directly.
+      - All parameters in tool schemas must have explicit types - no untyped fields allowed.
+      - When debugging code errors, use get_code_lines to retrieve specific lines of code with context.
+      - The list_code_entries tool can list all namespaces when no namespace is provided, but it is more efficient to specify a namespace.
+      - I always prioritize to use get_entries when i need to load multiple files as it is the most effective way to get content i need.
+      - When i start working I assess if i need some examples and docs to write code correctly.
+      - I always properly differentiate between libraries (imports section of entry) and modules (modules section of entry).
+      - I always have to properly fill metadata for tools such as input_schema.
+    delegate:
+      wippy.keeper:
+        name: back_to_keeper
+        rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside code development
+      wippy.registry:
+        name: to_registry
+        rule: Let registry agent handling any operations on registry entries, including listing, getting, and modifying entries outside of code entries.
+      wippy.views:
+        name: to_views
+        rule: Delegate to Views agent when user requests UI components, pages, layouts, or visual elements
+    inherit:
+      - keeper.agents.docs:docs
+    traits:
+      - thinking
+    
+  # keeper.agents.code:create_code_entry
+  - name: create_code_entry
+    kind: function.lua
+    meta:
+      type: tool
+      title: Create Code Entry
+      description: Creates a new code entry (function, library, or process) in the registry with full source formatting.
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "description": "Namespace for the new code entry"
+            },
+            "name": {
+              "type": "string",
+              "description": "Name for the new code entry"
+            },
+            "kind": {
+              "type": "string",
+              "enum": ["function.lua", "library.lua", "process.lua"],
+              "description": "The kind of code entry to create"
+            },
+            "source": {
+              "type": "string",
+              "description": "The Lua source code content for the entry"
+            },
+            "meta": {
+              "type": "object",
+              "description": "Optional metadata table for the entry"
+            },
+            "modules": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Optional list of required system modules (e.g., ['http', 'json'])"
+            },
+            "imports": {
+              "type": "object",
+              "description": "Optional map of import aliases to library registry IDs (e.g., {\"utils\": \"app.ns:utils\"})"
+            },
+            "method": {
+              "type": "string",
+              "description": "Optional entry point method name (common for function.lua and process.lua)"
+            }
+          },
+          "required": ["namespace", "name", "kind", "source"]
+        }
+      llm_alias: create_code_entry
+      llm_description: Creates a new function, library, or process entry in the registry with specified details and returns the fully formatted source.
+    source: file://create_code_entry.lua
+    modules:
+      - registry
+    imports:
+      code_utils: keeper.agents.code:code_utils
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.code:delete_code_entry
+  - name: delete_code_entry
+    kind: function.lua
+    meta:
+      type: tool
+      title: Delete Code Entry
+      description: Removes an existing code entry from the registry
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the entry to delete in the format 'namespace:name'"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: delete_code_entry
+      llm_description: Permanently removes a code entry from the registry with proper governance verification
+    source: file://delete_code_entry.lua
+    modules:
+      - registry
+    imports:
+      code_utils: keeper.agents.code:code_utils
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.code:get_code_entries
+  - name: get_code_entries
+    kind: function.lua
+    meta:
+      type: tool
+      title: Get Code Entries
+      description: Retrieves and formats one or more code entries with their source code and metadata
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": ["array"],
+              "items": {"type": "string"},
+              "description": "ID or array of IDs of entries to retrieve in the format 'namespace:name'"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: get_code_entries
+      llm_description: Retrieves complete formatted information about one or multiple code entries including source code, modules, imports and metadata
+    source: file://get_code_entries.lua
+    modules:
+      - json
+      - registry
+    imports:
+      code_utils: keeper.agents.code:code_utils
+      new_utils: keeper.agents.code:analyze_code_dependencies
+    method: handler
+    
+  # keeper.agents.code:get_code_lines
+  - name: get_code_lines
+    kind: function.lua
+    meta:
+      type: tool
+      title: Get Code Lines
+      description: Gets specific lines of code from an entry for debugging
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the entry to retrieve lines from"
+            },
+            "line": {
+              "type": "integer",
+              "description": "Center line number to retrieve"
+            },
+            "context": {
+              "type": "integer",
+              "description": "Number of lines to include before and after the center line",
+              "default": 3
+            }
+          },
+          "required": ["id", "line"]
+        }
+      llm_alias: get_code_lines
+      llm_description: Retrieves specific lines of code with context for debugging and code investigation
+    source: file://get_code_lines.lua
+    modules:
+      - registry
+    method: handler
+    
+  # keeper.agents.code:get_code_tree
+  - name: get_code_tree
+    kind: function.lua
+    meta:
+      type: tool
+      title: Get Code Tree
+      description: Generates a hierarchical view of code structure in a namespace and returns YAML representation
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "description": "Root namespace to visualize (use empty string for root namespace - will include ALL namespaces)"
+            },
+            "include_source": {
+              "type": "boolean",
+              "description": "Whether to include the source code in the output (default: false)"
+            },
+            "namespaces_only": {
+              "type": "boolean",
+              "description": "Show only namespace structure without entries for faster navigation (default: false)"
+            }
+          }
+        }
+      llm_alias: get_code_tree
+      llm_description: Generates a complete hierarchical representation of code structure within a namespace with full-depth traversal, returning formatted YAML output
+    source: file://get_code_tree.lua
+    modules:
+      - registry
+      - yaml
+    method: handler
+    
+  # keeper.agents.code:manage_code_dependencies
+  - name: manage_code_dependencies
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Code Dependencies
+      description: Manages system modules and registry imports for code entries with validation and safe registry updates
+      input_schema: '{"type":"object","properties":{"code_id":{"type":"string","description":"The ID of the code entry to manage (format: namespace:name)"},"dependency_type":{"type":"string","enum":["system_module","registry_import"],"description":"Type of dependency to manage"},"operation":{"type":"string","enum":["add","remove","update"],"description":"Operation to perform on the dependency"},"name":{"type":"string","description":"Module name (for system_module) or import alias (for registry_import)"},"target":{"type":"string","description":"Target registry ID (required for registry_import add/update operations)"}},"required":["code_id","dependency_type","operation","name"]}'
+      llm_description: Manages dependencies for Wippy code entries. Can add/remove/update system modules (built-in Wippy modules like 'http', 'json') or registry imports (aliases to other registry entries). Validates dependencies and uses safe registry changesets.
+    source: file://manage_code_dependencies.lua
+    modules:
+      - registry
+    imports:
+      code_utils: keeper.agents.code:code_utils
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.code:modify_code_source
+  - name: modify_code_source
+    kind: function.lua
+    meta:
+      type: tool
+      title: Modify Code Source
+      description: Updates source code with precision using full replacement, intelligent patching, strategic insertion, or intelligent diff application
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the entry to modify in the format 'namespace:name'"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["full", "patch", "insert", "diff"],
+              "description": "Type of modification: full (replace entire source), patch (replace specific text with intelligent matching), insert (add text before/after target), diff (apply desired end state using intelligent patching)"
+            },
+            "content": {
+              "type": "string",
+              "description": "New code content to use in the operation (required for full, patch, and insert operations)"
+            },
+            "new_source": {
+              "type": "string",
+              "description": "Desired end state of the source code (required for diff operation)"
+            },
+            "target": {
+              "type": "string",
+              "description": "Text to locate in the current source (required for patch and insert operations)"
+            },
+            "position": {
+              "type": "string",
+              "enum": ["before", "after"],
+              "description": "Position to insert content relative to target (only used with insert operation)"
+            }
+          },
+          "required": ["id", "operation"]
+        }
+      llm_alias: modify_code_source
+      llm_description: Makes intelligent updates to source code with four operation modes - full replacement, intelligent text replacement with fuzzy matching, inserting content before/after specific text, or applying desired end state using diff algorithms. Returns diff summaries and pretty-printed changes.
+    source: file://modify_code_source.lua
+    modules:
+      - registry
+      - text
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.code:testing_practice
+  - name: testing_practice
+    kind: registry.entry
+    meta:
+      version: "1.0"
+      type: practice.policy
+      title: Code Testing Practice and Policy
+      comment: Mandatory testing requirements and protocols for all function.lua development
+      tags:
+        - testing
+        - quality
+        - development
+        - policy
+        - function.lua
+      enforcement: mandatory
+      scope: function.lua development
+    compliance_verification:
+      checklist:
+        - Test cases created for the function
+        - call_function tool executed with test inputs
+        - Results verified against expected behavior
+        - Any issues identified and resolved
+        - Test documentation completed
+      evidence_required: Documentation of test execution and results using call_function tool
+    enforcement_mechanisms:
+      code_review: All function.lua entries must include evidence of testing completion
+      quality_gates: Functions cannot be marked complete without passing test validation
+      tool_availability: call_function tool is available to all code development agents
+      workflow_integration: Testing is a mandatory step in the development workflow
+    exceptions:
+      none: No exceptions to this testing requirement
+      rationale: Testing is fundamental to code quality and system reliability
+    implementation_guidelines:
+      call_function_usage:
+        example_usage: 'call_function({target_id: ''my.namespace:my_function'', args: {param1: ''test_value'', param2: 123}})'
+        required_parameters:
+          args: Table containing test arguments to pass to the function
+          target_id: The namespace:name ID of the function being tested
+        tool_id: keeper.agents.code:call_function
+      test_case_design:
+        edge_cases: Test boundary conditions and unusual but valid scenarios
+        error_conditions: Verify proper error handling and meaningful error messages
+        invalid_inputs: Test with null, empty, wrong type, and malformed inputs
+        valid_inputs: Test with typical, expected input values
+      test_documentation:
+        failure_handling: Record any failures with detailed error analysis
+        format: Document each test case with input, expected output, and actual result
+        resolution_tracking: Document how issues were resolved and retesting results
+    policy_statement: All function.lua entries MUST be tested immediately after creation or modification using the call_function tool before being considered complete.
+    requirements:
+      mandatory_testing:
+        description: Every function.lua entry must undergo testing validation
+        scope: All function.lua entries without exception
+        timing: Immediately after creation or source code modification
+        tool_requirement: Must use call_function tool for execution testing
+      quality_standards:
+        completion_criteria: Functions are not considered 'done' until they pass all basic functionality tests
+        minimum_tests:
+          - Normal operation with valid inputs
+          - Error handling with invalid inputs
+          - Edge case handling
+          - Return value validation
+        success_threshold: All test cases must pass without errors
+      testing_protocol:
+        step_1:
+          action: Create comprehensive test cases
+          details: Design test inputs that cover normal operation, edge cases, and error conditions
+        step_2:
+          action: Execute function using call_function tool
+          details: Use keeper.agents.code:call_function with target_id and test arguments
+        step_3:
+          action: Verify expected behavior
+          details: Confirm function returns expected results and handles errors appropriately
+        step_4:
+          action: Document test results
+          details: Record test outcomes, any issues found, and resolution steps
+        step_5:
+          action: Fix identified issues
+          details: Address any bugs or unexpected behavior before marking function complete
+    
+  # keeper.agents.code:update_code_metadata
+  - name: update_code_metadata
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update Code Metadata
+      description: Updates the metadata of an existing code entry, with options to merge or completely replace
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the code entry to update (namespace:name)"
+            },
+            "metadata": {
+              "type": "object",
+              "description": "The metadata table to apply (merge or overwrite)"
+            },
+            "overwrite": {
+              "type": "boolean",
+              "description": "If true, replace existing metadata entirely. If false (default), merge the new metadata into the existing.",
+              "default": false
+            }
+          },
+          "required": ["id", "metadata"]
+        }
+      llm_alias: update_code_metadata
+      llm_description: 'Modifies the metadata (`meta` field) of a code entry with intelligent merging or complete replacement. Use `overwrite: true` to replace completely.'
+    source: file://update_code_metadata.lua
+    modules:
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    

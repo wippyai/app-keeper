@@ -1,0 +1,34 @@
+version: "1.0"
+namespace: keeper.views.editors.agent
+
+entries:
+  # keeper.views.editors.agent:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editor for Agent entries
+      target_meta_type: agent.gen1
+    editors:
+      - title: General
+        icon: tabler:robot
+        order: 1
+        id: default
+        page_name: keeper.views.editors.agent:info
+    
+  # keeper.views.editors.agent:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/agent
+      type: view.page
+      title: Agent Configuration
+      icon: tabler:robot
+      description: View and edit Agent configuration
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

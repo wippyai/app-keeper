@@ -1,0 +1,34 @@
+version: "1.0"
+namespace: keeper.views.editors.router
+
+entries:
+  # keeper.views.editors.router:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for HTTP router entries
+      target_kind: http.router
+    editors:
+      - title: General
+        icon: tabler:server
+        order: 1
+        id: default
+        page_name: keeper.views.editors.router:info
+    
+  # keeper.views.editors.router:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/router
+      type: view.page
+      title: Router Information
+      icon: tabler:server
+      description: View and edit HTTP router information
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

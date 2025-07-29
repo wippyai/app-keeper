@@ -1,0 +1,164 @@
+version: "1.0"
+namespace: keeper.agents.tests
+
+entries:
+  # keeper.agents.tests:list_tests
+  - name: list_tests
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Tests
+      description: Discovers available tests with filtering capabilities
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "group": {
+              "type": "string",
+              "description": "Filter tests by group name"
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Filter tests by namespace"
+            },
+            "name": {
+              "type": "string",
+              "description": "Filter tests by name"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Filter tests by tags (all tags must match)"
+            }
+          }
+        }
+      llm_alias: list_tests
+      llm_description: Discovers and lists available tests with filtering by group, namespace, name, or tags
+    source: file://list_tests.lua
+    modules:
+      - registry
+    method: handler
+    
+  # keeper.agents.tests:run_test
+  - name: run_test
+    kind: function.lua
+    meta:
+      type: tool
+      title: Run Test
+      description: Executes tests and aggregates results
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Specific test ID to run (in namespace:name format)"
+            },
+            "group": {
+              "type": "string",
+              "description": "Run all tests in a specific group"
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Run all tests in a specific namespace"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Run tests matching all specified tags"
+            },
+            "suite": {
+              "type": "string",
+              "description": "Filter to a specific test suite within tests"
+            },
+            "test": {
+              "type": "string",
+              "description": "Filter to a specific test case within suites"
+            },
+            "timeout": {
+              "type": "string",
+              "description": "Timeout for test execution (e.g., '30s', '5m') (default: 5m)"
+            }
+          }
+        }
+      llm_alias: run_test
+      llm_description: Executes one or more tests based on filters and aggregates the results with detailed information about passes, failures, and execution time
+    source: file://run_test.lua
+    modules:
+      - registry
+      - funcs
+      - json
+      - time
+    method: handler
+    
+  # keeper.agents.tests:tests
+  - name: tests
+    kind: registry.entry
+    meta:
+      name: wippy.tests
+      type: agent.gen1
+      title: Wippy Test Runner
+      comment: Testing agent for running and managing tests
+      group:
+        - Development
+      tags:
+        - tests
+        - development
+        - quality
+      icon: tabler:test-pipe
+    prompt: |
+      You are specialized in test management for the Wippy platform, focusing on discovering, running, and reporting test results.
+    
+      Core Capabilities:
+      1. Test Discovery: List available tests by namespace, group, or tags
+      2. Test Execution: Run individual tests or test groups and report results
+      3. Result Aggregation: Collect and organize test results for easy interpretation
+      4. Test Analysis: Help users understand test failures and provide debugging suggestions
+    
+      Important Concepts:
+      - Tests are organized by namespaces, groups, and tags
+      - Test results include pass/fail status, execution time, and error details
+      - Tests can be filtered by name, group, or tags
+      - Test output should be aggregated rather than streamed
+    
+      When handling test tasks:
+      1. First DISCOVER available tests to understand what can be run
+      2. FILTER tests based on user criteria (namespace, group, tags)
+      3. RUN tests and AGGREGATE results
+      4. REPORT results in a clear, organized format
+    
+      For debugging test failures:
+      - Provide detailed error information
+      - Suggest possible causes for failures
+      - Offer recommendations for fixing issues
+    
+      Your primary focus is on making testing easy and results clear for developers.
+    model: claude-3-7-sonnet
+    temperature: 0.2
+    max_tokens: 12000
+    tools:
+      - keeper.agents.tests:*
+    memory:
+      - Test functions in Wippy are Lua functions that return test results.
+      - Tests are typically organized by groups and tags.
+      - Tests stream results as they execute, but your functions aggregate these results instead.
+      - Test results include pass/fail status, execution time, and error details.
+      - Always provide clear summaries of test execution results.
+      - When tests fail, try to provide helpful context for debugging.
+      - Tests can be filtered by namespace, group, tags, or specific test names.
+      - Use the registry to discover available tests.
+      - The list_tests function discovers available tests with filtering capabilities.
+      - The run_test function executes tests and provides aggregated results.
+      - Tests are identified by their registry ID in the format 'namespace:name'.
+      - Remember that tests can take time to execute, so provide clear progress indicators.
+      - When running multiple tests, prioritize showing summary information first, then details.
+      - Help users debug test failures by highlighting specific error messages and contexts.
+    delegate:
+      wippy.keeper:
+        name: back_to_keeper
+        rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside test management
+    

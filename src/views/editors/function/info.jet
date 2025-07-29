@@ -1,0 +1,740 @@
+{{ extends "/common/layout" }}
+{* Page title and description *}
+{{ block title() }}Function Information{{ end }}
+{{ block metaDescription() }}View and edit function metadata and configuration{{ end }}
+{{ block mainContent() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden max-w-5xl mx-auto"
+     x-data="functionViewApp"
+     x-init="initialize()"
+     x-cloak>
+    <!-- Page Header -->
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+        <div class="flex items-center">
+            <iconify-icon icon="tabler:function" class="text-3xl text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0"></iconify-icon>
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Function Information</h3>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400"
+                   x-show="functionData?.id">
+                    <!-- Safely access id properties for display -->
+                    <span x-text="functionData?.id ? getNamespace(functionData.id) : ''"></span>:<span x-text="functionData?.id ? getName(functionData.id) : ''"></span>
+                    <span class="ml-1">(Lua Function)</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex space-x-3">
+            <button
+                    id="saveButton"
+                    type="button"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="isSaving || isLoading || !isDirty || !!poolValidationError"
+                    @click="saveFunctionConfig()">
+                <template x-if="isSaving">
+                    <iconify-icon icon="tabler:loader" class="animate-spin mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="!isSaving">
+                    <iconify-icon icon="tabler:device-floppy" class="mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="flex justify-center items-center py-12" x-show="isLoading">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading function details...</span>
+    </div>
+
+    <!-- Error Indicator -->
+    <div id="errorIndicator" class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400"
+         x-show="!isLoading && loadError">
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="loadError"></p>
+            <button @click="initialize()"
+                    class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+                <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab Navigation and Content Area: Ensure functionData exists before rendering -->
+    <div x-show="!isLoading && !loadError && functionData?.id">
+        <!-- Tab Navigation -->
+        <nav class="flex border-b border-surface-200 dark:border-surface-600" aria-label="Tabs">
+            <template x-for="tab in tabs" :key="tab.id">
+                <button
+                        :id="'tab-' + tab.id"
+                        type="button"
+                        class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                        :class="activeTab === tab.id ?
+                        'border-primary-500 text-primary-600 dark:text-primary-400' :
+                        'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+                        @click="activeTab = tab.id">
+                    <iconify-icon :icon="tab.icon" class="mr-1.5" :class="getTabIconColor(tab.id)" width="16" height="16"></iconify-icon>
+                    <span x-text="tab.label"></span>
+                </button>
+            </template>
+        </nav>
+
+        <!-- Tab Content Panels Wrapper -->
+        <div class="px-4 py-5 sm:p-6">
+            <!-- General Tab Panel -->
+            <div x-show="activeTab === 'general'" class="space-y-6">
+                <!-- Description Section -->
+                <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+                    <div class="flex items-start mb-3">
+                        <iconify-icon icon="tabler:file-description" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                        <div class="flex-grow">
+                            <h4 class="text-base font-semibold text-surface-900 dark:text-white">Description</h4>
+                            <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Details and purpose of this Lua function. Changes are saved with the "Save Changes" button above.</p>
+                        </div>
+                    </div>
+                    <div class="mt-2 space-y-2">
+                        <!-- Ensure functionData and meta exist before binding -->
+                        <textarea x-model="functionData.meta.comment"
+                                  @input="commentChanged()"
+                                  class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                  rows="4"
+                                  placeholder="Enter function description..."
+                                  :disabled="isLoading || isSaving"></textarea>
+                    </div>
+                </div>
+
+                <!-- Method Section: Check functionData.data exists -->
+                <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700" x-show="functionData.data?.method">
+                    <div class="flex items-start">
+                        <iconify-icon icon="tabler:terminal-2" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                        <div>
+                            <h4 class="text-base font-semibold text-surface-900 dark:text-white">Execution Method</h4>
+                            <p class="mt-1 text-sm text-surface-700 dark:text-surface-300" x-text="functionData.data.method || 'Default method'"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dependencies & Modules Section: Check functionData.data exists -->
+                <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700" x-show="(functionData.data?.imports && Object.keys(functionData.data.imports || {}).length > 0) || (functionData.data?.modules && functionData.data.modules.length > 0)">
+                    <div class="flex items-start mb-3">
+                        <iconify-icon icon="tabler:puzzle" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                        <div>
+                            <h4 class="text-base font-semibold text-surface-900 dark:text-white">Dependencies & Modules</h4>
+                            <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Registry entries and Lua modules this function relies on.</p>
+                        </div>
+                    </div>
+                    <div x-show="functionData.data?.imports && Object.keys(functionData.data.imports || {}).length > 0">
+                        <h5 class="text-sm font-medium text-surface-700 dark:text-surface-300 mt-2 mb-1.5">Registry Dependencies:</h5>
+                        <div class="flex flex-wrap gap-2">
+                            <!-- Use safe defaults for looping -->
+                            <template x-for="(path, name) in functionData.data.imports || {}" :key="name">
+                                <a :href="getKeeperLink(path)"
+                                   @click.prevent="navigateToKeeper(path)"
+                                   class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-surface-200 dark:bg-surface-600 hover:bg-surface-300 dark:hover:bg-surface-500 text-surface-700 dark:text-surface-200 cursor-pointer">
+                                    <iconify-icon icon="tabler:external-link" class="mr-1.5" width="14" height="14"></iconify-icon>
+                                    <span x-text="name"></span>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                    <div x-show="functionData.data?.modules && functionData.data.modules.length > 0"
+                         :class="{'mt-4 pt-4 border-t border-surface-200 dark:border-surface-700': functionData.data?.imports && Object.keys(functionData.data.imports || {}).length > 0}">
+                        <h5 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Required Lua Modules:</h5>
+                        <div class="flex flex-wrap gap-2">
+                            <!-- Use safe defaults for looping -->
+                            <template x-for="module in functionData.data.modules || []" :key="module">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-surface-200 dark:bg-surface-600 text-surface-700 dark:text-surface-200">
+                                    <iconify-icon icon="tabler:cube" class="mr-1.5" width="14" height="14"></iconify-icon>
+                                    <span x-text="module"></span>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pool Configuration Tab Panel -->
+            <div x-show="activeTab === 'pool'" class="space-y-6">
+                <!-- Pool Configuration Section: Check functionData.data exists -->
+                <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+                    <div class="flex items-start mb-3">
+                        <iconify-icon icon="tabler:stack-2" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                        <div class="flex-grow">
+                            <h4 class="text-base font-semibold text-surface-900 dark:text-white">Pool Configuration</h4>
+                            <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Settings for the Lua instance execution pool.</p>
+                        </div>
+                        <div x-show="poolType" class="ml-auto flex-shrink-0">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
+                                  :class="getPoolTypeBadgeClass(poolType)">
+                                  <iconify-icon :icon="getPoolTypeIcon(poolType)" class="mr-1.5 -ml-0.5" width="16" height="16"></iconify-icon>
+                                  <span x-text="poolType + ' Pool'"></span>
+                            </span>
+                        </div>
+                    </div>
+                    <!-- Pool Type Information Alert -->
+                    <div x-show="poolTypeInfo[poolType]" class="mb-4 p-3 rounded-md text-xs" :class="getPoolTypeInfoAlertClass(poolType)">
+                        <p class="font-medium" x-text="poolTypeInfo[poolType]?.title || ''"></p>
+                        <p class="mt-1" x-text="poolTypeInfo[poolType]?.description || ''"></p>
+                    </div>
+                    <!-- Pool Settings Form: Ensure pool object exists before binding inputs -->
+                    <div x-show="functionData.data?.pool" class="mt-2 space-y-5 p-3 bg-white dark:bg-surface-700 rounded-md border border-surface-200 dark:border-surface-600">
+                        <!-- Pool Size Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label for="poolSize" class="block text-xs font-medium text-surface-700 dark:text-surface-300">Pool Size (VMs)</label>
+                                <span class="text-sm text-primary-600 dark:text-primary-400 font-medium bg-primary-100 dark:bg-primary-900 px-2 py-0.5 rounded min-w-[36px] text-center"
+                                      x-text="functionData.data.pool.size || 0"></span>
+                            </div>
+                            <input type="range" id="poolSize" name="poolSize" min="0" max="20" step="1"
+                                   x-model.number="functionData.data.pool.size" @input="validatePoolConfig()"
+                                   class="w-full h-2 bg-surface-200 dark:bg-surface-600 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                                   :disabled="isLoading || isSaving">
+                            <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">Total VMs. For Fixed/Worker pools. Set to 0 for Flex pool if MaxSize is used.</p>
+                        </div>
+                        <!-- Workers Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label for="poolWorkers" class="block text-xs font-medium text-surface-700 dark:text-surface-300">Workers</label>
+                                <span class="text-sm text-primary-600 dark:text-primary-400 font-medium bg-primary-100 dark:bg-primary-900 px-2 py-0.5 rounded min-w-[36px] text-center"
+                                      x-text="functionData.data.pool.workers || 0"></span>
+                            </div>
+                            <input type="range" id="poolWorkers" name="poolWorkers" min="0" max="8" step="1"
+                                   x-model.number="functionData.data.pool.workers" @input="validatePoolConfig()"
+                                   class="w-full h-2 bg-surface-200 dark:bg-surface-600 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                                   :disabled="isLoading || isSaving">
+                            <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">Number of worker threads. 0 means no dedicated workers.</p>
+                        </div>
+                        <!-- Max Size Input -->
+                        <div>
+                            <label for="poolMaxSize" class="block text-xs font-medium text-surface-700 dark:text-surface-300">Max Size (Flex Pool Concurrency)</label>
+                            <input type="number" id="poolMaxSize" name="poolMaxSize" min="0" placeholder="e.g., 100"
+                                   x-model.number="functionData.data.pool.max_size" @input="validatePoolConfig()"
+                                   class="mt-1 block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                                   :disabled="isLoading || isSaving">
+                            <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">Max concurrent executions for Flex pools. If > 0 and Size=0, implies Flex Pool.</p>
+                        </div>
+                        <!-- Warm Start Toggle -->
+                        <div class="flex items-center pt-1">
+                            <input id="poolWarmStart" name="poolWarmStart" type="checkbox"
+                                   x-model="functionData.data.pool.warm_start"
+                                   class="h-4 w-4 text-primary-600 border-surface-300 dark:border-surface-600 rounded focus:ring-primary-500"
+                                   :disabled="isLoading || isSaving">
+                            <label for="poolWarmStart" class="ml-2 block text-sm text-surface-900 dark:text-surface-100">
+                                Warm Start <span class="text-xs text-surface-500 dark:text-surface-400">(Precompile Lua code)</span>
+                            </label>
+                        </div>
+                        <p x-show="poolValidationError" class="mt-2 text-xs text-red-600 dark:text-red-400" x-text="poolValidationError"></p>
+                    </div>
+                    <!-- Show button to initialize if pool config doesn't exist -->
+                    <div x-show="!functionData.data?.pool" class="mt-2 text-sm text-surface-600 dark:text-surface-400 italic p-3">
+                        No specific pool configuration set. Default behavior will be used.
+                        <button @click="initializePoolConfig()" class="ml-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-xs font-medium underline disabled:opacity-50" :disabled="isLoading || isSaving">Initialize Default Pool Config</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Notification Section (Toast) -->
+    <div x-data="{ notification: { show: false, type: 'success', message: '', timeout: null } }"
+         @shownotification.window="
+             notification.show = false; // Hide previous one immediately
+             clearTimeout(notification.timeout);
+             $nextTick(() => { // Wait for DOM update
+                 notification = { ...$event.detail, show: true };
+                 notification.timeout = setTimeout(() => notification.show = false, 5000);
+             });
+         "
+         x-show="notification.show"
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+         x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 max-w-sm w-full z-50">
+        <div class="p-4 rounded-md shadow-lg"
+             :class="{
+                'bg-green-50 border border-green-200 dark:bg-green-900 dark:border-green-800': notification.type === 'success',
+                'bg-red-50 border border-red-200 dark:bg-red-900 dark:border-red-800': notification.type === 'error',
+                'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900 dark:border-yellow-800': notification.type === 'warning'
+             }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <iconify-icon
+                            :icon="notification.type === 'success' ? 'tabler:circle-check' : (notification.type === 'error' ? 'tabler:alert-circle' : 'tabler:alert-triangle')"
+                            :class="{
+                                'text-green-600 dark:text-green-400': notification.type === 'success',
+                                'text-red-600 dark:text-red-400': notification.type === 'error',
+                                'text-yellow-600 dark:text-yellow-400': notification.type === 'warning'
+                            }"
+                            width="20" height="20"></iconify-icon>
+                </div>
+                <div class="ml-3 w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium"
+                       :class="{
+                           'text-green-800 dark:text-green-200': notification.type === 'success',
+                           'text-red-800 dark:text-red-200': notification.type === 'error',
+                           'text-yellow-800 dark:text-yellow-200': notification.type === 'warning'
+                       }"
+                       x-text="notification.message"></p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button type="button" @click="notification.show = false; clearTimeout(notification.timeout);"
+                            class="inline-flex rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            :class="{
+                                'text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 focus:ring-green-600 dark:focus:ring-offset-green-900': notification.type === 'success',
+                                'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:ring-red-600 dark:focus:ring-offset-red-900': notification.type === 'error',
+                                'text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 focus:ring-yellow-600 dark:focus:ring-offset-yellow-900': notification.type === 'warning'
+                            }">
+                        <span class="sr-only">Close</span>
+                        <iconify-icon icon="tabler:x" width="16" height="16"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('functionViewApp', () => ({
+            // Use null initially to clearly distinguish between "not loaded yet" and "loaded with empty data"
+            functionData: null,
+            originalFunctionData: null,
+            isLoading: true,
+            loadError: null,
+            dataError: null, // For save errors specifically
+            isSaving: false,
+            wippyApi: null,
+            poolValidationError: '', // Store validation error message
+            metadataChanged: false, // Track if only metadata.comment changed
+
+            // Default pool config structure, used for comparison and initialization
+            defaultPoolConfig: { size: 0, workers: 0, warm_start: false, max_size: 0 },
+            // Using a more reasonable default than 100 if user initializes pool
+            INITIAL_DEFAULT_MAX_SIZE: 10,
+            // Pool type metadata for display
+            poolTypeInfo: {
+                'Fixed': {
+                    icon: 'tabler:arrows-minimize',
+                    title: 'Fixed Pool',
+                    description: 'A set number of Lua VMs are always active. Good for consistent, low-latency workloads. Higher idle memory usage.',
+                    badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                    alertClass: 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700 border'
+                },
+                'Worker': {
+                    icon: 'tabler:cpu-2',
+                    title: 'Worker Pool',
+                    description: 'A fixed number of VMs, each managed by a dedicated worker thread. Suitable for CPU-bound tasks needing parallel processing.',
+                    badgeClass: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+                    alertClass: 'bg-teal-50 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-700 border'
+                },
+                'Flex': {
+                    icon: 'tabler:stretching',
+                    title: 'Flex (Lazy) Pool',
+                    description: 'VMs are created on-demand up to a Max Size. Balances performance and resource usage. Lower idle memory, potential cold start latency.',
+                    badgeClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+                    alertClass: 'bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700 border'
+                },
+                'Default': {
+                    icon: 'tabler:settings-cog',
+                    title: 'Default Pool Behavior',
+                    description: 'The system\'s default pooling strategy will be applied, typically optimized for general use cases.',
+                    badgeClass: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+                    alertClass: 'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800/30 dark:text-gray-300 dark:border-gray-600 border'
+                }
+            },
+
+            // Tab management
+            activeTab: 'general',
+            tabs: [
+                { id: 'general', label: 'General', icon: 'tabler:id-badge' },
+                { id: 'pool', label: 'Pool Configuration', icon: 'tabler:stack-2' }
+            ],
+
+            async initialize() {
+                this.isLoading = true;
+                this.loadError = null;
+                this.dataError = null;
+                this.isSaving = false;
+                this.metadataChanged = false; // Reset metadata changed flag
+                this.poolValidationError = '';
+                this.functionData = null; // Reset data on retry
+                this.originalFunctionData = null;
+                try {
+                    // Initialize Wippy API or use fallback
+                    if (typeof initWippyApi !== 'function') {
+                        console.warn('Wippy API function not found. Using fallback for local testing.');
+                        this.wippyApi = this.createFallbackWippyApi();
+                    } else {
+                        this.wippyApi = await window.initWippyApi();
+                    }
+                    const entryId = this.wippyApi?.config?.path;
+                    if (!entryId) {
+                        throw new Error('No function ID provided in configuration.');
+                    }
+                    await this.loadFunction(entryId);
+                } catch (err) {
+                    console.error('Failed to initialize FunctionViewApp:', err);
+                    this.loadError = `Initialization Error: ${err.message}`;
+                    // Optional: Use Wippy's error handling for fatal errors
+                    if (this.wippyApi && this.isFatalError(err)) {
+                        this.wippyApi.iframe?.handleError('other', err);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+            createFallbackWippyApi() {
+                // Extract ID from URL for fallback testing convenience
+                const fallbackId = new URLSearchParams(window.location.search).get('id') || 'fallback:my_function';
+                console.log(`Using Fallback API for ID: ${fallbackId}`);
+                return {
+                    config: { path: fallbackId, feature: { routePrefix: '/apps' }, auth: { token: 'fallback-token' } },
+                    iframe: {
+                        navigate: (v, p) => console.log(`Fallback Nav: ${v}`, p || ''),
+                        handleError: (type, err) => console.error(`Fallback Error Handler (${type}):`, err)
+                    },
+                    api: {
+                        get: async (url) => {
+                            console.log('Fallback API GET:', url);
+                            const urlParams = new URLSearchParams(url.split('?')[1]);
+                            const id = urlParams.get('id');
+                            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
+                            let entryData = null;
+                            if (id === 'fallback:my_function') {
+                                entryData = {
+                                    id: id, kind: 'function.lua',
+                                    meta: { comment: `Function ${id} description.`, depends_on:['ns:app','ns:wippy.llm'], router:'app:api' },
+                                    data: { method: 'handler', imports: { 'models': 'wippy.llm:models' }, modules: ['http', 'json'], pool: { size: 2, workers: 0, max_size: 0, warm_start: false } }
+                                };
+                            } else if (id === 'fallback:flex_function') {
+                                entryData = {
+                                    id: id, kind: 'function.lua',
+                                    meta: { comment: 'Flex pool function example' },
+                                    data: { method: 'handleFlex', pool: { size: 0, workers: 0, warm_start: true, max_size: 50 } }
+                                };
+                            }  else if (id === 'fallback:worker_function') {
+                                entryData = {
+                                    id: id, kind: 'function.lua',
+                                    meta: { comment: 'Worker pool function example' },
+                                    data: { method: 'handleWorker', pool: { size: 4, workers: 2, warm_start: false, max_size: 0 } }
+                                };
+                            } else if (id === 'fallback:no_pool_function') {
+                                entryData = {
+                                    id: id, kind: 'function.lua',
+                                    meta: { comment: 'Function without explicit pool config' },
+                                    data: { method: 'handleSimple' } // No pool key
+                                };
+                            }
+                            if (entryData) {
+                                return { data: { success: true, entry: entryData } };
+                            } else {
+                                return { data: { success: false, error: `Fallback: Function ID '${id}' Not Found` } };
+                            }
+                        },
+                        put: async (url, payload) => {
+                            console.log('Fallback API PUT:', url, payload);
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                            // Simulate updating the data based on payload
+                            const currentData = JSON.parse(JSON.stringify(this.functionData || { id: payload.id, kind: payload.kind }));
+                            currentData.meta = { ...(currentData.meta || {}), ...payload.meta };
+                            currentData.data = { ...(currentData.data || {}), ...payload.data };
+                            // Ensure pool structure is maintained even if original was null
+                            currentData.data.pool = payload.data?.pool || this.defaultPoolConfig;
+                            console.log('Fallback updated data:', currentData);
+                            return { data: { success: true, entry: currentData } };
+                        }
+                    }
+                };
+            },
+            commentChanged() {
+                // Mark that comment metadata has changed
+                this.metadataChanged = true;
+            },
+            get isDirty() {
+                if (!this.originalFunctionData || !this.functionData) return false;
+
+                // Check if metadata comment has changed
+                const commentChanged = this.metadataChanged ||
+                    (this.originalFunctionData.meta?.comment || '') !== (this.functionData.meta?.comment || '');
+                // Compare pool configuration robustly, handling null/undefined pools
+                const originalPool = this.originalFunctionData.data?.pool || this.defaultPoolConfig;
+                const currentPool = this.functionData.data?.pool || this.defaultPoolConfig;
+                const poolChanged = (originalPool.size !== currentPool.size) ||
+                    (originalPool.workers !== currentPool.workers) ||
+                    (originalPool.warm_start !== currentPool.warm_start) ||
+                    (originalPool.max_size !== currentPool.max_size);
+                return commentChanged || poolChanged;
+            },
+            // Helper to determine if an error is critical enough to notify the host iframe
+            isFatalError(error) {
+                // Customize this based on expected error types or messages
+                return error?.fatal === true ||
+                    error?.message?.toLowerCase().includes('critical') ||
+                    error?.message?.toLowerCase().includes('auth');
+            },
+            // --- String/ID Helpers ---
+            getNamespace(id) {
+                if (!id || typeof id !== 'string') return '';
+                return id.split(':')[0] || '';
+            },
+            getName(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts.length > 1 ? parts.slice(1).join(':') : (parts[0] || '');
+            },
+            // --- Navigation ---
+            getKeeperLink(id) {
+                if (!id) return '#';
+                // Use optional chaining for safer access
+                const routePrefix = this.wippyApi?.config?.feature?.routePrefix || '/apps';
+                return `${routePrefix}/keeper/${id}`;
+            },
+            navigateToKeeper(id) {
+                if (id && this.wippyApi?.iframe?.navigate) {
+                    this.wippyApi.iframe.navigate(`/keeper/${id}`);
+                } else if (id) {
+                    console.warn('Navigation API not available. Falling back to standard href.');
+                    window.location.href = this.getKeeperLink(id);
+                } else {
+                    console.warn('Attempted to navigate to empty ID.');
+                }
+            },
+            // --- Pool Logic ---
+            get poolType() {
+                // Determine pool type based on current functionData state
+                if (!this.functionData?.data?.pool) return 'Default';
+                const pool = this.functionData.data.pool;
+                // Use the already validated/normalized numbers
+                const size = pool.size || 0;
+                const workers = pool.workers || 0;
+                const maxSize = pool.max_size || 0;
+                // Logic mirroring Go backend comments/behavior
+                if (workers > 0) return 'Worker';
+                // isFlexPool := c.Pool.Workers == 0 && (c.Pool.Size == 0 || c.Pool.MaxSize > 0)
+                if (workers === 0 && (size === 0 || maxSize > 0)) return 'Flex';
+                if (size > 0 && workers === 0 && maxSize === 0) return 'Fixed';
+                // Fallback if configuration doesn't match expected patterns
+                return 'Default';
+            },
+            // Pool type display helpers
+            getPoolTypeIcon(type) { return this.poolTypeInfo[type]?.icon || 'tabler:question-mark'; },
+            getPoolTypeBadgeClass(type) { return this.poolTypeInfo[type]?.badgeClass || this.poolTypeInfo['Default'].badgeClass; },
+            getPoolTypeInfoAlertClass(type) { return this.poolTypeInfo[type]?.alertClass || this.poolTypeInfo['Default'].alertClass; },
+            initializePoolConfig() {
+                // Create a default pool config if none exists
+                if (this.functionData && this.functionData.data && !this.functionData.data.pool) {
+                    this.functionData.data.pool = {
+                        size: 0,
+                        workers: 0,
+                        warm_start: false,
+                        // Initialize Flex pool by default as it's often a good starting point
+                        max_size: this.INITIAL_DEFAULT_MAX_SIZE
+                    };
+                    // Re-validate after initializing
+                    this.$nextTick(() => this.validatePoolConfig());
+                }
+            },
+            validatePoolConfig() {
+                this.poolValidationError = ''; // Reset error
+                if (!this.functionData?.data?.pool) return; // No pool to validate
+                const pool = this.functionData.data.pool;
+                // Ensure values are numbers and non-negative. Handle potential NaN/null from input binding.
+                pool.size = Number.isFinite(pool.size) && pool.size >= 0 ? pool.size : 0;
+                pool.workers = Number.isFinite(pool.workers) && pool.workers >= 0 ? pool.workers : 0;
+                pool.max_size = Number.isFinite(pool.max_size) && pool.max_size >= 0 ? pool.max_size : 0;
+                // Ensure warm_start is boolean
+                pool.warm_start = !!pool.warm_start;
+                const size = pool.size;
+                const workers = pool.workers;
+                const maxSize = pool.max_size;
+                // Determine effective type *based on current values* for validation
+                let effectiveType = 'Default';
+                if (workers > 0) effectiveType = 'Worker';
+                else if (size === 0 || maxSize > 0) effectiveType = 'Flex';
+                else if (size > 0) effectiveType = 'Fixed';
+                // Apply validation rules
+                if (effectiveType === 'Worker' && size <= 0) {
+                    this.poolValidationError = 'Pool Size must be > 0 for Worker pools.';
+                    return;
+                }
+                if (effectiveType === 'Fixed' && size <= 0) {
+                    // Although size > 0 is the condition for Fixed, double-check logic consistency
+                    this.poolValidationError = 'Pool Size must be > 0 for Fixed pools.';
+                    return;
+                }
+                // Note: Flex pools allow size=0 if max_size > 0.
+                // Optional: Add check for MaxSize if Workers > 0 (doesn't make sense)
+                if (workers > 0 && maxSize > 0) {
+                    this.poolValidationError = 'Max Size should be 0 for Worker pools (use Pool Size instead).';
+                    return;
+                }
+                // Optional: Check for max_size > 0 without size=0 for Flex
+                if (effectiveType === 'Flex' && size > 0 && maxSize <= 0) {
+                    this.poolValidationError = 'For Flex pools with Size > 0, Max Size must also be > 0.';
+                    return;
+                }
+            },
+            // --- Data Loading ---
+            async loadFunction(id) {
+                this.isLoading = true;
+                this.loadError = null;
+                this.poolValidationError = ''; // Reset on load
+                this.functionData = null;
+                this.originalFunctionData = null;
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(id)}`);
+                    const responseData = response.data;
+                    if (!responseData.success || !responseData.entry) {
+                        throw new Error(responseData.error || 'Invalid server response loading function.');
+                    }
+                    // --- Normalize fetched data ---
+                    const entry = responseData.entry;
+                    // Ensure meta exists and comment is a string
+                    entry.meta = entry.meta || {};
+                    entry.meta.comment = String(entry.meta.comment || '');
+                    // Ensure data exists and core fields have correct types
+                    entry.data = entry.data || {};
+                    entry.data.method = String(entry.data.method || '');
+                    entry.data.imports = entry.data.imports || {};
+                    entry.data.modules = Array.isArray(entry.data.modules) ? entry.data.modules : [];
+                    // Normalize pool data: Ensure it exists and values are correct types/defaults
+                    if (entry.data.pool) {
+                        const loadedPool = entry.data.pool;
+                        entry.data.pool = {
+                            size: parseInt(loadedPool.size, 10) || 0,
+                            workers: parseInt(loadedPool.workers, 10) || 0,
+                            warm_start: typeof loadedPool.warm_start === 'boolean' ? loadedPool.warm_start : false,
+                            max_size: parseInt(loadedPool.max_size, 10) || 0,
+                        };
+                        // Ensure non-negative values after parsing
+                        entry.data.pool.size = Math.max(0, entry.data.pool.size);
+                        entry.data.pool.workers = Math.max(0, entry.data.pool.workers);
+                        entry.data.pool.max_size = Math.max(0, entry.data.pool.max_size);
+                    }
+                    // Store the normalized data
+                    this.functionData = entry;
+                    // Create a deep copy for dirty checking
+                    this.originalFunctionData = JSON.parse(JSON.stringify(entry));
+                    this.metadataChanged = false; // Reset flag after loading new original data
+                    // Run initial validation after loading and normalizing
+                    this.$nextTick(() => this.validatePoolConfig());
+                } catch (error) {
+                    console.error('Error loading function data:', error);
+                    this.loadError = `Failed to load function: ${error.message}`;
+                    // Handle auth errors specifically if needed
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.wippyApi.iframe?.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+            // --- Data Saving ---
+            async saveFunctionConfig() {
+                // Re-validate just before saving
+                this.validatePoolConfig();
+                if (this.isSaving || !this.isDirty || this.poolValidationError) {
+                    if (!this.isDirty && !this.poolValidationError) {
+                        this.showNotification('warning', 'No changes to save.');
+                    } else if (this.poolValidationError) {
+                        this.showNotification('error', `Cannot save: ${this.poolValidationError}`);
+                    }
+                    return;
+                }
+                this.isSaving = true;
+                this.dataError = null; // Clear previous save errors
+                try {
+                    if (!this.functionData?.id) {
+                        throw new Error('Function ID is missing. Cannot save.');
+                    }
+                    // Construct payload with only the editable fields (comment, pool)
+                    // Ensure pool data sent is clean and normalized
+                    const poolToSave = this.functionData.data.pool ? {
+                        size: this.functionData.data.pool.size || 0,
+                        workers: this.functionData.data.pool.workers || 0,
+                        max_size: this.functionData.data.pool.max_size || 0,
+                        warm_start: !!this.functionData.data.pool.warm_start, // Ensure boolean
+                    } : null;
+
+                    const updatePayload = {
+                        id: this.functionData.id,
+                        kind: this.functionData.kind, // Include kind for potential backend validation
+                        // Only send changed fields using merge strategy
+                        meta: {
+                            comment: this.functionData.meta.comment || '' // Send current comment
+                        },
+                        data: {
+                            // Send only pool data under 'data', let backend merge with existing non-pool data
+                            ...(poolToSave ? { pool: poolToSave } : {})
+                        },
+                        merge: true // Tell backend to merge this with existing entry data
+                    };
+                    const response = await this.wippyApi.api.put(
+                        `/api/v1/keeper/registry/entry?id=${encodeURIComponent(this.functionData.id)}`,
+                        updatePayload
+                    );
+                    const responseData = response.data;
+                    if (!responseData.success) {
+                        throw new Error(responseData.error || 'Failed to save function configuration.');
+                    }
+                    // --- Update local state with the saved data from response ---
+                    // Re-normalize the data received from the save response
+                    const savedEntry = responseData.entry || this.functionData; // Fallback to current data if entry missing
+                    savedEntry.meta = savedEntry.meta || {};
+                    savedEntry.meta.comment = String(savedEntry.meta.comment || '');
+                    savedEntry.data = savedEntry.data || {};
+
+                    if (savedEntry.data.pool) {
+                        const savedPool = savedEntry.data.pool;
+                        savedEntry.data.pool = {
+                            size: parseInt(savedPool.size, 10) || 0,
+                            workers: parseInt(savedPool.workers, 10) || 0,
+                            warm_start: typeof savedPool.warm_start === 'boolean' ? savedPool.warm_start : false,
+                            max_size: parseInt(savedPool.max_size, 10) || 0,
+                        };
+                        // Ensure non-negative values after parsing
+                        savedEntry.data.pool.size = Math.max(0, savedEntry.data.pool.size);
+                        savedEntry.data.pool.workers = Math.max(0, savedEntry.data.pool.workers);
+                        savedEntry.data.pool.max_size = Math.max(0, savedEntry.data.pool.max_size);
+                    } else {
+                        // If the saved entry doesn't have a pool, ensure our local representation matches.
+                        // This is important if the backend removed the pool config.
+                        if (savedEntry.data) delete savedEntry.data.pool;
+                    }
+
+
+                    // Update main data and the original data baseline
+                    this.functionData = savedEntry;
+                    this.originalFunctionData = JSON.parse(JSON.stringify(savedEntry));
+                    this.metadataChanged = false; // Reset metadata changed flag
+                    // Re-validate after save (should be valid, but good practice)
+                    this.$nextTick(() => this.validatePoolConfig());
+                    this.showNotification('success', 'Function configuration saved successfully.');
+                } catch (error) {
+                    console.error('Error saving function configuration:', error);
+                    this.dataError = `Save Failed: ${error.message}`;
+                    this.showNotification('error', `Save Failed: ${error.message}`);
+                    // Handle auth errors specifically if needed
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.wippyApi.iframe?.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isSaving = false;
+                }
+            },
+            // --- UI Feedback ---
+            showNotification(type, message) {
+                // Dispatch event for the toast component to catch
+                window.dispatchEvent(new CustomEvent('shownotification', { detail: { type, message } }));
+            },
+            // --- Tab Helpers ---
+            getTabIconColor(tabId) {
+                return this.activeTab === tabId ? 'text-primary-600 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300';
+            }
+        }));
+    });
+</script>
+{{ end }}

@@ -1,0 +1,70 @@
+version: "1.0"
+namespace: keeper.api.session
+
+entries:
+  # keeper.api.session:get_session_details
+  - name: get_session_details
+    kind: function.lua
+    meta:
+      comment: Get complete session details for the authenticated admin user
+      depends_on:
+        - ns:app
+        - ns:wippy.session.persist
+      router: app:api
+    source: file://get_session_details.lua
+    modules:
+      - http
+      - security
+    imports:
+      artifact_repo: wippy.session.persist:artifact_repo
+      context_repo: wippy.session.persist:context_repo
+      message_repo: wippy.session.persist:message_repo
+      session_contexts_repo: wippy.session.persist:session_contexts_repo
+      session_repo: wippy.session.persist:session_repo
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.session:get_session_details.endpoint
+  - name: get_session_details.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for getting complete session details for the authenticated admin user
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: get_session_details
+    path: /keeper/sessions/{id}
+    
+  # keeper.api.session:list_own_sessions
+  - name: list_own_sessions
+    kind: function.lua
+    meta:
+      comment: List all sessions for the authenticated admin user
+      depends_on:
+        - ns:app
+        - ns:wippy.session.persist
+      router: app:api
+    source: file://list_own_sessions.lua
+    modules:
+      - http
+      - security
+    imports:
+      session_repo: wippy.session.persist:session_repo
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.session:list_own_sessions.endpoint
+  - name: list_own_sessions.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for listing all sessions of the authenticated admin user
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: list_own_sessions
+    path: /keeper/sessions
+    

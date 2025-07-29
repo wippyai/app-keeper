@@ -1,0 +1,35 @@
+version: "1.0"
+namespace: keeper.views.editors.security_policy
+
+entries:
+  # keeper.views.editors.security_policy:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editor for Security Policy configurations
+      target_kind: security.policy
+    editors:
+      - title: Policy Definition
+        icon: tabler:shield-lock
+        order: 1
+        id: default
+        page_name: keeper.views.editors.security_policy:info
+    
+  # keeper.views.editors.security_policy:info
+  - version: "1.0"
+    name: info
+    kind: template.jet
+    meta:
+      name: editors/info/security_policy
+      type: view.page
+      title: Security Policy Configuration
+      icon: tabler:shield-check
+      description: View and edit security policy rules and conditions
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

@@ -1,0 +1,155 @@
+version: "1.0"
+namespace: keeper.api.gov
+
+entries:
+  # keeper.api.gov:download
+  - name: download
+    kind: function.lua
+    meta:
+      comment: Download registry to filesystem
+      description: Sends download command to registry syncer process
+    source: file://download.lua
+    modules:
+      - http
+      - time
+    imports:
+      gov_client: gov:client
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.gov:download.endpoint
+  - name: download.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Registry download endpoint
+      description: Initiates download of registry to filesystem
+      depends_on:
+        - app:api
+      router: app:api
+    method: POST
+    func: download
+    path: /keeper/sync/download
+    
+  # keeper.api.gov:redo
+  - name: redo
+    kind: function.lua
+    meta:
+      comment: Redo registry changes
+      description: Advances to the next registry version
+    source: file://redo.lua
+    modules:
+      - http
+      - json
+      - time
+      - registry
+    imports:
+      gov_client: gov:client
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.gov:redo.endpoint
+  - name: redo.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Registry redo endpoint
+      description: Advances to the next registry version
+      depends_on:
+        - app:api
+      router: app:api
+    method: POST
+    func: redo
+    path: /keeper/sync/redo
+    
+  # keeper.api.gov:state
+  - name: state
+    kind: function.lua
+    meta:
+      comment: Get registry synchronization state
+      description: Returns current registry version and pending changes
+    source: file://state.lua
+    modules:
+      - http
+      - json
+      - registry
+      - time
+    imports:
+      gov_client: gov:client
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.gov:state.endpoint
+  - name: state.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Registry sync state endpoint
+      description: Returns current registry synchronization state
+      depends_on:
+        - app:api
+      router: app:api
+    method: GET
+    func: state
+    path: /keeper/sync/state
+    
+  # keeper.api.gov:undo
+  - name: undo
+    kind: function.lua
+    meta:
+      comment: Undo registry changes
+      description: Reverts to the previous registry version
+    source: file://undo.lua
+    modules:
+      - http
+      - json
+      - time
+      - registry
+    imports:
+      gov_client: gov:client
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.gov:undo.endpoint
+  - name: undo.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Registry undo endpoint
+      description: Reverts to the previous registry version
+      depends_on:
+        - app:api
+      router: app:api
+    method: POST
+    func: undo
+    path: /keeper/sync/undo
+    
+  # keeper.api.gov:upload
+  - name: upload
+    kind: function.lua
+    meta:
+      comment: Upload filesystem changes to registry
+      description: Sends upload command to registry syncer process
+    source: file://upload.lua
+    modules:
+      - http
+      - time
+    imports:
+      gov_client: gov:client
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.gov:upload.endpoint
+  - name: upload.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Registry upload endpoint
+      description: Initiates upload of filesystem changes to registry
+      depends_on:
+        - app:api
+      router: app:api
+    method: POST
+    func: upload
+    path: /keeper/sync/upload
+    

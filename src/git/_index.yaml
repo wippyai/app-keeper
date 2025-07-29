@@ -1,0 +1,75 @@
+version: "1.0"
+namespace: keeper.git
+
+entries:
+  # keeper.git:branch
+  - name: branch
+    kind: library.lua
+    meta:
+      comment: Git branch management operations
+    source: file://branch.lua
+    modules:
+      - exec
+      - json
+    imports:
+      env: env
+      git_repo: keeper.git:git_repo
+    method: create
+    
+  # keeper.git:commit
+  - name: commit
+    kind: library.lua
+    meta:
+      comment: Git commit operations
+    source: file://commit.lua
+    modules:
+      - exec
+      - json
+      - time
+    imports:
+      env: env
+      git_repo: keeper.git:git_repo
+    method: create
+    
+  # keeper.git:git_repo
+  - name: git_repo
+    kind: library.lua
+    meta:
+      comment: Core Git repository operations
+    source: file://git_repo.lua
+    modules:
+      - exec
+      - json
+      - time
+    imports:
+      env: env
+    method: create
+    
+  # keeper.git:remote
+  - name: remote
+    kind: library.lua
+    meta:
+      comment: Git remote operations
+    source: file://remote.lua
+    modules:
+      - exec
+      - json
+    imports:
+      env: env
+      git_repo: keeper.git:git_repo
+    method: create
+    
+  # keeper.git:status
+  - name: status
+    kind: library.lua
+    meta:
+      comment: Get Git repository status information
+    source: file://status.lua
+    modules:
+      - exec
+      - json
+    imports:
+      env: env
+      git_repo: keeper.git:git_repo
+    method: get
+    

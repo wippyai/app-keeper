@@ -1,0 +1,1277 @@
+{{ extends "/common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}Session Viewer{{ end }}
+{{ block metaDescription() }}View details for sessions, messages, artifacts and contexts{{ end }}
+
+{{ block mainContent() }}
+<div x-data="sessionViewerApp"
+     x-init="initialize()"
+     class="space-y-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
+     x-cloak>
+    {{ yield pageHeader() }}
+    {{ yield loadingStates() }}
+    {{ yield dropZone() }}
+    {{ yield tabNavigation() }}
+    {{ yield tabContents() }}
+</div>
+{{ end }}
+
+{* Page Header Block *}
+{{ block pageHeader() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="px-6 py-4 border-b border-surface-200 dark:border-surface-600">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <h1 class="text-xl leading-6 font-medium text-surface-900 dark:text-surface-100">
+                    Session Viewer
+                    <span x-show="isLoading" class="inline-block ml-2">
+                        <iconify-icon icon="tabler:loader-2" class="animate-spin" width="20" height="20"></iconify-icon>
+                    </span>
+                </h1>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
+                    <span x-text="sessionId || 'No ID'"></span>
+                    <template x-if="session.title">
+                        <span>
+                            <span class="mx-1">·</span>
+                            <span x-text="session.title"></span>
+                        </span>
+                    </template>
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button @click="goBackToList()"
+                        class="inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-200 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                >
+                    <iconify-icon icon="tabler:arrow-left" class="mr-2" width="20" height="20"></iconify-icon>
+                    Back to List
+                </button>
+                <button x-show="sessionData"
+                        @click="exportSessionJson"
+                        class="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                >
+                    <iconify-icon icon="tabler:download" class="mr-2" width="20" height="20"></iconify-icon>
+                    Export
+                </button>
+                <button x-show="sessionId"
+                        @click="refreshSession"
+                        :disabled="isLoading"
+                        class="inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-200 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        :class="{'opacity-50 cursor-not-allowed': isLoading}"
+                >
+                    <iconify-icon :icon="isLoading ? 'tabler:loader-2' : 'tabler:refresh'" :class="{'animate-spin': isLoading}" class="mr-2" width="20" height="20"></iconify-icon>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Loading States Block *}
+{{ block loadingStates() }}
+<!-- Loading Indicator -->
+<div x-show="isLoading" class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading session data...</span>
+    </div>
+</div>
+
+<!-- Error Indicator -->
+<div x-show="!isLoading && error" class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400">
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="error"></p>
+            <template x-if="sessionId">
+                <button @click="refreshSession()"
+                        class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+                    <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                    Retry
+                </button>
+            </template>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Drop Zone for JSON Data *}
+{{ block dropZone() }}
+<div x-show="!isLoading && !error && !sessionData && !sessionId" class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="p-6 border-b border-surface-200 dark:border-surface-600">
+        <h2 class="text-lg font-medium text-surface-900 dark:text-surface-100">Import Session Data</h2>
+        <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">No session ID was provided. Paste JSON session data below to view it.</p>
+    </div>
+    <div class="p-6">
+        <div class="flex flex-col space-y-4">
+            <textarea
+                    x-model="jsonInput"
+                    placeholder="Paste session JSON data here..."
+                    class="w-full h-64 p-3 border border-surface-300 dark:border-surface-600 rounded-md shadow-sm bg-white dark:bg-surface-800 text-surface-900 dark:text-surface-100 font-mono text-sm focus:ring-primary-500 focus:border-primary-500"
+            ></textarea>
+            <div class="flex justify-end">
+                <button
+                        @click="loadSessionFromJson()"
+                        :disabled="!jsonInput.trim()"
+                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <iconify-icon icon="tabler:upload" class="mr-2" width="16" height="16"></iconify-icon>
+                    Load Session Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Tab Navigation Block *}
+{{ block tabNavigation() }}
+<div x-show="!isLoading && !error && sessionData" class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <nav class="flex border-b border-surface-200 dark:border-surface-600" aria-label="Tabs">
+        <button
+                @click="activeTab = 'info'"
+                class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                :class="activeTab === 'info' ?
+                'border-primary-500 text-primary-600 dark:text-primary-400' :
+                'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+        >
+            <iconify-icon icon="tabler:info-circle" class="mr-1.5"
+                          :class="activeTab === 'info' ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                          width="16" height="16"></iconify-icon>
+            <span>Session Info</span>
+        </button>
+        <button
+                @click="activeTab = 'messages'"
+                class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                :class="activeTab === 'messages' ?
+                'border-primary-500 text-primary-600 dark:text-primary-400' :
+                'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+        >
+            <iconify-icon icon="tabler:message-circle" class="mr-1.5"
+                          :class="activeTab === 'messages' ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                          width="16" height="16"></iconify-icon>
+            <span>Messages</span>
+        </button>
+        <button
+                @click="activeTab = 'artifacts'"
+                class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                :class="activeTab === 'artifacts' ?
+                'border-primary-500 text-primary-600 dark:text-primary-400' :
+                'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+        >
+            <iconify-icon icon="tabler:photo" class="mr-1.5"
+                          :class="activeTab === 'artifacts' ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                          width="16" height="16"></iconify-icon>
+            <span>Artifacts</span>
+        </button>
+        <button
+                @click="activeTab = 'contexts'"
+                class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                :class="activeTab === 'contexts' ?
+                'border-primary-500 text-primary-600 dark:text-primary-400' :
+                'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+        >
+            <iconify-icon icon="tabler:brain" class="mr-1.5"
+                          :class="activeTab === 'contexts' ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                          width="16" height="16"></iconify-icon>
+            <span>Contexts</span>
+        </button>
+    </nav>
+</div>
+{{ end }}
+
+{* Tab Contents Block *}
+{{ block tabContents() }}
+<div x-show="!isLoading && !error && sessionData">
+    {{ yield infoTabPanel() }}
+    {{ yield messagesTabPanel() }}
+    {{ yield artifactsTabPanel() }}
+    {{ yield contextsTabPanel() }}
+</div>
+{{ end }}
+
+{* Info Tab Panel *}
+{{ block infoTabPanel() }}
+<!-- Tab: Session Info -->
+<div x-show="activeTab === 'info'" class="bg-white dark:bg-surface-700 shadow rounded-lg p-6">
+    <!-- Statistics Summary -->
+    <div class="mb-6">
+        <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-3">Statistics</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Token Stats -->
+            <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4">
+                <h4 class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-3">Token Usage</h4>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">Total</span>
+                        <span class="text-base font-semibold text-surface-900 dark:text-surface-100" x-text="formatNumber(sessionData?.stats?.token_usage?.total_tokens || 0)"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">Prompt</span>
+                        <span class="text-base font-semibold text-indigo-600 dark:text-indigo-400" x-text="formatNumber(sessionData?.stats?.token_usage?.prompt_tokens || 0)"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">Completion</span>
+                        <span class="text-base font-semibold text-purple-600 dark:text-purple-400" x-text="formatNumber(sessionData?.stats?.token_usage?.completion_tokens || 0)"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">Thinking</span>
+                        <span class="text-base font-semibold text-amber-600 dark:text-amber-400" x-text="formatNumber(sessionData?.stats?.token_usage?.thinking_tokens || 0)"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Stats -->
+            <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4">
+                <h4 class="text-xs font-medium text-surface-500 dark:text-surface-400 mb-3">Message Counts</h4>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">Total</span>
+                        <span class="text-base font-semibold text-surface-900 dark:text-surface-100" x-text="sessionData?.stats?.message_count || 0"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">User</span>
+                        <span class="text-base font-semibold text-blue-600 dark:text-blue-400" x-text="sessionData?.stats?.message_counts_by_type?.user || 0"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">Assistant</span>
+                        <span class="text-base font-semibold text-purple-600 dark:text-purple-400" x-text="sessionData?.stats?.message_counts_by_type?.assistant || 0"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">Function</span>
+                        <span class="text-base font-semibold text-green-600 dark:text-green-400" x-text="sessionData?.stats?.message_counts_by_type?.function || 0"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">System</span>
+                        <span class="text-base font-semibold text-gray-600 dark:text-gray-400" x-text="sessionData?.stats?.message_counts_by_type?.system || 0"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs text-surface-500 dark:text-surface-400">Artifacts</span>
+                        <span class="text-base font-semibold text-indigo-600 dark:text-indigo-400" x-text="sessionData?.stats?.artifact_count || 0"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Details -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Session ID</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100 font-mono break-all" x-text="session?.session_id || ''"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">User ID</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100 font-mono break-all" x-text="session?.user_id || ''"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Title</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="session?.title || 'Untitled'"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Session Kind</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="session?.kind || 'default'"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Primary Context ID</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100 font-mono break-all" x-text="session?.primary_context_id || ''"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Status</h3>
+            <p class="mt-1">
+                <span
+                        :class="{
+                        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium': true,
+                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': session?.status === 'idle',
+                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': session?.status === 'running',
+                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': session?.status === 'error' || session?.status === 'failed'
+                    }"
+                        x-text="session?.status || 'unknown'">
+                </span>
+            </p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Current Agent</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="session?.current_agent || 'None'"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Current Model</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="session?.current_model || 'None'"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Start Date</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="formatDate(session?.start_date)"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Last Message Date</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="formatDate(session?.last_message_date)"></p>
+        </div>
+    </div>
+
+    <!-- Primary Context Data -->
+    <div class="mb-6">
+        <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-2">Primary Context Data</h3>
+        <div class="bg-surface-100 dark:bg-surface-800 rounded p-4 overflow-auto max-h-80">
+            <pre class="text-sm text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(sessionData?.primary_context?.data)"></code></pre>
+        </div>
+    </div>
+
+    <!-- Public Metadata -->
+    <div>
+        <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-2">Public Metadata</h3>
+        <div class="bg-surface-100 dark:bg-surface-800 rounded p-4 overflow-auto max-h-80">
+            <pre class="text-sm text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(session?.public_meta)"></code></pre>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Messages Tab Panel *}
+{{ block messagesTabPanel() }}
+<!-- Tab: Messages -->
+<div x-show="activeTab === 'messages'" class="bg-white dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="border-b border-surface-200 dark:border-surface-600 px-4 py-3 flex items-center justify-between">
+        <h2 class="text-lg font-medium text-surface-900 dark:text-surface-100">Message Log</h2>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center">
+                <select
+                        id="message-filter"
+                        x-model="messageFilter"
+                        class="block pl-3 pr-10 py-1 text-sm border-surface-300 dark:border-surface-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100"
+                >
+                    <option value="all">All Types</option>
+                    <option value="user">User</option>
+                    <option value="assistant">Assistant</option>
+                    <option value="function">Function</option>
+                    <option value="system">System</option>
+                    <option value="agent_change">Agent Change</option>
+                    <option value="model_change">Model Change</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message View -->
+    <div>
+        <template x-if="filteredMessages.length === 0">
+            <div class="flex flex-col items-center justify-center py-8 text-surface-500 dark:text-surface-400">
+                <iconify-icon icon="tabler:messages" class="w-12 h-12 mb-4" width="48" height="48"></iconify-icon>
+                <p class="text-center">No messages found</p>
+            </div>
+        </template>
+
+        <div x-show="filteredMessages.length > 0">
+            <template x-for="(message, index) in filteredMessages" :key="message.message_id">
+                <div :class="{
+                    'bg-surface-50 dark:bg-surface-800': index % 2 === 0,
+                    'bg-white dark:bg-surface-700': index % 2 === 1
+                }">
+                    <div class="px-4 py-3 relative group">
+                        <div class="flex items-start">
+                            <!-- Message Type Icon -->
+                            <div :class="{
+                                'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mr-3': true,
+                                'bg-blue-100 dark:bg-blue-900': message.type === 'user',
+                                'bg-purple-100 dark:bg-purple-900': message.type === 'assistant',
+                                'bg-green-100 dark:bg-green-900': message.type === 'function',
+                                'bg-gray-100 dark:bg-gray-900': message.type === 'system',
+                                'bg-amber-100 dark:bg-amber-900': message.type === 'agent_change',
+                                'bg-teal-100 dark:bg-teal-900': message.type === 'model_change'
+                            }">
+                                <iconify-icon :icon="{
+                                    'user': 'tabler:user',
+                                    'assistant': 'tabler:robot',
+                                    'function': 'tabler:code',
+                                    'system': 'tabler:info-circle',
+                                    'agent_change': 'tabler:replace',
+                                    'model_change': 'tabler:exchange'
+                                }[message.type] || 'tabler:message'" :class="{
+                                    'text-blue-600 dark:text-blue-400': message.type === 'user',
+                                    'text-purple-600 dark:text-purple-400': message.type === 'assistant',
+                                    'text-green-600 dark:text-green-400': message.type === 'function',
+                                    'text-gray-600 dark:text-gray-400': message.type === 'system',
+                                    'text-amber-600 dark:text-amber-400': message.type === 'agent_change',
+                                    'text-teal-600 dark:text-teal-400': message.type === 'model_change'
+                                }" width="24" height="24"></iconify-icon>
+                            </div>
+
+                            <!-- Message Content -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center flex-wrap gap-2 mb-1">
+                                    <span :class="{
+                                        'inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium': true,
+                                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': message.type === 'user',
+                                        'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': message.type === 'assistant',
+                                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': message.type === 'function',
+                                        'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200': message.type === 'system',
+                                        'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': message.type === 'agent_change',
+                                        'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200': message.type === 'model_change'
+                                    }" x-text="formatMessageType(message.type)"></span>
+                                    <span class="text-sm text-surface-500 dark:text-surface-400" x-text="formatDate(message.date)"></span>
+
+                                    <!-- Agent name - purple badge -->
+                                    <template x-if="message.metadata && message.metadata.agent_name">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200" x-text="message.metadata.agent_name"></span>
+                                    </template>
+
+                                    <!-- Model name - blue badge -->
+                                    <template x-if="message.metadata && message.metadata.model">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200" x-text="message.metadata.model"></span>
+                                    </template>
+
+                                    <!-- Function name - for function calls -->
+                                    <template x-if="message.type === 'function' && message.metadata && message.metadata.function_name">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200" x-text="message.metadata.function_name"></span>
+                                    </template>
+
+                                    <!-- Status badge if applicable -->
+                                    <template x-if="message.metadata && message.metadata.status">
+                                        <span :class="{
+                                            'inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium': true,
+                                            'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': message.metadata.status === 'success',
+                                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': message.metadata.status === 'error',
+                                            'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': message.metadata.status === 'pending',
+                                        }" x-text="message.metadata.status"></span>
+                                    </template>
+                                </div>
+
+                                <!-- Special message content for agent_change and model_change -->
+                                <template x-if="message.type === 'agent_change'">
+                                    <div class="text-lg text-surface-700 dark:text-surface-300">
+                                        Agent changed to <span class="font-medium text-surface-900 dark:text-surface-100" x-text="message.metadata?.to_agent || 'unknown'"></span>
+                                    </div>
+                                </template>
+
+                                <template x-if="message.type === 'model_change'">
+                                    <div class="text-lg text-surface-700 dark:text-surface-300">
+                                        Model changed to <span class="font-medium text-surface-900 dark:text-surface-100" x-text="message.metadata?.to_model || 'unknown'"></span>
+                                    </div>
+                                </template>
+
+                                <!-- Regular message content -->
+                                <template x-if="message.type !== 'agent_change' && message.type !== 'model_change'">
+                                    <div class="whitespace-pre-wrap text-surface-800 dark:text-surface-200 pr-16" x-text="getMessageContentPreview(message)"></div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Action buttons (copy, view details) -->
+                        <div class="absolute top-3 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button @click="copyMessageContent(message)" class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 p-1 rounded-md" title="Copy content">
+                                <iconify-icon icon="tabler:copy" width="16" height="16"></iconify-icon>
+                            </button>
+                            <button @click="viewMessageDetails(message)" class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 p-1 rounded-md ml-1" title="View details">
+                                <iconify-icon icon="tabler:info-circle" width="16" height="16"></iconify-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Message Detail Modal -->
+    <div x-show="showMessageDetailModal" class="fixed inset-0 z-50 overflow-y-auto"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div @click="showMessageDetailModal = false" class="fixed inset-0 bg-surface-800 bg-opacity-75 transition-opacity"></div>
+            <div class="inline-block align-bottom bg-surface-50 dark:bg-surface-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+                <div class="p-4 border-b border-surface-200 dark:border-surface-700 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-surface-900 dark:text-surface-100" x-text="formatMessageType(currentDetailMessage?.type || '') + ' Message Details'"></h3>
+                    <button @click="showMessageDetailModal = false" class="text-surface-500 hover:text-surface-700 dark:hover:text-surface-300">
+                        <iconify-icon icon="tabler:x" width="20" height="20"></iconify-icon>
+                    </button>
+                </div>
+                <div class="p-4">
+                    <div class="space-y-4">
+                        <!-- Message ID -->
+                        <div class="mb-4">
+                            <h4 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">ID</h4>
+                            <div class="flex items-center bg-surface-200 dark:bg-surface-700 rounded p-2">
+                                <span class="font-mono text-surface-800 dark:text-surface-200 text-sm break-all" x-text="currentDetailMessage?.message_id || ''"></span>
+                                <button @click="copyToClipboard(currentDetailMessage?.message_id)" class="ml-2 text-surface-500 hover:text-surface-700 dark:hover:text-surface-300">
+                                    <iconify-icon icon="tabler:copy" width="16" height="16"></iconify-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Message Type & Time -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Type</h4>
+                                <p :class="{
+                                    'inline-flex items-center px-2.5 py-0.5 rounded text-sm font-medium': true,
+                                    'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': currentDetailMessage?.type === 'user',
+                                    'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': currentDetailMessage?.type === 'assistant',
+                                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': currentDetailMessage?.type === 'function',
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200': currentDetailMessage?.type === 'system',
+                                    'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': currentDetailMessage?.type === 'agent_change',
+                                    'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200': currentDetailMessage?.type === 'model_change'
+                                }" x-text="formatMessageType(currentDetailMessage?.type || '')"></p>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Timestamp</h4>
+                                <p class="text-surface-800 dark:text-surface-200" x-text="formatDate(currentDetailMessage?.date)"></p>
+                            </div>
+                        </div>
+
+                        <!-- Message Content -->
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Content</h4>
+                                <button @click="copyMessageContent(currentDetailMessage)" class="text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 text-xs">
+                                    <iconify-icon icon="tabler:copy" class="mr-1" width="14" height="14"></iconify-icon>
+                                    Copy Content
+                                </button>
+                            </div>
+                            <div class="bg-surface-100 dark:bg-surface-800 rounded p-3 overflow-auto max-h-60">
+                                <template x-if="isJsonString(currentDetailMessage?.data)">
+                                    <pre class="text-sm text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(safeJsonParse(currentDetailMessage?.data))"></code></pre>
+                                </template>
+                                <template x-if="!isJsonString(currentDetailMessage?.data)">
+                                    <div class="text-sm text-surface-900 dark:text-surface-100 whitespace-pre-wrap" x-text="currentDetailMessage?.data"></div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Metadata (if available) -->
+                        <template x-if="currentDetailMessage?.metadata && Object.keys(currentDetailMessage?.metadata).length > 0">
+                            <div>
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Metadata</h4>
+                                    <button @click="copyToClipboard(JSON.stringify(currentDetailMessage?.metadata, null, 2))" class="text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 text-xs">
+                                        <iconify-icon icon="tabler:copy" class="mr-1" width="14" height="14"></iconify-icon>
+                                        Copy Metadata
+                                    </button>
+                                </div>
+                                <div class="bg-surface-100 dark:bg-surface-800 rounded p-3 overflow-auto max-h-60">
+                                    <pre class="text-sm text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(currentDetailMessage?.metadata)"></code></pre>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Token Stats (if assistant message) -->
+                        <template x-if="currentDetailMessage?.type === 'assistant' && currentDetailMessage?.metadata?.tokens">
+                            <div>
+                                <h4 class="text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Token Usage</h4>
+                                <div class="grid grid-cols-3 gap-4 bg-surface-100 dark:bg-surface-800 rounded p-3">
+                                    <div>
+                                        <span class="text-xs text-surface-500 dark:text-surface-400">Prompt</span>
+                                        <p class="font-semibold text-indigo-600 dark:text-indigo-400" x-text="formatNumber(currentDetailMessage?.metadata?.tokens?.prompt_tokens || 0)"></p>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs text-surface-500 dark:text-surface-400">Completion</span>
+                                        <p class="font-semibold text-purple-600 dark:text-purple-400" x-text="formatNumber(currentDetailMessage?.metadata?.tokens?.completion_tokens || 0)"></p>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs text-surface-500 dark:text-surface-400">Thinking</span>
+                                        <p class="font-semibold text-amber-600 dark:text-amber-400" x-text="formatNumber(currentDetailMessage?.metadata?.tokens?.thinking_tokens || 0)"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div class="px-4 py-3 bg-surface-100 dark:bg-surface-900 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button @click="showMessageDetailModal = false" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Artifacts Tab Panel *}
+{{ block artifactsTabPanel() }}
+<!-- Tab: Artifacts -->
+<div x-show="activeTab === 'artifacts'" class="bg-white dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="border-b border-surface-200 dark:border-surface-600 px-4 py-3 flex items-center justify-between">
+        <h2 class="text-lg font-medium text-surface-900 dark:text-surface-100">Artifacts</h2>
+        <div class="flex items-center space-x-2">
+            <select
+                    id="artifact-filter"
+                    x-model="artifactFilter"
+                    class="block w-40 pl-3 pr-10 py-1 text-sm border-surface-300 dark:border-surface-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100"
+            >
+                <option value="all">All Types</option>
+                <option value="inline">Inline</option>
+                <option value="standalone">Standalone</option>
+                <option value="view_ref">View Reference</option>
+            </select>
+        </div>
+    </div>
+    <template x-if="filteredArtifacts.length === 0">
+        <div class="flex flex-col items-center justify-center py-12 text-surface-500 dark:text-surface-400">
+            <iconify-icon icon="tabler:photo" class="w-12 h-12 mb-4" width="48" height="48"></iconify-icon>
+            <p class="text-center">No artifacts found</p>
+        </div>
+    </template>
+    <div class="divide-y divide-surface-200 dark:divide-surface-700">
+        <template x-for="(artifact, index) in filteredArtifacts" :key="artifact.artifact_id">
+            <div :class="{
+                'hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors': true,
+                'bg-surface-50 dark:bg-surface-800': index % 2 === 0,
+                'bg-white dark:bg-surface-700': index % 2 === 1
+            }">
+                <!-- Artifact entry -->
+                <div class="px-4 py-3">
+                    <!-- Artifact header -->
+                    <div class="flex items-start justify-between cursor-pointer" @click="toggleArtifactExpand(artifact.artifact_id)">
+                        <div class="flex items-start space-x-3">
+                            <!-- Artifact icon -->
+                            <div :class="{
+                                'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center': true,
+                                'bg-purple-100 dark:bg-purple-900': artifact.kind === 'inline',
+                                'bg-blue-100 dark:bg-blue-900': artifact.kind === 'standalone',
+                                'bg-amber-100 dark:bg-amber-900': artifact.kind === 'view_ref',
+                            }">
+                                <iconify-icon :icon="{
+                                    'inline': 'tabler:align-left',
+                                    'standalone': 'tabler:layout',
+                                    'view_ref': 'tabler:external-link'
+                                }[artifact.kind] || 'tabler:photo'" :class="{
+                                    'text-purple-600 dark:text-purple-400': artifact.kind === 'inline',
+                                    'text-blue-600 dark:text-blue-400': artifact.kind === 'standalone',
+                                    'text-amber-600 dark:text-amber-400': artifact.kind === 'view_ref'
+                                }" width="24" height="24"></iconify-icon>
+                            </div>
+                            <!-- Artifact info -->
+                            <div>
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-surface-900 dark:text-surface-100" x-text="artifact.title || 'Untitled Artifact'"></span>
+                                    <!-- Kind badge with consistent styling -->
+                                    <span :class="{
+                                        'ml-2 inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium': true,
+                                        'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': artifact.kind === 'inline',
+                                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': artifact.kind === 'standalone',
+                                        'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': artifact.kind === 'view_ref'
+                                    }" x-text="artifact.kind"></span>
+                                    <span class="ml-2 text-xs text-surface-500 dark:text-surface-400" x-text="formatDate(artifact.created_at)"></span>
+                                    <template x-if="artifact.meta && artifact.meta.content_type">
+                                        <span class="ml-2 text-xs bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 px-2 py-0.5 rounded-md" x-text="artifact.meta.content_type"></span>
+                                    </template>
+                                </div>
+                                <div class="mt-1 text-sm text-surface-600 dark:text-surface-300 line-clamp-1" x-text="getArtifactPreview(artifact)"></div>
+                            </div>
+                        </div>
+                        <!-- Expand/collapse button -->
+                        <button class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200">
+                            <iconify-icon :icon="expandedArtifacts[artifact.artifact_id] ? 'tabler:chevron-up' : 'tabler:chevron-down'" width="20" height="20"></iconify-icon>
+                        </button>
+                    </div>
+                    <!-- Artifact content (expandable) -->
+                    <div x-show="expandedArtifacts[artifact.artifact_id]" x-collapse>
+                        <div class="mt-3 pl-11 space-y-3">
+                            <!-- Artifact content -->
+                            <div>
+                                <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Content:</div>
+                                <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 overflow-auto max-h-80">
+                                    <template x-if="isJsonString(artifact.content)">
+                                        <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(safeJsonParse(artifact.content))"></code></pre>
+                                    </template>
+                                    <template x-if="!isJsonString(artifact.content)">
+                                        <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="artifact.content"></code></pre>
+                                    </template>
+                                </div>
+                            </div>
+                            <!-- Artifact metadata -->
+                            <template x-if="artifact.meta && Object.keys(artifact.meta).length > 0">
+                                <div>
+                                    <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Metadata:</div>
+                                    <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 overflow-auto max-h-60">
+                                        <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(artifact.meta)"></code></pre>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <!-- Unified ID footer - same style as messages -->
+                    <div x-show="expandedArtifacts[artifact.artifact_id]" class="mt-3 px-4 py-2 bg-surface-50 dark:bg-surface-900 text-xs rounded flex justify-between items-center">
+                        <span class="font-mono text-surface-500 dark:text-surface-400">ID: <span x-text="artifact.artifact_id"></span></span>
+                        <span class="text-surface-500 dark:text-surface-400">Updated: <span x-text="formatDate(artifact.updated_at)"></span></span>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+{{ end }}
+
+{* Contexts Tab Panel *}
+{{ block contextsTabPanel() }}
+<!-- Tab: Contexts -->
+<div x-show="activeTab === 'contexts'" class="bg-white dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="border-b border-surface-200 dark:border-surface-600 px-4 py-3 flex items-center justify-between">
+        <h2 class="text-lg font-medium text-surface-900 dark:text-surface-100">Contexts</h2>
+    </div>
+    <template x-if="contexts.length === 0">
+        <div class="flex flex-col items-center justify-center py-12 text-surface-500 dark:text-surface-400">
+            <iconify-icon icon="tabler:brain" class="w-12 h-12 mb-4" width="48" height="48"></iconify-icon>
+            <p class="text-center">No contexts found</p>
+        </div>
+    </template>
+    <div class="divide-y divide-surface-200 dark:divide-surface-700">
+        <template x-for="(context, index) in contexts" :key="context.id || context.context_id">
+            <div :class="{
+                'hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors': true,
+                'bg-surface-50 dark:bg-surface-800': index % 2 === 0,
+                'bg-white dark:bg-surface-700': index % 2 === 1
+            }">
+                <!-- Context entry -->
+                <div class="px-4 py-3">
+                    <!-- Context header -->
+                    <div class="flex items-start justify-between cursor-pointer" @click="toggleContextExpand(context.id || context.context_id)">
+                        <div class="flex items-start space-x-3">
+                            <!-- Context icon -->
+                            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                                <iconify-icon icon="tabler:brain" class="text-blue-600 dark:text-blue-400" width="24" height="24"></iconify-icon>
+                            </div>
+                            <!-- Context info -->
+                            <div>
+                                <div class="flex items-center">
+                                    <!-- Type badge with consistent styling -->
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" x-text="context.type || 'data'"></span>
+                                    <span class="ml-2 text-xs text-surface-500 dark:text-surface-400" x-text="formatContextId(context.id || context.context_id)"></span>
+                                </div>
+                                <div class="mt-1 text-sm text-surface-600 dark:text-surface-300 line-clamp-1" x-text="getContextPreview(context)"></div>
+                            </div>
+                        </div>
+                        <!-- Expand/collapse button -->
+                        <button class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200">
+                            <iconify-icon :icon="expandedContexts[context.id || context.context_id] ? 'tabler:chevron-up' : 'tabler:chevron-down'" width="20" height="20"></iconify-icon>
+                        </button>
+                    </div>
+                    <!-- Context content (expandable) -->
+                    <div x-show="expandedContexts[context.id || context.context_id]" x-collapse>
+                        <div class="mt-3 pl-11 space-y-3">
+                            <!-- Context content -->
+                            <div>
+                                <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Content:</div>
+                                <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 overflow-auto max-h-80">
+                                    <template x-if="isJsonString(context.data || context.text)">
+                                        <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(safeJsonParse(context.data || context.text))"></code></pre>
+                                    </template>
+                                    <template x-if="!isJsonString(context.data || context.text)">
+                                        <div class="text-sm text-surface-900 dark:text-surface-100 whitespace-pre-wrap" x-text="context.data || context.text"></div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Unified ID footer - same style as messages -->
+                    <div x-show="expandedContexts[context.id || context.context_id]" class="mt-3 px-4 py-2 bg-surface-50 dark:bg-surface-900 text-xs rounded">
+                        <span class="font-mono text-surface-500 dark:text-surface-400">ID: <span x-text="context.id || context.context_id"></span></span>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('sessionViewerApp', () => ({
+            sessionId: '',
+            sessionData: null,
+            session: {},
+            messages: [],
+            artifacts: [],
+            contexts: [],
+            error: null,
+            isLoading: true,
+            wippyApi: null,
+            navigateApi: null,
+            apiConfig: null,
+            activeTab: 'info',
+            messageFilter: 'all',
+            artifactFilter: 'all',
+            expandedMessages: {},
+            expandedArtifacts: {},
+            expandedContexts: {},
+            showMessageDetailModal: false,
+            currentDetailMessage: null,
+            jsonInput: '',
+
+            async initialize() {
+                this.isLoading = true;
+                this.error = null;
+
+                try {
+                    if (typeof window.initWippyApi !== 'function') {
+                        throw new Error("Wippy API not available");
+                    }
+
+                    const wippyInit = await window.initWippyApi();
+                    this.wippyApi = wippyInit.iframe;
+                    this.apiConfig = wippyInit.config;
+
+                    // Store navigation API for back button
+                    if (this.wippyApi) {
+                        this.navigateApi = this.wippyApi;
+                    }
+
+                    if (this.apiConfig?.path) {
+                        this.sessionId = this.apiConfig.path;
+                        await this.loadSessionData();
+                    } else {
+                        // No session ID found - we'll show the JSON paste area
+                        this.isLoading = false;
+                    }
+                } catch (err) {
+                    console.error("Initialization error:", err);
+                    this.error = err.message || "Failed to initialize";
+                    this.isLoading = false;
+                }
+            },
+
+            async loadSessionData() {
+                if (!this.sessionId) {
+                    this.error = "Session ID is required";
+                    return;
+                }
+
+                this.isLoading = true;
+                this.error = null;
+
+                try {
+                    const apiUrl = `/api/v1/keeper/sessions/${encodeURIComponent(this.sessionId)}`;
+                    let response;
+
+                    if (this.wippyApi?.api?.get) {
+                        response = await this.wippyApi.api.get(apiUrl);
+                    } else if (this.apiConfig?.auth?.token) {
+                        const rawResponse = await fetch(apiUrl, {
+                            headers: { 'Authorization': `Bearer ${this.apiConfig.auth.token}` }
+                        });
+
+                        if (!rawResponse.ok) {
+                            throw new Error(`API request failed with status ${rawResponse.status}`);
+                        }
+
+                        response = { data: await rawResponse.json() };
+                    } else {
+                        throw new Error("No mechanism to make authenticated API calls");
+                    }
+
+                    if (!response.data) {
+                        throw new Error("No data received from API");
+                    }
+
+                    if (!response.data.success) {
+                        throw new Error(response.data.error || "API reported failure");
+                    }
+
+                    this.processSessionData(response.data);
+
+                } catch (err) {
+                    console.error("Error loading session data:", err);
+                    this.error = err.message || "Failed to load session data";
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            loadSessionFromJson() {
+                if (!this.jsonInput.trim()) {
+                    this.error = "Please provide JSON data";
+                    return;
+                }
+
+                this.isLoading = true;
+                this.error = null;
+
+                try {
+                    const data = JSON.parse(this.jsonInput);
+
+                    // Make sure to set sessionId from the data for consistency
+                    if (data.session && data.session.session_id) {
+                        this.sessionId = data.session.session_id;
+                    } else if (data.sessionId) {
+                        this.sessionId = data.sessionId;
+                    } else {
+                        this.sessionId = "Imported Session";
+                    }
+
+                    this.processSessionData(data);
+                } catch (err) {
+                    console.error("Error parsing JSON input:", err);
+                    this.error = "Failed to parse JSON: " + (err.message || "Invalid JSON");
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            processSessionData(data) {
+                this.sessionData = data;
+                this.session = this.sessionData.session || {};
+
+                // Ensure the sessionId is consistently displayed
+                if (!this.sessionId && this.session.session_id) {
+                    this.sessionId = this.session.session_id;
+                }
+
+                // Sort messages by date if available
+                this.messages = (this.sessionData.messages || []).sort((a, b) => {
+                    if (!a.date || !b.date) return 0;
+                    return new Date(a.date) - new Date(b.date);
+                });
+
+                this.artifacts = this.sessionData.artifacts || [];
+                this.contexts = this.getContextsList();
+
+                // Initialize expanded state
+                this.expandedArtifacts = {};
+                this.expandedContexts = {};
+            },
+
+            getContextsList() {
+                const contexts = [];
+
+                // Add primary context if it exists
+                if (this.sessionData?.primary_context) {
+                    contexts.push(this.sessionData.primary_context);
+                }
+
+                // Add any additional contexts if they exist
+                if (this.sessionData?.contexts && Array.isArray(this.sessionData.contexts)) {
+                    contexts.push(...this.sessionData.contexts);
+                }
+
+                return contexts;
+            },
+
+            refreshSession() {
+                this.loadSessionData();
+            },
+
+            exportSessionJson() {
+                if (!this.sessionData) {
+                    alert("No session data to export");
+                    return;
+                }
+
+                try {
+                    const dataStr = JSON.stringify(this.sessionData, null, 2);
+
+                    // First, copy to clipboard
+                    navigator.clipboard.writeText(dataStr).then(() => {
+                        console.log("Session data copied to clipboard");
+                    }).catch(err => {
+                        console.error("Failed to copy to clipboard:", err);
+                    });
+
+                    // Then, create download
+                    const blob = new Blob([dataStr], {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `session-${this.sessionId || 'export'}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    // Show a brief notification
+                    const notification = document.createElement('div');
+                    notification.textContent = "Session data exported and copied to clipboard";
+                    notification.className = "fixed top-4 right-4 bg-surface-800 dark:bg-surface-700 text-white px-6 py-4 rounded-lg shadow-lg z-50";
+                    document.body.appendChild(notification);
+                    setTimeout(() => {
+                        notification.classList.add("transition-opacity", "opacity-0");
+                        setTimeout(() => document.body.removeChild(notification), 300);
+                    }, 3000);
+
+                } catch (err) {
+                    console.error("Error exporting session data:", err);
+                    alert("Export failed: " + (err.message || "Unknown error"));
+                }
+            },
+
+            goBackToList() {
+                if (this.navigateApi) {
+                    this.navigateApi.navigate('/c/keeper.views.session:list');
+                } else {
+                    console.warn('Navigation API not available, cannot go back to list.');
+                    alert('Navigation back to list is currently unavailable.');
+                }
+            },
+
+            get filteredMessages() {
+                if (!this.messages || !Array.isArray(this.messages)) return [];
+
+                if (this.messageFilter === 'all') {
+                    return this.messages;
+                }
+
+                return this.messages.filter(message => message.type === this.messageFilter);
+            },
+
+            get filteredArtifacts() {
+                if (!this.artifacts || !Array.isArray(this.artifacts)) return [];
+
+                if (this.artifactFilter === 'all') {
+                    return this.artifacts;
+                }
+
+                return this.artifacts.filter(artifact => artifact.kind === this.artifactFilter);
+            },
+
+            viewMessageDetails(message) {
+                this.currentDetailMessage = message;
+                this.showMessageDetailModal = true;
+            },
+
+            copyMessageContent(message) {
+                if (!message || !message.data) {
+                    alert('No message content to copy');
+                    return;
+                }
+
+                let content = message.data;
+
+                // If it's JSON, pretty-print it
+                if (this.isJsonString(content)) {
+                    try {
+                        content = JSON.stringify(JSON.parse(content), null, 2);
+                    } catch (e) {
+                        // If parsing fails, use the original content
+                    }
+                }
+
+                this.copyToClipboard(content);
+            },
+
+            copyToClipboard(text) {
+                if (!text) {
+                    alert('Nothing to copy');
+                    return;
+                }
+
+                try {
+                    navigator.clipboard.writeText(text).then(() => {
+                        // Show a brief notification
+                        const notification = document.createElement('div');
+                        notification.textContent = "Copied to clipboard";
+                        notification.className = "fixed top-4 right-4 bg-surface-800 dark:bg-surface-700 text-white px-6 py-4 rounded-lg shadow-lg z-50";
+                        document.body.appendChild(notification);
+                        setTimeout(() => {
+                            notification.classList.add("transition-opacity", "opacity-0");
+                            setTimeout(() => document.body.removeChild(notification), 300);
+                        }, 3000);
+                    }).catch(err => {
+                        console.error('Clipboard write failed:', err);
+                        alert('Failed to copy to clipboard');
+                    });
+                } catch (err) {
+                    console.error('Clipboard API not available:', err);
+                    alert('Clipboard functionality not available');
+                }
+            },
+
+            getMessageContentPreview(message) {
+                if (!message || !message.data) return '';
+
+                // For user and assistant messages, just return the content directly
+                if (message.type === 'user' || message.type === 'assistant') {
+                    // Truncate if too long
+                    const content = String(message.data);
+                    if (content.length > 1000) {
+                        return content.substring(0, 1000) + '...';
+                    }
+                    return content;
+                }
+
+                // For function messages, format JSON nicely
+                if (message.type === 'function') {
+                    if (this.isJsonString(message.data)) {
+                        try {
+                            const data = JSON.parse(message.data);
+                            const str = JSON.stringify(data);
+                            return str.length > 200 ? str.substring(0, 200) + '...' : str;
+                        } catch (e) {
+                            return message.data;
+                        }
+                    }
+                    return message.data;
+                }
+
+                return message.data;
+            },
+
+            toggleArtifactExpand(artifactId) {
+                this.expandedArtifacts[artifactId] = !this.expandedArtifacts[artifactId];
+                this.expandedArtifacts = {...this.expandedArtifacts}; // Trigger reactivity
+            },
+
+            toggleContextExpand(contextId) {
+                this.expandedContexts[contextId] = !this.expandedContexts[contextId];
+                this.expandedContexts = {...this.expandedContexts}; // Trigger reactivity
+            },
+
+            getArtifactPreview(artifact) {
+                if (!artifact) return '';
+
+                if (artifact.kind === 'view_ref' && artifact.meta?.page_id) {
+                    return `View Reference: ${artifact.meta.page_id}`;
+                }
+
+                if (artifact.meta?.description) {
+                    return artifact.meta.description;
+                }
+
+                if (artifact.meta?.content_type) {
+                    return `Type: ${artifact.meta.content_type}`;
+                }
+
+                if (artifact.content) {
+                    const preview = typeof artifact.content === 'string'
+                        ? artifact.content
+                        : JSON.stringify(artifact.content);
+
+                    if (preview.length > 100) {
+                        return preview.substring(0, 100) + '...';
+                    }
+                    return preview;
+                }
+
+                return 'No preview available';
+            },
+
+            getContextPreview(context) {
+                if (!context) return '';
+
+                const contentField = context.data || context.text;
+
+                if (!contentField) {
+                    return 'No content available';
+                }
+
+                if (typeof contentField === 'string') {
+                    // Try to parse JSON if it looks like one
+                    if (this.isJsonString(contentField)) {
+                        try {
+                            const jsonObj = JSON.parse(contentField);
+                            const jsonStr = JSON.stringify(jsonObj).substring(0, 100);
+                            return jsonStr + (jsonStr.length > 100 ? '...' : '');
+                        } catch (e) {
+                            // If parsing fails, just use the string itself
+                        }
+                    }
+
+                    if (contentField.length > 100) {
+                        return contentField.substring(0, 100) + '...';
+                    }
+                    return contentField;
+                }
+
+                // Handle non-string content
+                return 'Complex data structure';
+            },
+
+            formatDate(dateString) {
+                if (!dateString) return 'N/A';
+
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleString();
+                } catch (e) {
+                    return dateString;
+                }
+            },
+
+            formatNumber(num) {
+                if (num === undefined || num === null) return '0';
+
+                return new Intl.NumberFormat().format(num);
+            },
+
+            formatMessageType(type) {
+                if (!type) return 'Unknown';
+
+                // Convert snake_case to Title Case
+                return type
+                    .split('_')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+            },
+
+            formatContextId(id) {
+                if (!id) return '';
+
+                // Show a shortened version if too long
+                if (id.length > 20) {
+                    return id.substring(0, 8) + '...' + id.substring(id.length - 8);
+                }
+
+                return id;
+            },
+
+            formatJson(data) {
+                if (data === undefined || data === null) return 'null';
+
+                try {
+                    if (typeof data === 'string') {
+                        // Try to parse it if it's a JSON string
+                        try {
+                            const obj = JSON.parse(data);
+                            return JSON.stringify(obj, null, 2);
+                        } catch (e) {
+                            // If it's not valid JSON, return as is
+                            return data;
+                        }
+                    }
+
+                    return JSON.stringify(data, null, 2);
+                } catch (e) {
+                    console.error('Error formatting JSON:', e);
+                    return String(data);
+                }
+            },
+
+            isJsonString(str) {
+                if (typeof str !== 'string') return false;
+
+                // Quick check for likely JSON strings
+                str = str.trim();
+                if (!(str.startsWith('{') && str.endsWith('}')) &&
+                    !(str.startsWith('[') && str.endsWith(']'))) {
+                    return false;
+                }
+
+                try {
+                    JSON.parse(str);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            },
+
+            safeJsonParse(str) {
+                if (!str || typeof str !== 'string') return str;
+
+                try {
+                    return JSON.parse(str);
+                } catch (e) {
+                    return str;
+                }
+            }
+        }));
+    });
+</script>
+{{ end }}

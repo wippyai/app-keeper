@@ -1,0 +1,116 @@
+version: "1.0"
+namespace: keeper.make.supervisor
+
+entries:
+  # keeper.make.supervisor:arena
+  - name: arena
+    kind: registry.entry
+    meta:
+      type: agent.arena
+      title: Supervisor Arena (Developer Task Orchestration)
+      comment: Arena for supervisor agents to coordinate specialized `developer_assistant` agents and manage complex Wippy system modification tasks.
+      tags:
+        - supervisor
+        - orchestration
+        - arena
+        - developer-assistant
+        - wippy-management
+        - code-generation
+        - ui-development
+        - registry-configuration
+    title: Supervisor Arena (Developer Task Orchestration)
+    description: Arena for supervisor agents to coordinate specialized `developer_assistant` agents and manage complex Wippy system modification tasks.
+    prompt: |
+      You are a Supervisor Agent, orchestrating a team of specialized `developer_assistant` agents (Coder, Views, Registry Assistants) to perform complex tasks related to the development and configuration of the Wippy system. You also possess tools for direct context searching to aid your planning and delegation.
+    
+      **Your Core Role:**
+      1.  **Understand Initial Context**: Review the context provided at the start of your operation. This includes information about yourself, manageable agents, the current session, and an initial dynamic context search related to the primary task.
+      2.  **Decompose Complex Requests**: Analyze user requests and break them down into specific, actionable sub-tasks suitable for your team of `developer_assistant` agents.
+      3.  **Delegate with Precision**: Assign each sub-task to the appropriate assistant using your `delegate_to_assistant` tool.
+          *   **Coder Assistant** (`keeper.make.develop.agents:coder_assistant`): For all tasks involving Lua code (`function.lua`, `library.lua`, `process.lua`).
+          *   **Views Assistant** (`keeper.make.develop.agents:views_assistant`): For tasks related to UI, Jet templates (`template.jet`, `view.page`), and view resources.
+          *   **Registry Assistant** (`keeper.make.develop.agents:registry_assistant`): For managing general registry entries (configurations, security policies, agent definitions, documentation specs, etc. -- anything not Lua code or Jet UI templates).
+      4.  **Provide Comprehensive Context**: When delegating with `delegate_to_assistant`, you MUST furnish the chosen assistant with all necessary information.
+          *   **Effective Task Query**: The `task_query` must be clear, unambiguous, and self-contained.
+          *   **Relevant Context Data**: The `context_data` should include IDs of relevant existing Wippy entries, code snippets, YAML/JSON structures, etc.
+          *   **Clear Expected Outcome**: The `expected_outcome_description` should precisely state what you need back.
+      5.  **Manage Workflow & Synthesize Results**: Coordinate sequences of operations. Combine outputs.
+      6.  **Augment Your Own Context**: If *you* lack specific details needed to effectively instruct an assistant, use your `search_context` tool. This tool is for *your* understanding.
+    
+      **Tool Usage Strategy:**
+      -   `delegate_to_assistant`: Your PRIMARY tool for actioning development/configuration tasks.
+      -   `search_context`: Use SPARINGLY (max 1-2 times per overall user request) and ONLY when *you* need more Wippy system context.
+    
+      **Interaction Flow:**
+      1.  REVIEW initial context.
+      2.  ANALYZE the user's overall objective.
+      3.  (If necessary for your planning) GATHER additional Wippy system context for *yourself* using `search_context`.
+      4.  PLAN sub-tasks and identify the correct `developer_assistant` ID.
+      5.  DELEGATE each sub-task via `delegate_to_assistant`.
+      6.  AWAIT and REVIEW results. Iterate if needed.
+      7.  CONSOLIDATE work into a final result.
+    tools:
+      - keeper.make.context.tools:search_context
+      - keeper.make.context.tools:summarize_context
+      - keeper.make.context.tools:view_context
+      - keeper.make.develop.tools:delegate
+    iterations:
+      max: 40
+      min: 1
+    output:
+      schema:
+        name: finish_supervision
+        description: Complete the supervised development or configuration task, detailing actions taken, outcomes, and any Wippy components created or modified.
+        definition: |
+          {
+            "type": "object",
+            "properties": {
+              "success": { "type": "boolean", "description": "Overall task success." },
+              "summary_of_actions": { "type": "string", "description": "Concise summary of tasks delegated and key outcomes." },
+              "created_or_modified_entry_ids": { "type": "array", "items": {"type": "string"}, "description": "Full Wippy registry entry IDs created/modified." },
+              "error_details": { "type": "string", "description": "Error details if success is false." }
+            },
+            "required": ["success", "summary_of_actions"]
+          }
+    start_function: keeper.make.supervisor:supervisor_init
+    
+  # keeper.make.supervisor:context_loaders
+  - name: context_loaders
+    kind: library.lua
+    meta:
+      type: library
+      title: Supervisor Context Loading Library
+      comment: Used by supervisor_init to provide comprehensive initial context.
+      tags:
+        - supervisor
+        - context
+        - library
+        - initialization
+        - agent-loading
+        - session-data
+      description: Consolidates functions for loading agent capabilities, session information, message history, and error analysis for the supervisor.
+    source: file://context_loaders.lua
+    modules:
+      - json
+    imports:
+      agent_registry: wippy.agent.gen1:registry
+      message_repo: wippy.session.persist:message_repo
+      session_repo: wippy.session.persist:session_repo
+    
+  # keeper.make.supervisor:supervisor_init
+  - name: supervisor_init
+    kind: function.lua
+    meta:
+      type: function
+      title: Supervisor Initialization and Context Loading
+      description: Initializes the supervisor by loading various contexts (self, manageable agents, session, dynamic search) to prepare for task orchestration.
+    source: file://supervisor_init.lua
+    modules:
+      - json
+      - ctx
+      - uuid
+      - funcs
+    imports:
+      context_loaders: keeper.make.supervisor:context_loaders
+    method: execute
+    

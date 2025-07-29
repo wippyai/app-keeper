@@ -1,0 +1,1522 @@
+{{ extends "/common/layout" }}
+
+{{ block title() }}Dataflow Viewer{{ end }}
+{{ block metaDescription() }}View details for dataflow, nodes, executions and data{{ end }}
+
+{{ block headScripts() }}
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.13.10/dist/cdn.min.js"></script>
+<style>
+    /* Sexy new item animations */
+    .new-item-animation {
+        animation: slideInFade 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards, newItemGlow 2s ease-out 0.6s forwards;
+        transform: translateY(-10px) scale(0.95);
+        opacity: 0;
+        /* Notification toast */
+        .update-toast {
+            animation: toastSlideIn 0.3s ease-out forwards, toastSlideOut 0.3s ease-in 2.7s forwards;
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        @keyframes toastSlideIn {
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastSlideOut {
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        @keyframes slideInFade {
+            0% {
+                transform: translateY(-10px) scale(0.95);
+                opacity: 0;
+            }
+            60% {
+                transform: translateY(0) scale(1.02);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes newItemGlow {
+            0% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+                background-color: rgba(59, 130, 246, 0.05);
+            }
+            50% {
+                box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.2);
+                background-color: rgba(59, 130, 246, 0.1);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+                background-color: transparent;
+            }
+        }
+
+        /* Dark mode glow */
+        @media (prefers-color-scheme: dark) {
+            @keyframes newItemGlow {
+                0% {
+                    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4);
+                    background-color: rgba(96, 165, 250, 0.05);
+                }
+                50% {
+                    box-shadow: 0 0 20px 4px rgba(96, 165, 250, 0.3);
+                    background-color: rgba(96, 165, 250, 0.1);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+                    background-color: transparent;
+                }
+            }
+        }
+
+        /* Smooth transitions for all items */
+        .item-transition {
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Live update button pulse */
+        .live-updating {
+            animation: livePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes livePulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+            }
+        }
+</style>
+{{ end }}
+
+{{ block mainContent() }}
+<div x-data="dataflowViewerApp"
+     x-init="initialize()"
+     class="space-y-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
+     x-cloak>
+    {{ yield pageHeader() }}
+    {{ yield loadingStates() }}
+    {{ yield tabNavigation() }}
+    {{ yield tabContents() }}
+</div>
+{{ end }}
+
+{{ block pageHeader() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="px-6 py-4 border-b border-surface-200 dark:border-surface-600">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <h1 class="text-xl leading-6 font-medium text-surface-900 dark:text-surface-100">
+                    Dataflow Viewer
+                    <span x-show="isLoading || isUpdating" class="inline-block ml-2" :title="isLoading ? 'Loading data...' : 'Live updating...'">
+                        <iconify-icon icon="tabler:loader-2" class="animate-spin transition-colors duration-300" width="20" height="20"
+                                      :class="isUpdating ? 'text-green-500 dark:text-green-400' : 'text-surface-500 dark:text-surface-400'"></iconify-icon>
+                    </span>
+                </h1>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
+                    <span x-text="dataflowId || 'No ID'"></span>
+                    <template x-if="dataflow.title || dataflow.metadata?.title">
+                        <span>
+                            <span class="mx-1">·</span>
+                            <span x-text="dataflow.title || dataflow.metadata?.title"></span>
+                        </span>
+                    </template>
+                    <template x-if="lastEventTime">
+                        <span class="ml-2 text-xs">
+                            (Latest data event: <span x-text="formatTime(lastEventTime)"></span>
+                            <span x-show="!liveUpdatesEnabled" class="text-yellow-600 dark:text-yellow-400 ml-1">(Updates Paused)</span>)
+                        </span>
+                    </template>
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2 items-center">
+                <button @click="toggleLiveUpdates()"
+                        :title="liveUpdatesEnabled ? 'Disable Live Updates' : 'Enable Live Updates'"
+                        class="inline-flex items-center px-3 py-2 border shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-300"
+                        :class="[
+                            liveUpdatesEnabled ?
+                                'bg-green-100 dark:bg-green-700 text-green-700 dark:text-green-100 border-green-300 dark:border-green-600 hover:bg-green-200 dark:hover:bg-green-600' :
+                                'bg-yellow-100 dark:bg-yellow-700 text-yellow-700 dark:text-yellow-100 border-yellow-300 dark:border-yellow-600 hover:bg-yellow-200 dark:hover:bg-yellow-600',
+                            isUpdating && liveUpdatesEnabled ? 'live-updating' : ''
+                        ]"
+                >
+                    <iconify-icon :icon="liveUpdatesEnabled ? 'tabler:player-pause' : 'tabler:player-play'" class="mr-2" width="20" height="20"></iconify-icon>
+                    <span x-text="liveUpdatesEnabled ? 'Live' : 'Paused'"></span>
+                </button>
+                <button @click="goBackToList()"
+                        class="inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-200 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                >
+                    <iconify-icon icon="tabler:arrow-left" class="mr-2" width="20" height="20"></iconify-icon>
+                    Back
+                </button>
+                <button x-show="dataflowData"
+                        @click="exportWorkflowJson"
+                        class="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                >
+                    <iconify-icon icon="tabler:copy" class="mr-2" width="20" height="20"></iconify-icon>
+                    JSON
+                </button>
+                <button x-show="dataflowData && canCancelWorkflow()"
+                        @click="cancelWorkflow"
+                        :disabled="isLoading || isUpdating"
+                        class="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                        :class="{'opacity-50 cursor-not-allowed': isLoading || isUpdating}"
+                >
+                    <iconify-icon icon="tabler:hand-stop" class="mr-2" width="20" height="20"></iconify-icon>
+                    Cancel
+                </button>
+                <button x-show="dataflowData && canTerminateWorkflow()"
+                        @click="terminateWorkflow"
+                        :disabled="isLoading || isUpdating"
+                        class="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        :class="{'opacity-50 cursor-not-allowed': isLoading || isUpdating}"
+                >
+                    <iconify-icon icon="tabler:square-x" class="mr-2" width="20" height="20"></iconify-icon>
+                    Terminate
+                </button>
+                <button x-show="dataflowId"
+                        @click="refreshWorkflow"
+                        data-button-refresh
+                        :disabled="isLoading || isUpdating"
+                        class="inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-200 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        :class="{'opacity-50 cursor-not-allowed': isLoading || isUpdating}"
+                >
+                    <iconify-icon :icon="(isLoading || isUpdating) ? 'tabler:loader-2' : 'tabler:refresh'" :class="{'animate-spin': isLoading || isUpdating}" class="mr-2" width="20" height="20"></iconify-icon>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block loadingStates() }}
+<div x-show="isLoading && !dataflowData && !error" class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="flex justify-center items-center py-12">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading dataflow data...</span>
+    </div>
+</div>
+<div x-show="error" class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400">
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="error"></p>
+            <template x-if="dataflowId">
+                <button @click="refreshWorkflow()"
+                        :disabled="isLoading || isUpdating"
+                        class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700"
+                        :class="{'opacity-50 cursor-not-allowed': isLoading || isUpdating}">
+                    <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                    Retry
+                </button>
+            </template>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block tabNavigation() }}
+<div x-show="!isLoading && !error && dataflowData" class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <nav class="flex border-b border-surface-200 dark:border-surface-600" aria-label="Tabs">
+        <button
+                @click="activeTab = 'info'"
+                class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                :class="activeTab === 'info' ?
+                'border-primary-500 text-primary-600 dark:text-primary-400' :
+                'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+        >
+            <iconify-icon icon="tabler:info-circle" class="mr-1.5"
+                          :class="activeTab === 'info' ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                          width="16" height="16"></iconify-icon>
+            <span>Dataflow Info</span>
+        </button>
+        <button
+                @click="activeTab = 'nodes'"
+                class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                :class="activeTab === 'nodes' ?
+                'border-primary-500 text-primary-600 dark:text-primary-400' :
+                'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+        >
+            <iconify-icon icon="tabler:sitemap" class="mr-1.5"
+                          :class="activeTab === 'nodes' ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                          width="16" height="16"></iconify-icon>
+            <span>Nodes</span>
+        </button>
+        <button
+                @click="activeTab = 'data'"
+                class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                :class="activeTab === 'data' ?
+                'border-primary-500 text-primary-600 dark:text-primary-400' :
+                'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+        >
+            <iconify-icon icon="tabler:database" class="mr-1.5"
+                          :class="activeTab === 'data' ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                          width="16" height="16"></iconify-icon>
+            <span>Data</span>
+        </button>
+        <button
+                @click="activeTab = 'timelineData'"
+                class="flex-1 text-center whitespace-nowrap py-3 px-3 border-b-2 font-medium text-sm flex items-center justify-center group"
+                :class="activeTab === 'timelineData' ?
+                'border-primary-500 text-primary-600 dark:text-primary-400' :
+                'border-transparent text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'"
+        >
+            <iconify-icon icon="tabler:timeline-event-exclamation" class="mr-1.5"
+                          :class="activeTab === 'timelineData' ? 'text-primary-500 dark:text-primary-400' : 'text-surface-400 dark:text-surface-500 group-hover:text-surface-500 dark:group-hover:text-surface-300'"
+                          width="16" height="16"></iconify-icon>
+            <span>Timeline Data</span>
+        </button>
+    </nav>
+</div>
+{{ end }}
+
+{{ block tabContents() }}
+<div x-show="!isLoading && !error && dataflowData">
+    {{ yield infoTabPanel() }}
+    {{ yield nodesTabPanel() }}
+    {{ yield dataTabPanel() }}
+    {{ yield timelineDataTabPanel() }}
+</div>
+{{ end }}
+
+{{ block infoTabPanel() }}
+<div x-show="activeTab === 'info'" class="bg-white dark:bg-surface-700 shadow rounded-lg p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Dataflow ID</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100 font-mono break-all" x-text="dataflow?.dataflow_id || ''"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Actor ID</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100 font-mono break-all" x-text="dataflow?.actor_id || ''"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Title</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="dataflow?.title || dataflow?.metadata?.title || 'Untitled'"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Dataflow Type</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="dataflow?.type || 'default'"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Parent Dataflow ID</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100 font-mono break-all" x-text="dataflow?.parent_dataflow_id || 'None'"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Status</h3>
+            <p class="mt-1">
+                <span :class="getNodeStatusBadgeClasses(dataflow?.status)"
+                      class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium"
+                      :title="'Status: ' + (dataflow?.status || 'unknown')">
+                    <iconify-icon :icon="getNodeStatusIcon(dataflow?.status)" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                    <span x-text="dataflow?.status || 'unknown'"></span>
+                </span>
+            </p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Created At</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="formatDate(dataflow?.created_at)"></p>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400">Updated At</h3>
+            <p class="mt-1 text-sm text-surface-900 dark:text-surface-100" x-text="formatDate(dataflow?.updated_at)"></p>
+        </div>
+    </div>
+
+    <div class="mb-6">
+        <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-3">Statistics</h3>
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="flex flex-col">
+                    <span class="text-xs text-surface-500 dark:text-surface-400">Nodes</span>
+                    <span class="text-base font-semibold text-surface-900 dark:text-surface-100" x-text="nodes?.length || 0"></span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xs text-surface-500 dark:text-surface-400">Data Items</span>
+                    <span class="text-base font-semibold text-surface-900 dark:text-surface-100" x-text="data?.length || 0"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <h3 class="text-sm font-medium text-surface-500 dark:text-surface-400 mb-2">Metadata</h3>
+        <div class="bg-surface-100 dark:bg-surface-800 rounded p-4 overflow-auto">
+            <pre class="text-sm text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(dataflow?.metadata)"></code></pre>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block nodesTabPanel() }}
+<div x-show="activeTab === 'nodes'" class="bg-white dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="border-b border-surface-200 dark:border-surface-600 px-4 py-3 flex items-center justify-between">
+        <h2 class="text-lg font-medium text-surface-900 dark:text-surface-100">Dataflow Nodes</h2>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center">
+                <select
+                        id="node-filter"
+                        x-model="nodeFilter"
+                        class="block pl-3 pr-10 py-1 text-sm border-surface-300 dark:border-surface-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100"
+                >
+                    <option value="all">All Types</option>
+                    <option value="processor">processor</option>
+                    <option value="input">input</option>
+                    <option value="output">output</option>
+                    <option value="condition">condition</option>
+                    <option value="transformer">transformer</option>
+                    <option value="dataflow.agent:planner_node">dataflow.agent:planner_node</option>
+                    <option value="dataflow.agent:react_node">dataflow.agent:react_node</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <template x-if="filteredNodes.length === 0">
+            <div class="flex flex-col items-center justify-center py-8 text-surface-500 dark:text-surface-400">
+                <iconify-icon icon="tabler:sitemap-off" class="w-12 h-12 mb-4" width="48" height="48"></iconify-icon>
+                <p class="text-center" x-text="nodeFilter === 'all' ? 'No nodes found' : 'No nodes matching filter'"></p>
+            </div>
+        </template>
+
+        <div x-show="filteredNodes.length > 0">
+            <template x-for="(node, index) in filteredNodes" :key="node.node_id">
+                <div :style="getTypeHueStyle(node.type)"
+                     :class="{
+                    'bg-surface-50 dark:bg-surface-800': index % 2 === 0,
+                    'bg-white dark:bg-surface-700': index % 2 === 1,
+                    'new-item-animation': newNodeIds.has(node.node_id),
+                    'item-transition': !newNodeIds.has(node.node_id)
+                }">
+                    <div class="px-4 py-3 relative group">
+                        <div class="flex items-start cursor-pointer" @click="toggleNodeExpand(node.node_id)">
+                            <div class="flex-shrink-0 flex items-center self-stretch" :style="'width:' + (node.level * 20 + 10) + 'px; margin-right: 8px; position: relative;'">
+                                <div x-show="node.level > 0" class="absolute border-l border-surface-300 dark:border-surface-600"
+                                     :style="'left:' + ((node.level -1) * 20 + 9) + 'px; top: -50%; bottom: 50%; height: 100%;'">
+                                </div>
+                                <div x-show="node.level > 0" class="absolute border-t border-surface-300 dark:border-surface-600 h-px"
+                                     :style="'width: 10px; left:' + ((node.level -1) * 20 + 9) + 'px; top: calc(50% - 1px);'">
+                                </div>
+                            </div>
+
+                            <div :class="['flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mr-3', getIconColorClasses().bgClass]">
+                                <iconify-icon :icon="getNodeTypeIcon(node.type)"
+                                              :class="getIconColorClasses().textClass"
+                                              width="24" height="24"></iconify-icon>
+                            </div>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="mb-1">
+                                    <span class="text-sm font-medium text-surface-900 dark:text-surface-100" x-text="formatNodeTitle(node.type, node.metadata)"></span>
+                                </div>
+                                <div class="flex items-center flex-wrap gap-x-1.5 gap-y-1">
+                                    <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium', getBadgeColorClasses().bgClass, getBadgeColorClasses().textClass]" :title="'Node Type: ' + node.type">
+                                       <iconify-icon :icon="getNodeTypeIcon(node.type)" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                       <span x-text="node.type"></span>
+                                    </span>
+                                    <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono', getGenericBadgeColorClasses(1)]" :title="'Node ID: ' + node.node_id">
+                                        <iconify-icon icon="tabler:id" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                        <span x-text="getUuidSegment(node.node_id)"></span>
+                                    </span>
+                                    <template x-if="node.parent_node_id">
+                                        <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono', getGenericBadgeColorClasses(2)]" :title="'Parent Node ID: ' + node.parent_node_id">
+                                            <iconify-icon icon="tabler:arrow-big-up-line" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                            <span x-text="getUuidSegment(node.parent_node_id)"></span>
+                                        </span>
+                                    </template>
+                                    <span x-show="node.hasChildren" :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium', getGenericBadgeColorClasses(3)]">
+                                        <iconify-icon icon="tabler:sitemap" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                        Parent
+                                    </span>
+                                    <span :class="getNodeStatusBadgeClasses(node.status)"
+                                          class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium"
+                                          :title="'Status: ' + node.status">
+                                        <iconify-icon :icon="getNodeStatusIcon(node.status)" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                        <span x-text="node.status"></span>
+                                    </span>
+                                    <span class="text-xs text-surface-500 dark:text-surface-400" x-text="formatDate(node.created_at)"></span>
+                                </div>
+                            </div>
+
+                            <div class="flex-shrink-0">
+                                <button class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300">
+                                    <iconify-icon :icon="expandedNodes[node.node_id] ? 'tabler:chevron-up' : 'tabler:chevron-down'" width="20" height="20"></iconify-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div x-show="expandedNodes[node.node_id]" x-collapse>
+                            <div class="mt-4 space-y-4" :style="'padding-left: ' + (node.level * 20 + 40 + 12 + 10) + 'px;'">
+                                <div>
+                                    <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Full Node ID:</div>
+                                    <div class="mt-1 text-sm font-mono text-surface-700 dark:text-surface-300 break-all" x-text="node.node_id"></div>
+                                </div>
+                                <div x-show="node.parent_node_id">
+                                    <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Full Parent ID:</div>
+                                    <div class="mt-1 text-sm font-mono text-surface-700 dark:text-surface-300 break-all" x-text="node.parent_node_id"></div>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Metadata:</div>
+                                    <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 overflow-auto">
+                                        <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(node.metadata)"></code></pre>
+                                    </div>
+                                </div>
+                                <div x-show="getNodeDataItems(node.node_id).length > 0">
+                                    <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Linked Data:</div>
+                                    <div class="mt-1 space-y-2">
+                                        <template x-for="dataItem in getNodeDataItems(node.node_id)" :key="dataItem.data_id">
+                                            <div @click="viewDataDetails(dataItem.data_id)"
+                                                 class="bg-surface-100 dark:bg-surface-600 rounded p-2 text-xs cursor-pointer hover:bg-surface-200 dark:hover:bg-surface-500">
+                                                <div class="flex items-center justify-between flex-wrap gap-1">
+                                                    <span class="font-medium text-surface-800 dark:text-surface-100" x-text="formatDataTitle(dataItem, true)"></span>
+                                                    <span :class="getDataTypeBadgeClasses(dataItem.type)" class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium">
+                                                        <iconify-icon :icon="getDataTypeIcon(dataItem.type, dataItem.content_type === 'dataflow/reference')" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                        <span x-text="dataItem.type"></span>
+                                                    </span>
+                                                </div>
+                                                <div class="mt-1 font-mono text-surface-700 dark:text-surface-100">
+                                                    ID: <span x-text="dataItem.data_id"></span> (<span class="font-semibold" x-text="getUuidSegment(dataItem.data_id)"></span>)
+                                                </div>
+                                                <div x-show="dataItem.discriminator" class="mt-0.5 text-surface-600 dark:text-surface-300">
+                                                    Discriminator: <span class="font-semibold" x-text="dataItem.discriminator"></span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block dataTabPanel() }}
+<div x-show="activeTab === 'data'" class="bg-white dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="border-b border-surface-200 dark:border-surface-600 px-4 py-3 flex items-center justify-between flex-wrap gap-4">
+        <h2 class="text-lg font-medium text-surface-900 dark:text-surface-100">Dataflow Data</h2>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center">
+                <label for="data-node-filter" class="mr-2 text-sm text-surface-700 dark:text-surface-300">Node:</label>
+                <select
+                        id="data-node-filter"
+                        x-model="selectedNodeIdForDataFilter"
+                        class="block pl-3 pr-10 py-1 text-sm border-surface-300 dark:border-surface-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100"
+                >
+                    <option value="all">All Nodes</option>
+                    <template x-for="node_opt in nodes" :key="node_opt.node_id">
+                        <option :value="node_opt.node_id" x-text="`${formatNodeTitle(node_opt.type, node_opt.metadata)} (${getUuidSegment(node_opt.node_id)})`"></option>
+                    </template>
+                    <option value="dataflow_global">Dataflow Global (No Node)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <template x-if="filteredData.length === 0">
+            <div class="flex flex-col items-center justify-center py-8 text-surface-500 dark:text-surface-400">
+                <iconify-icon icon="tabler:database-off" class="w-12 h-12 mb-4" width="48" height="48"></iconify-icon>
+                <p class="text-center">No data found matching your filters</p>
+            </div>
+        </template>
+
+        <div x-show="filteredData.length > 0">
+            <template x-for="(dataItem, index) in filteredData" :key="dataItem.data_id">
+                <div :style="getTypeHueStyle(dataItem.type)"
+                     :class="{
+                        'bg-surface-50 dark:bg-surface-800': index % 2 === 0,
+                        'bg-white dark:bg-surface-700': index % 2 === 1,
+                        'new-item-animation': newDataIds.has(dataItem.data_id),
+                        'item-transition': !newDataIds.has(dataItem.data_id)
+                     }"
+                >
+                    <div :class="['px-4 py-3 relative group', getLineShadeBorderClass()]">
+                        <div class="flex items-start cursor-pointer" @click="toggleDataExpand(dataItem.data_id)">
+                            <div :class="['flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mr-3', getIconColorClasses().bgClass]">
+                                <iconify-icon :icon="getDataTypeIcon(dataItem.type, dataItem.content_type === 'dataflow/reference')"
+                                              :class="getIconColorClasses().textClass"
+                                              width="24" height="24"></iconify-icon>
+                            </div>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="mb-1">
+                                    <span class="text-sm font-medium text-surface-900 dark:text-surface-100" x-text="formatDataTitle(dataItem)"></span>
+                                </div>
+                                <div class="flex justify-between items-start flex-wrap gap-y-1">
+                                    <div class="flex items-center flex-wrap gap-x-1.5 gap-y-1">
+                                        <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium', getBadgeColorClasses().bgClass, getBadgeColorClasses().textClass]" :title="'Data Type: ' + dataItem.type">
+                                            <iconify-icon :icon="getDataTypeIcon(dataItem.type, dataItem.content_type === 'dataflow/reference')" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                            <span x-text="dataItem.type"></span>
+                                        </span>
+                                        <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono', getGenericBadgeColorClasses(4)]" :title="'Data ID: ' + dataItem.data_id">
+                                            <iconify-icon icon="tabler:id" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                            <span x-text="getUuidSegment(dataItem.data_id)"></span>
+                                        </span>
+                                        <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium', getGenericBadgeColorClasses(0)]" :title="'Content Type: ' + dataItem.content_type">
+                                            <iconify-icon icon="tabler:file-code" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                            <span x-text="dataItem.content_type"></span>
+                                        </span>
+                                        <template x-if="dataItem.node_id">
+                                            <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono', getGenericBadgeColorClasses(2)]" :title="'Associated Node ID: ' + dataItem.node_id">
+                                                <iconify-icon icon="tabler:sitemap" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                <span x-text="getUuidSegment(dataItem.node_id)"></span>
+                                            </span>
+                                        </template>
+                                        <template x-if="!dataItem.node_id">
+                                            <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium', getGenericBadgeColorClasses(7)]">
+                                                <iconify-icon icon="tabler:world" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                Dataflow Global
+                                            </span>
+                                        </template>
+                                        <span class="text-xs text-surface-500 dark:text-surface-400" x-text="formatDate(dataItem.created_at)"></span>
+                                    </div>
+                                    <div class="flex items-center flex-wrap gap-x-1.5 gap-y-1 ml-auto pl-2 flex-shrink-0" x-show="(dataItem.key && dataItem.key !== dataItem.data_id) || dataItem.discriminator">
+                                        <template x-if="dataItem.key && dataItem.key !== dataItem.data_id">
+                                            <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono', getGenericBadgeColorClasses(5)]" :title="'Key: ' + dataItem.key">
+                                                <iconify-icon icon="tabler:key" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                <span x-text="isUuid(dataItem.key) ? getUuidSegment(dataItem.key) : truncateText(dataItem.key, 20)"></span>
+                                            </span>
+                                        </template>
+                                        <template x-if="dataItem.discriminator">
+                                            <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium', getGenericBadgeColorClasses(6)]" :title="'Discriminator: ' + dataItem.discriminator">
+                                                <iconify-icon :icon="getDiscriminatorIcon(dataItem.discriminator)" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                <span x-text="dataItem.discriminator"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex-shrink-0">
+                                <button class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300">
+                                    <iconify-icon :icon="expandedData[dataItem.data_id] ? 'tabler:chevron-up' : 'tabler:chevron-down'" width="20" height="20"></iconify-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div x-show="expandedData[dataItem.data_id]" x-collapse>
+                            <div class="mt-4 pl-12 space-y-4">
+                                <div>
+                                    <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Full Data ID:</div>
+                                    <div class="mt-1 text-sm font-mono text-surface-700 dark:text-surface-300 break-all" x-text="dataItem.data_id"></div>
+                                </div>
+
+                                <template x-if="dataItem.content_type === 'dataflow/reference'">
+                                    <div>
+                                        <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Reference Details:</div>
+                                        <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 space-y-1 text-xs text-surface-700 dark:text-surface-300">
+                                            <p>Referenced Data ID (from key): <span class="font-mono font-semibold" x-text="dataItem.key || 'N/A'"></span> (<span class="font-semibold" x-text="getUuidSegment(dataItem.key)"></span>)</p>
+                                            <p x-show="dataItem.ref_type">Original Type of Referenced Item: <span class="font-semibold" x-text="dataItem.ref_type || 'N/A'"></span></p>
+                                            <p x-show="dataItem.ref_content_type">Original Content Type of Referenced Item: <span class="font-semibold" x-text="dataItem.ref_content_type || 'N/A'"></span></p>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <div>
+                                    <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Content:</div>
+                                    <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 overflow-auto">
+                                        <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="getFormattedContent(dataItem)"></code></pre>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Metadata:</div>
+                                    <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 overflow-auto">
+                                        <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(dataItem.metadata)"></code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block timelineDataTabPanel() }}
+<div x-show="activeTab === 'timelineData'" class="bg-white dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="border-b border-surface-200 dark:border-surface-600 px-4 py-3">
+        <h2 class="text-lg font-medium text-surface-900 dark:text-surface-100">Data Timeline</h2>
+        <p class="text-sm text-surface-500 dark:text-surface-400">All data items, sorted chronologically, with visual hierarchy cues and grouped yield operations.</p>
+    </div>
+
+    <div>
+        <template x-if="timelineDataDisplay.length === 0">
+            <div class="flex flex-col items-center justify-center py-8 text-surface-500 dark:text-surface-400">
+                <iconify-icon icon="tabler:timeline-off" class="w-12 h-12 mb-4" width="48" height="48"></iconify-icon>
+                <p class="text-center">No data items found in this dataflow.</p>
+            </div>
+        </template>
+
+        <div x-show="timelineDataDisplay.length > 0">
+            <template x-for="(entry, index) in timelineDataDisplay" :key="entry.dataItem.data_id">
+                <div :style="getTimelineItemStyleVars(entry)"
+                     :class="{
+                        'bg-surface-50 dark:bg-surface-800': index % 2 === 0,
+                        'bg-white dark:bg-surface-700': index % 2 === 1,
+                        'new-item-animation': newDataIds.has(entry.dataItem.data_id),
+                        'item-transition': !newDataIds.has(entry.dataItem.data_id)
+                     }">
+                    <div :class="['py-1 pr-2 relative group border-t border-surface-200 dark:border-surface-600 first:border-t-0', getTimelineItemLineShadeBorderClass()]"
+                         :style="{ paddingLeft: (entry.isGlobal ? '12px' : (((entry.nodeInfo?.level || 0) * 18) + 30)) + 'px' }">
+
+                        <div class="flex items-center flex-nowrap w-full cursor-pointer" @click="toggleDataExpand(entry.dataItem.data_id)">
+                            <div :class="['flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-1.5', getIconColorClasses().bgClass]">
+                                <iconify-icon :icon="getDataTypeIcon(entry.dataItem.type, entry.dataItem.content_type === 'dataflow/reference')"
+                                              :class="getIconColorClasses().textClass"
+                                              width="14" height="14"></iconify-icon>
+                            </div>
+
+                            <div class="flex-1 min-w-0 flex items-center gap-x-1.5 overflow-hidden">
+                                <template x-if="entry.isGrouped">
+                                    <span class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate"
+                                          :title="'Yield Request/Result: ' + (entry.dataItem.key || 'N/A')">
+                                        Yield Request/Result
+                                    </span>
+                                </template>
+                                <template x-if="!entry.isGrouped">
+                                    <span class="text-sm font-medium text-surface-900 dark:text-surface-100 truncate"
+                                          x-text="formatDataTitle(entry.dataItem)"
+                                          :title="formatDataTitle(entry.dataItem)">
+                                    </span>
+                                </template>
+                                <span class="text-xs text-surface-500 dark:text-surface-400 whitespace-nowrap flex-shrink-0"
+                                      x-text="formatDateCompact(entry.dataItem.created_at)"
+                                      :title="formatDate(entry.dataItem.created_at)">
+                                </span>
+                                <template x-if="entry.isGrouped">
+                                    <span class="inline-flex items-center px-1.5 py-px rounded text-xs font-medium whitespace-nowrap flex-shrink-0 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                                          title="Grouped Yield Request and Result">
+                                        <iconify-icon icon="tabler:refresh-dot" class="mr-0.5 opacity-75" width="10" height="10"></iconify-icon>
+                                        <span>yield/result</span>
+                                    </span>
+                                </template>
+                                <template x-if="!entry.isGrouped">
+                                    <span :class="['inline-flex items-center px-1.5 py-px rounded text-xs font-medium whitespace-nowrap flex-shrink-0', getBadgeColorClasses().bgClass, getBadgeColorClasses().textClass]"
+                                          :title="'Data Type: ' + entry.dataItem.type">
+                                        <iconify-icon :icon="getDataTypeIcon(entry.dataItem.type, entry.dataItem.content_type === 'dataflow/reference')" class="mr-0.5 opacity-75" width="10" height="10"></iconify-icon>
+                                        <span x-text="truncateText(entry.dataItem.type, 15)"></span>
+                                    </span>
+                                </template>
+                                <template x-if="entry.nodeInfo">
+                                     <span :class="['inline-flex items-center px-1.5 py-px rounded text-xs whitespace-nowrap flex-shrink-0', getGenericBadgeColorClasses(entry.nodeInfo.level + 8)]"
+                                           :title="'Node: ' + entry.nodeInfo.title + ' (' + entry.nodeInfo.type + ')'">
+                                        <iconify-icon :icon="getNodeTypeIcon(entry.nodeInfo.type)" class="mr-0.5 opacity-75" width="10" height="10"></iconify-icon>
+                                        <span class="truncate" x-text="truncateText(entry.nodeInfo.title, 12) + ' (' + getUuidSegment(entry.nodeInfo.node_id) + ')'"></span>
+                                    </span>
+                                </template>
+                                <template x-if="entry.isGlobal">
+                                    <span :class="['inline-flex items-center px-1.5 py-px rounded text-xs whitespace-nowrap flex-shrink-0', getGenericBadgeColorClasses(7)]">
+                                        <iconify-icon icon="tabler:world" class="mr-0.5 opacity-75" width="10" height="10"></iconify-icon>
+                                        Global
+                                    </span>
+                                </template>
+                            </div>
+
+                            <div class="flex-shrink-0 ml-1.5">
+                                <button class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-300">
+                                    <iconify-icon :icon="expandedData[entry.dataItem.data_id] ? 'tabler:chevron-up' : 'tabler:chevron-down'" width="18" height="18"></iconify-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div x-show="expandedData[entry.dataItem.data_id]" x-collapse>
+                            <div class="mt-2 space-y-2" :style="{ paddingLeft: '28px' }">
+                                <template x-if="entry.isGrouped">
+                                    <div class="space-y-3">
+                                        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-3">
+                                            <div class="text-xs font-medium text-surface-700 dark:text-surface-300 mb-2 flex items-center">
+                                                <iconify-icon icon="tabler:corner-down-right" class="mr-1" width="14" height="14"></iconify-icon>
+                                                Yield Request
+                                            </div>
+                                            <div class="space-y-1 mb-2">
+                                                <div>
+                                                    <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-1">ID:</span>
+                                                    <span class="text-xs font-mono text-surface-700 dark:text-surface-300 break-all" x-text="entry.dataItem.data_id"></span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-1">Yield ID:</span>
+                                                    <span class="text-xs font-mono text-surface-700 dark:text-surface-300 break-all" x-text="entry.dataItem.key"></span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-1">Created:</span>
+                                                    <span class="text-xs text-surface-700 dark:text-surface-300" x-text="formatDate(entry.dataItem.created_at)"></span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Content:</div>
+                                                <div class="mt-1 bg-surface-50 dark:bg-surface-700 rounded p-2 overflow-auto">
+                                                    <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="getFormattedContent(entry.dataItem)"></code></pre>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2">
+                                                <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Metadata:</div>
+                                                <div class="mt-1 bg-surface-50 dark:bg-surface-700 rounded p-2 overflow-auto">
+                                                    <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(entry.dataItem.metadata)"></code></pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-3">
+                                            <div class="text-xs font-medium text-surface-700 dark:text-surface-300 mb-2 flex items-center">
+                                                <iconify-icon icon="tabler:corner-down-right-double" class="mr-1" width="14" height="14"></iconify-icon>
+                                                Yield Result
+                                            </div>
+                                            <div class="space-y-1 mb-2">
+                                                <div>
+                                                    <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-1">ID:</span>
+                                                    <span class="text-xs font-mono text-surface-700 dark:text-surface-300 break-all" x-text="entry.resultItem.data_id"></span>
+                                                </div>
+                                                <div>
+                                                    <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-1">Created:</span>
+                                                    <span class="text-xs text-surface-700 dark:text-surface-300" x-text="formatDate(entry.resultItem.created_at)"></span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Content:</div>
+                                                <div class="mt-1 bg-surface-50 dark:bg-surface-700 rounded p-2 overflow-auto">
+                                                    <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="getFormattedContent(entry.resultItem)"></code></pre>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2">
+                                                <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Metadata:</div>
+                                                <div class="mt-1 bg-surface-50 dark:bg-surface-700 rounded p-2 overflow-auto">
+                                                    <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(entry.resultItem.metadata)"></code></pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <template x-if="!entry.isGrouped">
+                                    <div class="space-y-3">
+                                        <div class="space-y-1">
+                                            <div>
+                                                <span class="text-xs font-medium text-surface-500 dark:text-surface-400 mr-1">Full ID:</span>
+                                                <span class="text-xs font-mono text-surface-700 dark:text-surface-300 break-all" x-text="entry.dataItem.data_id"></span>
+                                            </div>
+                                            <div class="flex items-center flex-wrap gap-x-1.5 gap-y-1">
+                                                 <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium', getBadgeColorClasses().bgClass, getBadgeColorClasses().textClass]" :title="'Data Type: ' + entry.dataItem.type">
+                                                    <iconify-icon :icon="getDataTypeIcon(entry.dataItem.type, entry.dataItem.content_type === 'dataflow/reference')" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                    <span x-text="entry.dataItem.type"></span>
+                                                </span>
+                                                <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium', getGenericBadgeColorClasses(0)]" :title="'Content Type: ' + entry.dataItem.content_type">
+                                                    <iconify-icon icon="tabler:file-code" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                    <span x-text="entry.dataItem.content_type"></span>
+                                                </span>
+                                                <span class="text-xs text-surface-500 dark:text-surface-400 inline-flex items-center" title="Creation Timestamp">
+                                                    <iconify-icon icon="tabler:clock" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                    <span x-text="formatDate(entry.dataItem.created_at)"></span>
+                                                </span>
+                                                <template x-if="entry.isGlobal">
+                                                    <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs', getGenericBadgeColorClasses(7)]">
+                                                        <iconify-icon icon="tabler:world" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                        Scope: Dataflow Global
+                                                    </span>
+                                                </template>
+                                                <template x-if="entry.nodeInfo">
+                                                     <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs', getGenericBadgeColorClasses(entry.nodeInfo.level + 8)]"
+                                                           :title="'Associated Node: ' + entry.nodeInfo.title + ' (Type: ' + entry.nodeInfo.type + ', ID: ' + entry.nodeInfo.node_id + ')'">
+                                                        <iconify-icon :icon="getNodeTypeIcon(entry.nodeInfo.type)" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                        Node: <span class="font-semibold ml-1" x-text="entry.nodeInfo.title"></span>
+                                                        (<span class="font-mono" x-text="getUuidSegment(entry.nodeInfo.node_id)"></span>)
+                                                    </span>
+                                                </template>
+                                                <template x-if="entry.dataItem.key && entry.dataItem.key !== entry.dataItem.data_id">
+                                                    <span :class="['inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono', getGenericBadgeColorClasses(5)]" :title="'Key: ' + entry.dataItem.key">
+                                                        <iconify-icon icon="tabler:key" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                        <span x-text="isUuid(entry.dataItem.key) ? getUuidSegment(entry.dataItem.key) : truncateText(entry.dataItem.key, 20)"></span>
+                                                    </span>
+                                                </template>
+                                                <template x-if="entry.dataItem.discriminator">
+                                                    <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium', getGenericBadgeColorClasses(6)]" :title="'Discriminator: ' + entry.dataItem.discriminator">
+                                                        <iconify-icon :icon="getDiscriminatorIcon(entry.dataItem.discriminator)" class="mr-1 opacity-75" width="12" height="12"></iconify-icon>
+                                                        <span x-text="entry.dataItem.discriminator"></span>
+                                                    </span>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <template x-if="entry.dataItem.content_type === 'dataflow/reference'">
+                                            <div>
+                                                <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Reference Details:</div>
+                                                <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 space-y-1 text-xs text-surface-700 dark:text-surface-300">
+                                                    <p>Referenced Data ID (from key): <span class="font-mono font-semibold" x-text="entry.dataItem.key || 'N/A'"></span> (<span class="font-semibold" x-text="getUuidSegment(entry.dataItem.key)"></span>)</p>
+                                                    <p x-show="entry.dataItem.ref_type">Original Type: <span class="font-semibold" x-text="entry.dataItem.ref_type || 'N/A'"></span></p>
+                                                    <p x-show="entry.dataItem.ref_content_type">Original Content Type: <span class="font-semibold" x-text="entry.dataItem.ref_content_type || 'N/A'"></span></p>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <div>
+                                            <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Content:</div>
+                                            <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 overflow-auto">
+                                                <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="getFormattedContent(entry.dataItem)"></code></pre>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div class="text-xs font-medium text-surface-500 dark:text-surface-400">Metadata:</div>
+                                            <div class="mt-1 bg-surface-100 dark:bg-surface-800 rounded p-2 overflow-auto">
+                                                <pre class="text-xs text-surface-900 dark:text-surface-100 font-mono"><code x-text="formatJson(entry.dataItem.metadata)"></code></pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('dataflowViewerApp', () => ({
+            dataflowId: '',
+            dataflowData: null,
+            dataflow: {},
+            nodes: [], // Holds the actual node objects
+            organizedNodes: [], // For hierarchical display, derived from this.nodes
+            data: [], // Holds the actual data item objects
+            isLoading: true,
+            isUpdating: false, // Separate state for live updates that doesn't hide content
+            error: null,
+            wippyApi: null,
+            apiConfig: null,
+            navigateApi: null,
+            activeTab: 'info',
+            nodeFilter: 'all',
+            selectedNodeIdForDataFilter: 'all',
+            expandedNodes: {},
+            expandedData: {},
+
+            eventsSubscribed: false,
+            liveUpdatesEnabled: true,
+            lastEventTime: null,
+            isUpdatingFromEvent: false,
+            eventLoadTimeout: null,
+            _boundHandleDataflowEvent: null,
+            currentScrollY: 0,
+
+            // Keep track of new items for visual highlighting
+            newNodeIds: new Set(),
+            newDataIds: new Set(),
+
+            async initialize() {
+                this.isLoading = true;
+                this.error = null;
+                const urlParams = new URLSearchParams(window.location.search);
+                const tabParam = urlParams.get('tab');
+                if (tabParam && ['info', 'nodes', 'data', 'timelineData'].includes(tabParam)) {
+                    this.activeTab = tabParam;
+                }
+                const nodeIdParam = urlParams.get('node_id');
+                const dataIdParam = urlParams.get('data_id');
+
+                try {
+                    if (typeof window.initWippyApi !== 'function') {
+                        console.warn("Wippy API (initWippyApi) not available. Real-time updates and full API integration will be disabled.");
+                        const pathSegments = window.location.pathname.split('/');
+                        const dfIdFromPath = pathSegments[pathSegments.length -1];
+                        this.dataflowId = dfIdFromPath || urlParams.get('dataflow_id');
+                        if (!this.dataflowId) {
+                            throw new Error("Wippy API not available and no Dataflow ID found in URL.");
+                        }
+                        await this.loadWorkflowData(false); // Initial load
+                        return; // Exits initialize early
+                    }
+
+                    const wippyInit = await window.initWippyApi();
+                    this.wippyApi = wippyInit;
+                    this.apiConfig = wippyInit.config;
+                    this.navigateApi = wippyInit;
+
+                    if (this.apiConfig?.path) {
+                        this.dataflowId = this.apiConfig.path.split('/').pop();
+                    } else {
+                        const pathSegments = window.location.pathname.split('/');
+                        this.dataflowId = pathSegments[pathSegments.length-1] || urlParams.get('dataflow_id');
+                        if(this.dataflowId) console.warn("Wippy config.path not found, derived dataflowId from URL:", this.dataflowId);
+                    }
+
+                    if (!this.dataflowId) throw new Error("No dataflow ID could be determined.");
+
+                    await this.loadWorkflowData(false); // Initial load
+                    this.toggleLiveUpdates(this.liveUpdatesEnabled, true); // Initialize subscription based on default
+
+                    if (nodeIdParam) this.$nextTick(() => this.viewNodeDetails(nodeIdParam, true));
+                    if (dataIdParam) this.$nextTick(() => this.viewDataDetails(dataIdParam, true));
+
+                } catch (err) {
+                    console.error("Initialization error:", err);
+                    this.error = err.message || "Failed to initialize";
+                } finally {
+                    // isLoading is set to false at the end of loadWorkflowData
+                    // This ensures it's false if an error occurs before loadWorkflowData completes fully.
+                    if (this.isLoading) this.isLoading = false;
+                }
+                window.addEventListener('beforeunload', () => this.unsubscribeFromDataflowEvents() );
+            },
+
+            async loadWorkflowData(triggeredByEvent = false) {
+                if (!this.dataflowId) {
+                    this.error = "Dataflow ID is required";
+                    this.isLoading = false;
+                    return;
+                }
+
+                // Only show loading state for initial loads or manual refreshes
+                if (!triggeredByEvent && !this.dataflowData) {
+                    this.isLoading = true;
+                } else if (triggeredByEvent) {
+                    this.isUpdating = true; // Use separate updating state for live updates
+                    this.currentScrollY = window.scrollY;
+                } else {
+                    this.isLoading = true; // Manual refresh
+                }
+
+                this.isUpdatingFromEvent = triggeredByEvent;
+
+                if (!triggeredByEvent && this.dataflowData) {
+                    this.error = null; // Clear error only on manual refresh
+                }
+
+                try {
+                    const apiUrl = `/api/v1/dataflows/${encodeURIComponent(this.dataflowId)}`;
+                    let response;
+                    if (this.wippyApi && typeof this.wippyApi.api?.get === 'function') {
+                        response = await this.wippyApi.api.get(apiUrl);
+                    } else if (this.apiConfig?.auth?.token) {
+                        const rawResponse = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${this.apiConfig.auth.token}` }});
+                        if (!rawResponse.ok) throw new Error(`API request failed: ${rawResponse.status} ${await rawResponse.text()}`);
+                        response = { data: await rawResponse.json() };
+                    } else {
+                        const rawResponse = await fetch(apiUrl);
+                        if (!rawResponse.ok) throw new Error(`API request failed: ${rawResponse.status} ${await rawResponse.text()}`);
+                        response = { data: await rawResponse.json() };
+                    }
+
+                    if (!response.data) throw new Error("No data received from API");
+                    if (!response.data.success) throw new Error(response.data.error || "API reported failure");
+
+                    this.processWorkflowData(response.data, triggeredByEvent); // Pass triggeredByEvent
+                    this.error = null;
+
+                    if (triggeredByEvent) {
+                        // Restore scroll position
+                        this.$nextTick(() => {
+                            window.scrollTo(0, this.currentScrollY);
+                            if (this.liveUpdatesEnabled) {
+                                this.showUpdateNotification("Dataflow updated.");
+                            }
+
+                            // Clear new item highlights after animations complete
+                            setTimeout(() => {
+                                this.newNodeIds.clear();
+                                this.newDataIds.clear();
+                                this.newNodeIds = new Set(); // Trigger reactivity
+                                this.newDataIds = new Set(); // Trigger reactivity
+                            }, 3500); // Give animations time to complete (slideIn: 0.6s + glow: 2s + buffer: 0.9s)
+                        });
+                    }
+                } catch (err) {
+                    console.error("Error loading dataflow data:", err);
+                    this.error = err.message || "Failed to load dataflow data";
+                } finally {
+                    this.isLoading = false;
+                    this.isUpdating = false;
+                    this.isUpdatingFromEvent = false;
+                }
+            },
+
+            processWorkflowData(apiResponseData, isUpdate = false) {
+                // Update dataflow object directly
+                this.dataflow = { ...this.dataflow, ...(apiResponseData.dataflow || {}) };
+                this.dataflowData = apiResponseData; // Keep the raw response too
+
+                const newNodes = (apiResponseData.nodes || []).map(n => ({...n, status: n.status || 'unknown' }));
+                const newDataItems = (apiResponseData.data || []).map(d => ({...d, type: d.type || 'unknown' }));
+
+                if (!isUpdate || this.nodes.length === 0) {
+                    // Full replace for initial load or if current data is empty
+                    this.nodes = newNodes;
+                    this.data = newDataItems;
+                } else {
+                    // Smart incremental update for live updates
+                    const existingNodeIds = new Set(this.nodes.map(n => n.node_id));
+                    const existingDataIds = new Set(this.data.map(d => d.data_id));
+
+                    // Track new items for visual highlighting
+                    this.newNodeIds = new Set();
+                    this.newDataIds = new Set();
+
+                    // Update nodes efficiently
+                    const nodeMap = new Map(this.nodes.map(n => [n.node_id, n]));
+                    newNodes.forEach(newNode => {
+                        const existingNode = nodeMap.get(newNode.node_id);
+                        if (existingNode) {
+                            // Update existing node properties that might have changed
+                            Object.assign(existingNode, newNode);
+                        } else {
+                            // Add new node
+                            this.nodes.push(newNode);
+                            this.newNodeIds.add(newNode.node_id);
+                        }
+                    });
+
+                    // Update data items efficiently
+                    const dataItemMap = new Map(this.data.map(d => [d.data_id, d]));
+                    const newDataToAdd = [];
+
+                    newDataItems.forEach(newDataItem => {
+                        const existingDataItem = dataItemMap.get(newDataItem.data_id);
+                        if (existingDataItem) {
+                            // Update existing data item properties that might have changed
+                            Object.assign(existingDataItem, newDataItem);
+                        } else {
+                            // Collect new data items to add at the end (preserves chronological order)
+                            newDataToAdd.push(newDataItem);
+                            this.newDataIds.add(newDataItem.data_id);
+                        }
+                    });
+
+                    // Add new data items in chronological order
+                    if (newDataToAdd.length > 0) {
+                        newDataToAdd.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                        this.data.push(...newDataToAdd);
+                    }
+                }
+
+                // Always re-organize nodes as their hierarchy might have changed
+                this.organizeNodesHierarchy();
+
+                const displayTitle = this.dataflow.title || this.dataflow.metadata?.title;
+                document.title = displayTitle ? `${displayTitle} - Dataflow Viewer` : (this.dataflowId ? `Dataflow ${this.dataflowId} - Viewer` : "Dataflow Viewer");
+            },
+
+            organizeNodesHierarchy() {
+                if (!this.nodes || this.nodes.length === 0) { this.organizedNodes = []; return; }
+                const nodeMap = {};
+                this.nodes.forEach(node => { nodeMap[node.node_id] = { ...node, children: [], _visited: false, level: 0, hasChildren: false }; });
+                const roots = [];
+                this.nodes.forEach(node => {
+                    const currentMappedNode = nodeMap[node.node_id];
+                    if (node.parent_node_id && nodeMap[node.parent_node_id]) {
+                        nodeMap[node.parent_node_id].children.push(currentMappedNode);
+                        nodeMap[node.parent_node_id].hasChildren = true;
+                    } else { roots.push(currentMappedNode); }
+                });
+                const flatNodes = [];
+                function buildFlatList(node, level) {
+                    if (!node || node._visited) return;
+                    node._visited = true; node.level = level; flatNodes.push(node);
+                    // Sort children by creation date to ensure consistent order
+                    node.children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                    node.children.forEach(child => buildFlatList(child, level + 1));
+                }
+                // Sort roots by creation date
+                roots.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                roots.forEach(rootNode => buildFlatList(rootNode, 0));
+                // Add any orphaned nodes (should ideally not happen with correct parent_node_id logic)
+                this.nodes.forEach(node => { if (nodeMap[node.node_id] && !nodeMap[node.node_id]._visited) buildFlatList(nodeMap[node.node_id], 0); });
+                this.organizedNodes = flatNodes;
+            },
+
+            refreshWorkflow() { this.loadWorkflowData(false); },
+
+            toggleLiveUpdates(forceState, initializing = false) {
+                if (typeof forceState === 'boolean') {
+                    this.liveUpdatesEnabled = forceState;
+                } else {
+                    this.liveUpdatesEnabled = !this.liveUpdatesEnabled;
+                }
+
+                if (this.liveUpdatesEnabled) {
+                    this.subscribeToDataflowEvents();
+                    if(!initializing) this.showUpdateNotification("Live updates enabled.");
+                } else {
+                    this.unsubscribeFromDataflowEvents();
+                    if(!initializing) this.showUpdateNotification("Live updates paused.");
+                }
+            },
+
+            subscribeToDataflowEvents() {
+                if (!this.wippyApi || typeof this.wippyApi.on !== 'function') { console.warn("Wippy API or 'on' method not available. Real-time updates disabled."); return; }
+                if (!this.dataflowId) { console.warn("Dataflow ID not available for event subscription."); return; }
+                if (this.eventsSubscribed) return;
+
+                const eventName = `dataflow:${this.dataflowId}`;
+                try {
+                    this._boundHandleDataflowEvent = this.handleDataflowEvent.bind(this);
+                    this.wippyApi.on(eventName, this._boundHandleDataflowEvent);
+                    this.eventsSubscribed = true;
+                    console.log(`Successfully subscribed to ${eventName}`);
+                } catch (error) { console.error(`Failed to subscribe to ${eventName}:`, error); this.error = `Failed to subscribe: ${error.message}`; }
+            },
+
+            unsubscribeFromDataflowEvents() {
+                if (!this.wippyApi || typeof this.wippyApi.off !== 'function' || !this.dataflowId || !this.eventsSubscribed || !this._boundHandleDataflowEvent) return;
+                const eventName = `dataflow:${this.dataflowId}`;
+                try {
+                    this.wippyApi.off(eventName, this._boundHandleDataflowEvent);
+                    this.eventsSubscribed = false;
+                    console.log(`Successfully unsubscribed from ${eventName}`);
+                } catch (error) { console.error(`Failed to unsubscribe from ${eventName}:`, error); }
+                if (this.eventLoadTimeout) clearTimeout(this.eventLoadTimeout);
+            },
+
+            handleDataflowEvent(eventPayload) {
+                this.lastEventTime = new Date();
+                if (!this.liveUpdatesEnabled) {
+                    console.log('Live updates paused. Event noted but not reloading:', eventPayload);
+                    this.showUpdateNotification("New data available (updates paused). Refresh or enable live updates.");
+                    return;
+                }
+                console.log('Dataflow event received by Alpine handler (live updates enabled):', eventPayload);
+                if (this.eventLoadTimeout) clearTimeout(this.eventLoadTimeout);
+                this.eventLoadTimeout = setTimeout(() => {
+                    this.loadWorkflowData(true); // True indicates event-triggered
+                }, 300);
+            },
+
+            showUpdateNotification(message) {
+                console.info("Update Notification:", message);
+                // No visual flash on button for now, to keep it "no visual effects"
+            },
+
+            // Workflow action helper functions
+            canCancelWorkflow() {
+                const status = this.dataflow?.status;
+                return status === 'running' || status === 'pending' || status === 'ready';
+            },
+
+            canTerminateWorkflow() {
+                const status = this.dataflow?.status;
+                return status && status !== 'completed' && status !== 'failed' && status !== 'cancelled' && status !== 'terminated';
+            },
+
+            async cancelWorkflow() {
+                if (!this.dataflowId || !this.canCancelWorkflow()) {
+                    console.warn('Cannot cancel workflow in current state');
+                    return;
+                }
+
+                // Use Wippy iframe API for confirmation if available, otherwise use browser confirm
+                let confirmed = false;
+                if (this.wippyApi && typeof this.wippyApi.iframe?.confirm === 'function') {
+                    try {
+                        confirmed = await this.wippyApi.iframe.confirm({
+                            message: 'Are you sure you want to cancel this workflow? It will be given time to finish gracefully.',
+                            header: 'Cancel Workflow',
+                            icon: 'tabler:hand-stop',
+                            acceptLabel: 'Yes, Cancel',
+                            rejectLabel: 'No, Keep Running',
+                            acceptClass: 'p-button-warning',
+                            rejectClass: 'p-button-secondary',
+                        });
+                    } catch (err) {
+                        console.warn('Wippy confirm failed, falling back to browser confirm', err);
+                        confirmed = confirm('Are you sure you want to cancel this workflow? It will be given time to finish gracefully.');
+                    }
+                } else {
+                    confirmed = confirm('Are you sure you want to cancel this workflow? It will be given time to finish gracefully.');
+                }
+
+                if (!confirmed) {
+                    return;
+                }
+
+                try {
+                    this.isUpdating = true;
+                    const apiUrl = `/api/v1/dataflows/${encodeURIComponent(this.dataflowId)}/cancel`;
+                    let response;
+                    if (this.wippyApi && typeof this.wippyApi.api?.post === 'function') {
+                        response = await this.wippyApi.api.post(apiUrl);
+                    } else if (this.apiConfig?.auth?.token) {
+                        const rawResponse = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${this.apiConfig.auth.token}` }
+                        });
+                        if (!rawResponse.ok) throw new Error(`Terminate request failed: ${rawResponse.status} ${await rawResponse.text()}`);
+                        response = { data: await rawResponse.json() };
+                    } else {
+                        const rawResponse = await fetch(apiUrl, { method: 'POST' });
+                        if (!rawResponse.ok) throw new Error(`Terminate request failed: ${rawResponse.status} ${await rawResponse.text()}`);
+                        response = { data: await rawResponse.json() };
+                    }
+
+                    if (!response.data?.success) {
+                        throw new Error(response.data?.error || 'Terminate request failed');
+                    }
+
+                    // Show success message using Wippy toast if available
+                    if (this.wippyApi && typeof this.wippyApi.iframe?.toast === 'function') {
+                        this.wippyApi.iframe.toast({
+                            severity: 'success',
+                            summary: 'Workflow Terminated',
+                            detail: 'The workflow has been terminated successfully.',
+                            life: 3000
+                        });
+                    } else {
+                        alert('Workflow terminated successfully.');
+                    }
+
+                    setTimeout(() => {
+                        this.loadWorkflowData(false);
+                    }, 1000);
+                } catch (err) {
+                    console.error('Error terminating workflow:', err);
+                    if (this.wippyApi && typeof this.wippyApi.iframe?.toast === 'function') {
+                        this.wippyApi.iframe.toast({
+                            severity: 'error',
+                            summary: 'Terminate Failed',
+                            detail: err.message,
+                            life: 5000
+                        });
+                    } else {
+                        alert(`Failed to terminate workflow: ${err.message}`);
+                    }
+                } finally {
+                    this.isUpdating = false;
+                }
+            },
+
+            async terminateWorkflow() {
+                if (!this.dataflowId || !this.canTerminateWorkflow()) {
+                    console.warn('Cannot terminate workflow in current state');
+                    return;
+                }
+
+                // Use Wippy iframe API for confirmation if available, otherwise use browser confirm
+                let confirmed = false;
+                if (this.wippyApi && typeof this.wippyApi.iframe?.confirm === 'function') {
+                    try {
+                        confirmed = await this.wippyApi.iframe.confirm({
+                            message: 'Are you sure you want to TERMINATE this workflow? This will forcefully stop the workflow immediately and cannot be undone.',
+                            header: 'Terminate Workflow',
+                            icon: 'tabler:square-x',
+                            acceptLabel: 'Yes, Terminate',
+                            rejectLabel: 'Cancel',
+                            acceptClass: 'p-button-danger',
+                            rejectClass: 'p-button-secondary',
+                        });
+                    } catch (err) {
+                        console.warn('Wippy confirm failed, falling back to browser confirm', err);
+                        confirmed = confirm('Are you sure you want to TERMINATE this workflow? This will forcefully stop the workflow immediately and cannot be undone.');
+                    }
+                } else {
+                    confirmed = confirm('Are you sure you want to TERMINATE this workflow? This will forcefully stop the workflow immediately and cannot be undone.');
+                }
+
+                if (!confirmed) {
+                    return;
+                }
+
+                try {
+                    this.isUpdating = true;
+                    const apiUrl = `/api/v1/dataflows/${encodeURIComponent(this.dataflowId)}/terminate`;
+                    let response;
+                    if (this.wippyApi && typeof this.wippyApi.api?.post === 'function') {
+                        response = await this.wippyApi.api.post(apiUrl);
+                    } else if (this.apiConfig?.auth?.token) {
+                        const rawResponse = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${this.apiConfig.auth.token}` }
+                        });
+                        if (!rawResponse.ok) throw new Error(`Terminate request failed: ${rawResponse.status} ${await rawResponse.text()}`);
+                        response = { data: await rawResponse.json() };
+                    } else {
+                        const rawResponse = await fetch(apiUrl, { method: 'POST' });
+                        if (!rawResponse.ok) throw new Error(`Terminate request failed: ${rawResponse.status} ${await rawResponse.text()}`);
+                        response = { data: await rawResponse.json() };
+                    }
+
+                    if (!response.data?.success) {
+                        throw new Error(response.data?.error || 'Terminate request failed');
+                    }
+
+                    // Show success message using Wippy toast if available
+                    if (this.wippyApi && typeof this.wippyApi.iframe?.toast === 'function') {
+                        this.wippyApi.iframe.toast({
+                            severity: 'success',
+                            summary: 'Workflow Terminated',
+                            detail: 'The workflow has been terminated successfully.',
+                            life: 3000
+                        });
+                    } else {
+                        alert('Workflow terminated successfully.');
+                    }
+
+                    setTimeout(() => {
+                        this.loadWorkflowData(false);
+                    }, 1000);
+                } catch (err) {
+                    console.error('Error terminating workflow:', err);
+                    if (this.wippyApi && typeof this.wippyApi.iframe?.toast === 'function') {
+                        this.wippyApi.iframe.toast({
+                            severity: 'error',
+                            summary: 'Terminate Failed',
+                            detail: err.message,
+                            life: 5000
+                        });
+                    } else {
+                        alert(`Failed to terminate workflow: ${err.message}`);
+                    }
+                } finally {
+                    this.isUpdating = false;
+                }
+            },
+
+            formatTime(dateString) { if (!dateString) return 'N/A'; try { return new Date(dateString).toLocaleTimeString(); } catch (e) { return dateString; } },
+            formatDate(dateString) { if (!dateString) return 'N/A'; try { return new Date(dateString).toLocaleString(); } catch (e) { return dateString; } },
+            formatDateCompact(dateString) {
+                if (!dateString) return 'N/A';
+                try {
+                    const date = new Date(dateString);
+                    return `${date.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })} ${date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+                } catch (e) { return dateString; }
+            },
+            exportWorkflowJson() {
+                if (!this.dataflowData) { alert("No dataflow data to copy"); return; }
+                try {
+                    const dataStr = JSON.stringify({ ...this.dataflowData }, null, 2);
+                    if (navigator.clipboard?.writeText) {
+                        navigator.clipboard.writeText(dataStr).then(() => alert('Dataflow JSON copied!'), () => {
+                            console.error('Failed to copy to clipboard.'); alert('Failed to copy. See console.'); console.log("JSON:\n", dataStr);
+                        });
+                    } else { console.warn('Clipboard API unavailable.'); alert('Clipboard API unavailable. JSON in console.'); console.log("JSON:\n", dataStr); }
+                } catch (err) { console.error("Error preparing JSON:", err); alert("Failed to prepare JSON: " + err.message); }
+            },
+            goBackToList() {
+                if (this.navigateApi?.navigate) this.navigateApi.navigate('/c/keeper.views.dataflow:list');
+                else if (window.history.length > 1) window.history.back();
+                else window.location.href = '/';
+            },
+            get filteredNodes() {
+                if (!this.organizedNodes || !Array.isArray(this.organizedNodes)) return [];
+                return this.nodeFilter === 'all' ? this.organizedNodes : this.organizedNodes.filter(node => node.type === this.nodeFilter);
+            },
+            get filteredData() {
+                if (!this.data || !Array.isArray(this.data)) return [];
+                let items = this.data;
+                if (this.selectedNodeIdForDataFilter === 'dataflow_global') items = items.filter(item => !item.node_id);
+                else if (this.selectedNodeIdForDataFilter !== 'all') items = items.filter(item => item.node_id === this.selectedNodeIdForDataFilter);
+                return items.sort((a,b) => new Date(a.created_at) - new Date(b.created_at)); // Ensure chronological order
+            },
+            get timelineDataDisplay() {
+                if (!this.data || !this.nodes || !this.organizedNodes) return [];
+                const nodeLevelMap = this.organizedNodes.reduce((acc, node) => {
+                    acc[node.node_id] = { node_id: node.node_id, type: node.type, title: this.formatNodeTitle(node.type, node.metadata), level: node.level };
+                    return acc;
+                }, {});
+                const sortedData = [...this.data].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // Sort a copy
+                const timelineEntries = [];
+                let i = 0;
+                while (i < sortedData.length) {
+                    const dataItem = sortedData[i];
+                    let entry = { dataItem, isGlobal: !dataItem.node_id, nodeInfo: null, isGrouped: false };
+                    if (dataItem.type === 'node.yield' && i + 1 < sortedData.length) {
+                        const nextItem = sortedData[i+1];
+                        if (nextItem.type === 'node.yield.result' && nextItem.key === dataItem.key && nextItem.node_id === dataItem.node_id) {
+                            entry.resultItem = nextItem; entry.isGrouped = true; i++;
+                        }
+                    }
+                    if (dataItem.node_id) {
+                        const mappedNode = nodeLevelMap[dataItem.node_id];
+                        if (mappedNode) {
+                            entry.nodeInfo = mappedNode;
+                        } else {
+                            const fallbackNode = this.nodes.find(n => n.node_id === dataItem.node_id);
+                            if (fallbackNode) {
+                                entry.nodeInfo = { node_id: fallbackNode.node_id, type: fallbackNode.type, title: this.formatNodeTitle(fallbackNode.type, fallbackNode.metadata), level: 0 };
+                            }
+                        }
+                    }
+                    timelineEntries.push(entry); i++;
+                }
+                return timelineEntries;
+            },
+            getTimelineItemStyleVars(entry) {
+                let baseHue = ((this.simpleHash(entry.dataItem.type) * 137.508) % 360).toFixed(0);
+                let styleVars = `--type-hue: ${baseHue};`;
+                if (entry.nodeInfo) styleVars += ` --timeline-item-border-hue: ${this.getNodeHueForStyle(entry.nodeInfo.type)}; --timeline-item-border-saturation: 60%; --dark-timeline-item-border-saturation: 50%;`;
+                else if (entry.isGlobal) styleVars += ` --timeline-item-border-hue: 0; --timeline-item-border-saturation: 0%; --dark-timeline-item-border-saturation: 0%;`;
+                return styleVars;
+            },
+            getNodeHueForStyle(nodeType) { return ((this.simpleHash(nodeType || 'unknown') * 137.508) % 360).toFixed(0); },
+            getTimelineItemLineShadeBorderClass() { return 'border-l-4 border-solid border-[hsl(var(--timeline-item-border-hue,var(--type-hue)),var(--timeline-item-border-saturation,60%),75%)] dark:border-[hsl(var(--timeline-item-border-hue,var(--type-hue)),var(--dark-timeline-item-border-saturation,50%),60%)]'; },
+            toggleNodeExpand(nodeId) { this.expandedNodes[nodeId] = !this.expandedNodes[nodeId]; this.expandedNodes = {...this.expandedNodes}; },
+            toggleDataExpand(dataId) { this.expandedData[dataId] = !this.expandedData[dataId]; this.expandedData = {...this.expandedData}; },
+            viewNodeDetails(nodeId, expandOnly = false) {
+                if(!expandOnly) this.activeTab = 'nodes';
+                const node = this.nodes.find(n => n.node_id === nodeId);
+                if (node?.type && this.nodeFilter !== 'all' && node.type !== this.nodeFilter) this.nodeFilter = node.type;
+                this.expandedNodes[nodeId] = true; this.expandedNodes = {...this.expandedNodes};
+                this.$nextTick(() => {
+                    const el = Array.from(this.$el.querySelectorAll('.group span')).find(span => span.textContent === this.getUuidSegment(nodeId) && span.closest('[title^="Node ID"]'))?.closest('.group');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            },
+            viewDataDetails(dataId, expandOnly = false) {
+                if (!expandOnly && !['data', 'timelineData'].includes(this.activeTab)) this.activeTab = 'data';
+                const dataItem = this.data.find(d => d.data_id === dataId);
+                if (this.activeTab === 'data' && dataItem) {
+                    if (dataItem.node_id && this.selectedNodeIdForDataFilter !== 'all' && dataItem.node_id !== this.selectedNodeIdForDataFilter) this.selectedNodeIdForDataFilter = dataItem.node_id;
+                    else if (!dataItem.node_id && this.selectedNodeIdForDataFilter !== 'all' && this.selectedNodeIdForDataFilter !== 'dataflow_global') this.selectedNodeIdForDataFilter = 'dataflow_global';
+                }
+                this.expandedData[dataId] = true; this.expandedData = {...this.expandedData};
+                this.$nextTick(() => {
+                    const el = Array.from(this.$el.querySelectorAll(`div[x-show="activeTab === '${this.activeTab}'"] .group span`)).find(span => span.textContent === this.getUuidSegment(dataId) && span.closest('[title^="Data ID"]'))?.closest('.group');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            },
+            getNodeById(nodeId) { return this.nodes.find(n => n.node_id === nodeId); },
+            getNodeDataItems(nodeId) { return this.data.filter(item => item.node_id === nodeId).sort((a,b) => new Date(a.created_at) - new Date(b.created_at)); },
+            getUuidSegment(uuid) { if (!uuid || typeof uuid !== 'string') return ''; const parts = uuid.split('-'); return parts[parts.length - 1] || ''; },
+            isUuid(str) { if (!str || typeof str !== 'string') return false; return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str); },
+            truncateText(text, maxLength = 20) { if (!text || text.length <= maxLength) return text || ''; return text.substring(0, maxLength - 3) + '...'; },
+            simpleHash(str) { let h = 0; if (!str || str.length === 0) return 0; for (let i = 0; i < str.length; i++) { h = ((h << 5) - h) + str.charCodeAt(i); h |= 0; } return Math.abs(h); },
+            getTypeHueStyle(type) { return `--type-hue: ${((this.simpleHash(type || 'unknown') * 137.508) % 360).toFixed(0)};`; },
+            getLineShadeBorderClass() { return 'border-l-4 border-solid border-[hsl(var(--type-hue),60%,75%)] dark:border-[hsl(var(--type-hue),50%,60%)]'; },
+            getIconColorClasses() { return { bgClass: `bg-[hsl(var(--type-hue),70%,90%)] dark:bg-[hsl(var(--type-hue),40%,25%)]`, textClass: `text-[hsl(var(--type-hue),60%,40%)] dark:text-[hsl(var(--type-hue),60%,75%)]` }; },
+            getBadgeColorClasses() { return { bgClass: `bg-[hsl(var(--type-hue),70%,85%)] dark:bg-[hsl(var(--type-hue),40%,30%)]`, textClass: `text-[hsl(var(--type-hue),60%,35%)] dark:text-[hsl(var(--type-hue),70%,80%)]` }; },
+            getGenericBadgeColorClasses(seed = 0) { const h = [210,150,30,270,60,300,180,330,120,240][Math.abs(this.simpleHash(String(seed)))%10]; return `bg-[hsl(${h},70%,90%)] text-[hsl(${h},60%,30%)] dark:bg-[hsl(${h},40%,25%)] dark:text-[hsl(${h},60%,75%)]`; },
+            getNodeStatusBadgeClasses(s) { const b = 'inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium'; switch(s){ case 'completed': return `${b} bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100`; case 'running': return `${b} bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100`; case 'pending': case 'defined': return `${b} bg-yellow-100 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100`; case 'failed': return `${b} bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100`; case 'cancelled': return `${b} bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100`; case 'terminated': return `${b} bg-red-200 text-red-900 dark:bg-red-800 dark:text-red-100`; default: return `${b} bg-gray-200 text-gray-700 dark:bg-gray-500 dark:text-gray-200`; }},
+            getDataTypeBadgeClasses(t) { const b = 'inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium'; switch(t){ case 'dataflow.input': case 'node.input': return `${b} bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200`; case 'dataflow.output': case 'node.output': case 'node.result': return `${b} bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200`; case 'node.yield': case 'node.yield.result': return `${b} bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200`; case 'context.node': case 'context.data': case 'context.root': return `${b} bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200`; case 'react.action': case 'react.observation': return `${b} bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200`; default: return `${b} bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200`; }},
+            getNodeStatusIcon(s) { switch(s){ case 'completed': return 'tabler:check'; case 'running': return 'tabler:loader-2 animate-spin'; case 'pending': return 'tabler:clock-hour-3'; case 'defined': return 'tabler:file-text'; case 'failed': return 'tabler:alert-triangle'; case 'cancelled': return 'tabler:circle-x'; case 'terminated': return 'tabler:square-x'; default: return 'tabler:question-mark'; }},
+            getNodeTypeIcon(t) { const m={'processor':'tabler:cpu','input':'tabler:arrow-bar-to-down','output':'tabler:arrow-bar-up','condition':'tabler:git-branch','transformer':'tabler:transform','dataflow.agent:planner_node':'tabler:route-2','dataflow.agent:react_node':'tabler:atom-2'}; return m[t]||'tabler:code-dots';},
+            getDataTypeIcon(t,r=false) { if(r)return 'tabler:link'; const m={'dataflow.input':'tabler:cloud-upload','dataflow.output':'tabler:cloud-download','node.input':'tabler:arrow-right-circle','node.output':'tabler:arrow-left-circle','node.result':'tabler:file-check','node.yield':'tabler:corner-down-right','node.yield.result':'tabler:corner-down-right-double','context.node':'tabler:archive','context.data':'tabler:file-stack','context.root':'tabler:database-cog','react.action':'tabler:bolt','react.observation':'tabler:eye-search','config':'tabler:settings','log':'tabler:file-text','artifact':'tabler:package'}; return m[t]||'tabler:file';},
+            getDiscriminatorIcon(d) { if(!d)return 'tabler:tag-off'; const l=d.toLowerCase(); if(l==='public')return 'tabler:world'; if(l==='private')return 'tabler:lock'; if(l==='group')return 'tabler:users-group'; if(l==='result.success')return 'tabler:circle-check'; if(l.startsWith('action_')||l.includes('react.action'))return 'tabler:bolt'; if(l.startsWith('observation_')||l.includes('react.observation'))return 'tabler:eye-search'; if(l.includes('task_instructions'))return 'tabler:info-circle'; if(l.includes('research_task'))return 'tabler:search'; if(l.includes('planning_result'))return 'tabler:route-2'; if(l.includes('final_result'))return 'tabler:flag-checkered'; if(l.includes('input'))return 'tabler:arrow-bar-to-right'; if(l.includes('output'))return 'tabler:arrow-bar-to-left'; if(l.includes('yield.result'))return 'tabler:corner-down-right-double'; if(l.includes('yield'))return 'tabler:corner-down-right'; if(l.includes('param'))return 'tabler:variable'; if(l.includes('config'))return 'tabler:settings-cog'; if(l.includes('state'))return 'tabler:history'; if(l.includes('react_result'))return 'tabler:atom-2'; if(l.includes('task_result'))return 'tabler:checklist'; return 'tabler:tag';},
+            formatNodeTitle(t,m) { if(m?.name)return m.name; if(m?.title)return m.title; if(!t)return 'Unknown Node'; let n=t.replace('dataflow.agent:','Agent ').replace('dataflow.agent.react:','React '); return n.replace(/[:_]/g,' ').replace(/\b\w/g,l=>l.toUpperCase());},
+            formatDataTitle(i,l=false) { let ti=''; if(i.metadata?.title)ti=i.metadata.title; else if(i.key&&i.content_type==='dataflow/reference')ti=i.key; else if(i.key&&!this.isUuid(i.key))ti=i.key; else if(i.type)ti=l?i.type:i.type.replace(/\./g,' ').replace(/\b([a-z])/g,l=>l.toUpperCase()); else ti='Data Item'; if(!l&&i.content_type==='dataflow/reference')ti+=' (Ref)'; return ti;},
+            getFormattedContent(d) { if(!d)return 'No data item.'; let c,ct; if(d.content_type==='dataflow/reference'){c=d.ref_content;ct=d.ref_content_type;if(c===undefined||c===null||c===''){if(d.key&&(d.ref_type||d.ref_content_type))return `Ref content not loaded. Key=${d.key}${d.ref_type?`, Orig Type=${d.ref_type}`:''}${d.ref_content_type?`, Orig Content Type=${d.ref_content_type}`:''}`; return 'Ref points to empty/unloaded content.';}}else{c=d.content;ct=d.content_type;if(d.content_size>0&&(c===undefined||c===null||c===''))return `Binary data (${this.formatBytes(d.content_size)}) - Not shown.`;} if(c===null||c===undefined)return 'null'; try{if(typeof c==='string'){if(ct?.includes('json')){try{return JSON.stringify(JSON.parse(c),null,2);}catch(e){return c;}}return c;}return JSON.stringify(c,null,2);}catch(e){return String(c);}},
+            formatJson(d) { if (d === undefined || d === null) return 'null'; try { return JSON.stringify(d, (k,v)=>typeof v==='bigint'?v.toString():v, 2); } catch (e) { return String(d); } },
+            formatBytes(b,dec=2) { if(!b||b===0)return '0 Bytes'; const k=1024,dm=dec<0?0:dec,s=['Bytes','KB','MB','GB','TB'],i=Math.floor(Math.log(b)/Math.log(k)); return parseFloat((b/Math.pow(k,i)).toFixed(dm))+' '+s[i];}
+        }));
+    });
+</script>
+{{ end }}

@@ -1,0 +1,124 @@
+version: "1.0"
+namespace: keeper.make.context
+
+entries:
+  # keeper.make.context:context_finalizer
+  - name: context_finalizer
+    kind: function.lua
+    meta:
+      type: function
+      title: Context Search Finalizer
+      description: Finalizes context search by processing results and storing selected registry entries
+    source: file://context_finalizer.lua
+    modules:
+      - json
+      - uuid
+      - ctx
+      - registry
+      - yaml
+    imports:
+      consts: dataflow:consts
+      data_reader: dataflow.persist:data_reader
+    method: execute
+    
+  # keeper.make.context:search_arena
+  - name: search_arena
+    kind: registry.entry
+    meta:
+      type: agent.arena
+      title: Context Search Arena
+      comment: Specialized arena for building context from registry entries and custom content
+      tags:
+        - context
+        - search
+        - registry
+        - arena
+    title: Context Search Arena
+    description: Specialized arena for building context from registry entries and custom content
+    prompt: |
+      You are a context search specialist. Your job is to gather relevant context information for a specific task.
+    
+      You have access to your own tools for finding and reading registry entries.
+    
+      Your process:
+      1. ANALYZE the task/query to understand what context is needed
+      2. USE your own tools to discover and examine relevant registry entries
+      3. TRACE dependencies (imports, references) by reading related entries
+      4. When finished, use the 'finish' tool with:
+         - success=true if you gathered useful context
+         - selected_entries: array of {entry_id, comment} for registry entries to fetch and store
+         - search_summary: brief description of what context was gathered
+    
+      Focus on quality over quantity - include only relevant context that will help with the task.
+      Always explain WHY each registry entry is relevant when selecting it.
+    
+      Please note, all ids are given in namespace.child:name.child format. Entry kind has nothing to do with id.
+    tools: {}
+    end_function: keeper.make.context:context_finalizer
+    id: keeper.make.context:search_arena
+    iterations:
+      max: 8
+      min: 2
+    output:
+      schema:
+        name: finish
+        description: Complete context gathering with specific entries and explanations
+        definition: |
+          {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean",
+                "description": "Whether context gathering was successful"
+              },
+              "selected_entries": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "entry_id": {
+                      "type": "string",
+                      "description": "Registry entry ID to fetch and store"
+                    },
+                    "comment": {
+                      "type": "string",
+                      "description": "Explanation of why this entry is relevant, make comment as descriptive as possible, include details what it contains, how it relates to the task, and why it was selected"
+                    }
+                  },
+                  "required": ["entry_id", "comment"]
+                },
+                "description": "Array of registry entries to fetch with explanatory comments"
+              },
+              "search_summary": {
+                "type": "string",
+                "description": "Brief summary of the search process and findings"
+              },
+              "error": {
+                "type": "string",
+                "description": "Error details if context gathering failed"
+              }
+            },
+            "required": ["success"]
+          }
+    start_function: keeper.make.context:search_initializer
+    
+  # keeper.make.context:search_initializer
+  - name: search_initializer
+    kind: function.lua
+    meta:
+      type: function
+      title: Context Search Initializer
+      description: Initializes context search by selecting appropriate agent and loading documentation index
+    source: file://search_initializer.lua
+    modules:
+      - json
+      - uuid
+      - ctx
+      - registry
+      - funcs
+    imports:
+      consts: dataflow:consts
+      context_reader: dataflow.node:context
+      find_relevant: keeper.agents.registry:find_relevant
+    method: execute
+    

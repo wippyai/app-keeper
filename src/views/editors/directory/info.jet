@@ -1,0 +1,627 @@
+{{ extends "/common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}Directory Information{{ end }}
+{{ block metaDescription() }}View and edit directory filesystem configuration{{ end }}
+
+{{ block mainContent() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden max-w-5xl mx-auto"
+     x-data="directoryViewApp"
+     x-init="initialize()"
+     x-cloak>
+
+    <!-- Page Header -->
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6 flex justify-between items-center">
+        <div class="flex items-center">
+            <iconify-icon icon="tabler:folder" class="text-3xl text-primary-600 dark:text-primary-400 mr-3 flex-shrink-0"></iconify-icon>
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Directory Information</h3>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400"
+                   x-show="entry?.id">
+                    <span x-text="getNamespace(entry?.id)"></span>:<span x-text="getName(entry?.id)"></span>
+                    <span class="ml-1">(Filesystem Directory)</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex space-x-3">
+            <button
+                    id="saveButton"
+                    type="button"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="isSaving || isLoading || !isDirty || !!modeError"
+                    @click="saveEntry()">
+                <template x-if="isSaving">
+                    <iconify-icon icon="tabler:loader" class="animate-spin mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                <template x-if="!isSaving">
+                    <iconify-icon icon="tabler:device-floppy" class="mr-2" width="16" height="16"></iconify-icon>
+                </template>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="flex justify-center items-center py-12" x-show="isLoading">
+        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <span class="ml-3 text-surface-700 dark:text-surface-300">Loading directory details...</span>
+    </div>
+
+    <!-- Error Indicator -->
+    <div id="errorIndicator" class="px-4 py-12 sm:p-6 text-red-600 dark:text-red-400"
+         x-show="!isLoading && loadError">
+        <div class="flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:alert-circle" class="mr-2" width="32" height="32"></iconify-icon>
+            <p class="text-lg font-medium mt-2" x-text="loadError"></p>
+            <button @click="initialize()"
+                    class="mt-4 inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-800 hover:bg-surface-50 dark:hover:bg-surface-700">
+                <iconify-icon icon="tabler:refresh" class="mr-2" width="16" height="16"></iconify-icon>
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="px-4 py-5 sm:p-6 space-y-6" x-show="!isLoading && !loadError && entry">
+
+        <!-- Description Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:file-description" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div class="flex-grow">
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Description</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Details and purpose of this filesystem directory. Changes are saved with the "Save Changes" button above.</p>
+                </div>
+            </div>
+            <div class="mt-2">
+                <textarea
+                        :value="entry?.meta?.comment || ''"
+                        @input="updateComment($event.target.value)"
+                        class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                        rows="4"
+                        placeholder="Enter directory description..."
+                        :disabled="isLoading || isSaving"></textarea>
+            </div>
+        </div>
+
+        <!-- Directory Configuration Section -->
+        <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 border border-surface-200 dark:border-surface-700">
+            <div class="flex items-start mb-3">
+                <iconify-icon icon="tabler:settings" class="mt-1 mr-3 text-primary-600 dark:text-primary-500 flex-shrink-0" width="20" height="20"></iconify-icon>
+                <div>
+                    <h4 class="text-base font-semibold text-surface-900 dark:text-white">Directory Configuration</h4>
+                    <p class="mt-1 text-xs text-surface-600 dark:text-surface-400">Settings for the filesystem directory.</p>
+                </div>
+            </div>
+
+            <div class="mt-3 space-y-4">
+                <!-- Directory Path -->
+                <div>
+                    <label for="directoryPath" class="block text-sm font-medium text-surface-700 dark:text-surface-300">Directory Path</label>
+                    <input type="text" id="directoryPath"
+                           :value="entry?.data?.directory || ''"
+                           @input="updateDirectoryPath($event.target.value)"
+                           class="mt-1 block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                           placeholder="./path/to/directory/"
+                           :disabled="isLoading || isSaving">
+                    <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">The root path for this filesystem directory.</p>
+                </div>
+
+                <!-- Auto Init Toggle -->
+                <div class="relative flex items-start">
+                    <div class="flex items-center h-5">
+                        <input id="autoInit"
+                               type="checkbox"
+                               :checked="entry?.data?.auto_init === true"
+                               @change="updateAutoInit($event.target.checked)"
+                               class="h-4 w-4 text-primary-600 border-surface-300 dark:border-surface-600 rounded focus:ring-primary-500"
+                               :disabled="isLoading || isSaving">
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label for="autoInit" class="font-medium text-surface-700 dark:text-surface-300">Auto Initialize</label>
+                        <p class="text-xs text-surface-500 dark:text-surface-400">Automatically create the directory if it doesn't exist.</p>
+                    </div>
+                </div>
+
+                <!-- Filesystem Mode -->
+                <div>
+                    <label for="fsMode" class="block text-sm font-medium text-surface-700 dark:text-surface-300">Filesystem Mode</label>
+                    <div class="mt-1 relative rounded-md shadow-sm">
+                        <input type="text" id="fsMode"
+                               :value="entry?.data?.mode || '0755'"
+                               @input="updateMode($event.target.value)"
+                               class="block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 px-3 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                               :class="{'border-red-300 focus:ring-red-500 focus:border-red-500': modeError}"
+                               placeholder="0755"
+                               :disabled="isLoading || isSaving">
+                    </div>
+                    <div class="mt-1 flex items-center justify-between">
+                        <p class="text-xs text-surface-500 dark:text-surface-400">
+                            Filesystem permissions in octal format (e.g., "0755" for rwxr-xr-x).
+                        </p>
+                        <span x-show="modeHumanReadable"
+                              class="text-xs font-mono bg-surface-200 dark:bg-surface-600 px-2 py-0.5 rounded"
+                              x-text="modeHumanReadable"></span>
+                    </div>
+                    <p x-show="modeError" class="mt-1 text-xs text-red-600 dark:text-red-400" x-text="modeError"></p>
+                </div>
+
+                <!-- Directory Type (Optional) -->
+                <div>
+                    <label for="directoryType" class="block text-sm font-medium text-surface-700 dark:text-surface-300">Directory Type (Optional)</label>
+                    <select id="directoryType"
+                            :value="entry?.data?.type || ''"
+                            @change="updateType($event.target.value)"
+                            class="mt-1 block w-full border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-2 pl-3 pr-10 bg-white dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                            :disabled="isLoading || isSaving">
+                        <option value="">Standard directory</option>
+                        <option value="embed">Embedded filesystem</option>
+                    </select>
+                    <p class="mt-1 text-xs text-surface-500 dark:text-surface-400">Special type of filesystem (currently only "embed" is supported).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div x-data="{ notification: { show: false, type: 'success', message: '', timeout: null } }"
+         @shownotification.window="
+             notification.show = false;
+             clearTimeout(notification.timeout);
+             $nextTick(() => {
+                 notification = { ...$event.detail, show: true };
+                 notification.timeout = setTimeout(() => notification.show = false, 5000);
+             });
+         "
+         x-show="notification.show"
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+         x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 max-w-sm w-full z-50">
+        <div class="p-4 rounded-md shadow-lg"
+             :class="{
+                'bg-green-50 border border-green-200 dark:bg-green-900 dark:border-green-800': notification.type === 'success',
+                'bg-red-50 border border-red-200 dark:bg-red-900 dark:border-red-800': notification.type === 'error',
+                'bg-yellow-50 border border-yellow-200 dark:bg-yellow-900 dark:border-yellow-800': notification.type === 'warning'
+             }">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <iconify-icon
+                            :icon="notification.type === 'success' ? 'tabler:circle-check' : (notification.type === 'error' ? 'tabler:alert-circle' : 'tabler:alert-triangle')"
+                            :class="{
+                                'text-green-600 dark:text-green-400': notification.type === 'success',
+                                'text-red-600 dark:text-red-400': notification.type === 'error',
+                                'text-yellow-600 dark:text-yellow-400': notification.type === 'warning'
+                            }"
+                            width="20" height="20"></iconify-icon>
+                </div>
+                <div class="ml-3 w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium"
+                       :class="{
+                           'text-green-800 dark:text-green-200': notification.type === 'success',
+                           'text-red-800 dark:text-red-200': notification.type === 'error',
+                           'text-yellow-800 dark:text-yellow-200': notification.type === 'warning'
+                       }"
+                       x-text="notification.message"></p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button type="button" @click="notification.show = false; clearTimeout(notification.timeout);"
+                            class="inline-flex rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                            :class="{
+                                'text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 focus:ring-green-600 dark:focus:ring-offset-green-900': notification.type === 'success',
+                                'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 focus:ring-red-600 dark:focus:ring-offset-red-900': notification.type === 'error',
+                                'text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 focus:ring-yellow-600 dark:focus:ring-offset-yellow-900': notification.type === 'warning'
+                            }">
+                        <span class="sr-only">Close</span>
+                        <iconify-icon icon="tabler:x" width="16" height="16"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('directoryViewApp', () => ({
+            // State variables
+            entry: null,
+            originalEntry: null,
+            isLoading: true,
+            loadError: null,
+            isSaving: false,
+            modeError: null,
+            modeHumanReadable: '',
+
+            // Change tracking
+            dirtyFields: {
+                comment: false,
+                directory: false,
+                autoInit: false,
+                mode: false,
+                type: false
+            },
+
+            // API connection
+            wippyApi: null,
+
+            // Initialize the app
+            async initialize() {
+                this.isLoading = true;
+                this.loadError = null;
+                this.resetState();
+
+                try {
+                    // Initialize Wippy API
+                    if (typeof initWippyApi !== 'function') {
+                        console.warn('Using fallback API for local testing');
+                        this.wippyApi = this.createFallbackWippyApi();
+                    } else {
+                        this.wippyApi = await window.initWippyApi();
+                    }
+
+                    // Get the entry ID
+                    const entryId = this.wippyApi?.config?.path;
+                    if (!entryId) {
+                        throw new Error('No directory ID provided in configuration');
+                    }
+
+                    // Load the entry
+                    await this.loadEntry(entryId);
+                } catch (err) {
+                    console.error('Failed to initialize:', err);
+                    this.loadError = `Initialization error: ${err.message}`;
+
+                    if (this.wippyApi && this.isFatalError(err)) {
+                        this.wippyApi.iframe?.handleError('other', err);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            resetState() {
+                this.entry = null;
+                this.originalEntry = null;
+                this.modeError = null;
+                this.modeHumanReadable = '';
+                this.dirtyFields = {
+                    comment: false,
+                    directory: false,
+                    autoInit: false,
+                    mode: false,
+                    type: false
+                };
+            },
+
+            // Create a fallback API for testing
+            createFallbackWippyApi() {
+                const fallbackId = new URLSearchParams(window.location.search).get('id') || 'fallback:fs/directory';
+
+                return {
+                    config: {
+                        path: fallbackId,
+                        feature: { routePrefix: '/apps' },
+                        auth: { token: 'fallback-token' }
+                    },
+                    iframe: {
+                        navigate: (v, p) => console.log(`Fallback Nav: ${v}`, p || ''),
+                        handleError: (type, err) => console.error(`Fallback Error Handler (${type}):`, err)
+                    },
+                    api: {
+                        get: async (url) => {
+                            console.log('Fallback API GET:', url);
+                            await new Promise(resolve => setTimeout(resolve, 500));
+
+                            return {
+                                data: {
+                                    success: true,
+                                    entry: {
+                                        id: fallbackId,
+                                        kind: 'fs.directory',
+                                        meta: {
+                                            comment: 'Directory for storing application files',
+                                        },
+                                        data: {
+                                            directory: './data/',
+                                            auto_init: true,
+                                            mode: '0755',
+                                            type: ''
+                                        }
+                                    }
+                                }
+                            };
+                        },
+                        put: async (url, payload) => {
+                            console.log('Fallback API PUT:', url, payload);
+                            await new Promise(resolve => setTimeout(resolve, 300));
+
+                            return {
+                                data: {
+                                    success: true,
+                                    message: "Entry updated successfully",
+                                    id: payload.id,
+                                    kind: payload.kind,
+                                    version: 27,
+                                    merge: true,
+                                    updated: {
+                                        data: true,
+                                        kind: true,
+                                        meta: true
+                                    }
+                                }
+                            };
+                        }
+                    }
+                };
+            },
+
+            // Helper functions
+            isFatalError(error) {
+                return error.fatal === true ||
+                    error.message?.includes('critical') ||
+                    error.message?.includes('auth');
+            },
+
+            getNamespace(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts[0] || '';
+            },
+
+            getName(id) {
+                if (!id || typeof id !== 'string') return '';
+                const parts = id.split(':');
+                return parts.length > 1 ? parts.slice(1).join(':') : (parts[0] || '');
+            },
+
+            // Load entry data
+            async loadEntry(id) {
+                this.isLoading = true;
+                this.loadError = null;
+
+                try {
+                    const response = await this.wippyApi.api.get(`/api/v1/keeper/registry/entry?id=${encodeURIComponent(id)}`);
+                    const data = response.data;
+
+                    if (!data.success || !data.entry) {
+                        throw new Error(data.error || 'Invalid server response loading directory');
+                    }
+
+                    // Store the entry data
+                    this.entry = data.entry;
+
+                    // Ensure required structures exist
+                    if (!this.entry.meta) this.entry.meta = {};
+                    if (!this.entry.data) this.entry.data = {};
+
+                    // Set default mode if not present
+                    if (!this.entry.data.mode) {
+                        this.entry.data.mode = '0755';
+                    }
+
+                    // Update the human-readable mode display
+                    this.updateModeHumanReadable(this.entry.data.mode);
+
+                    // Store original data for comparison
+                    this.originalEntry = JSON.parse(JSON.stringify(this.entry));
+
+                    // Reset dirty flags
+                    this.dirtyFields = {
+                        comment: false,
+                        directory: false,
+                        autoInit: false,
+                        mode: false,
+                        type: false
+                    };
+                } catch (error) {
+                    console.error('Error loading directory data:', error);
+                    this.loadError = `Failed to load directory: ${error.message}`;
+
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.wippyApi.iframe?.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            // Form field update handlers
+            updateComment(value) {
+                if (!this.entry) return;
+                if (!this.entry.meta) this.entry.meta = {};
+
+                this.entry.meta.comment = value;
+                this.dirtyFields.comment = true;
+            },
+
+            updateDirectoryPath(value) {
+                if (!this.entry) return;
+                if (!this.entry.data) this.entry.data = {};
+
+                this.entry.data.directory = value;
+                this.dirtyFields.directory = true;
+            },
+
+            updateAutoInit(value) {
+                if (!this.entry) return;
+                if (!this.entry.data) this.entry.data = {};
+
+                this.entry.data.auto_init = value;
+                this.dirtyFields.autoInit = true;
+            },
+
+            updateMode(value) {
+                if (!this.entry) return;
+                if (!this.entry.data) this.entry.data = {};
+
+                // Validate the mode format (should be like "0755")
+                this.validateMode(value);
+
+                this.entry.data.mode = value;
+                this.dirtyFields.mode = true;
+            },
+
+            updateType(value) {
+                if (!this.entry) return;
+                if (!this.entry.data) this.entry.data = {};
+
+                this.entry.data.type = value;
+                this.dirtyFields.type = true;
+            },
+
+            // Validate the mode format
+            validateMode(mode) {
+                this.modeError = null;
+                this.modeHumanReadable = '';
+
+                if (!mode) {
+                    // Empty is OK, system will use default
+                    return true;
+                }
+
+                // Check that it's a valid octal format (0XXX)
+                const modeRegex = /^0[0-7]{3,4}$/;
+                if (!modeRegex.test(mode)) {
+                    this.modeError = 'Invalid mode format. Use octal notation like "0755".';
+                    return false;
+                }
+
+                // If valid, update the human-readable display
+                this.updateModeHumanReadable(mode);
+                return true;
+            },
+
+            // Convert mode to human-readable permissions (rwxrwxrwx)
+            updateModeHumanReadable(mode) {
+                if (!mode || this.modeError) {
+                    this.modeHumanReadable = '';
+                    return;
+                }
+
+                try {
+                    // Parse the octal mode string
+                    const modeNum = parseInt(mode, 8);
+
+                    // Convert to rwxrwxrwx format
+                    const permissions = [
+                        // Owner (user) permissions
+                        (modeNum & 0b100000000) ? 'r' : '-',
+                        (modeNum & 0b010000000) ? 'w' : '-',
+                        (modeNum & 0b001000000) ? 'x' : '-',
+                        // Group permissions
+                        (modeNum & 0b000100000) ? 'r' : '-',
+                        (modeNum & 0b000010000) ? 'w' : '-',
+                        (modeNum & 0b000001000) ? 'x' : '-',
+                        // Others permissions
+                        (modeNum & 0b000000100) ? 'r' : '-',
+                        (modeNum & 0b000000010) ? 'w' : '-',
+                        (modeNum & 0b000000001) ? 'x' : '-'
+                    ].join('');
+
+                    this.modeHumanReadable = permissions;
+                } catch (e) {
+                    this.modeHumanReadable = '';
+                }
+            },
+
+            // Save the entry
+            async saveEntry() {
+                if (this.isSaving || !this.isDirty) {
+                    if (!this.isDirty) this.showNotification('warning', 'No changes to save');
+                    return;
+                }
+
+                // Check mode format once more before saving
+                if (this.entry?.data?.mode && !this.validateMode(this.entry.data.mode)) {
+                    this.showNotification('error', 'Cannot save: ' + this.modeError);
+                    return;
+                }
+
+                if (!this.entry) {
+                    this.showNotification('error', 'Cannot save: no entry data loaded');
+                    return;
+                }
+
+                this.isSaving = true;
+
+                try {
+                    // Prepare the update payload
+                    const updatePayload = {
+                        id: this.entry.id,
+                        kind: this.entry.kind,
+                        meta: {
+                            comment: this.entry.meta.comment || ''
+                        },
+                        data: {
+                            directory: this.entry.data.directory || '',
+                            auto_init: this.entry.data.auto_init || false,
+                            mode: this.entry.data.mode || '0755'
+                        },
+                        merge: true
+                    };
+
+                    // Only include type if it has a value
+                    if (this.entry.data.type) {
+                        updatePayload.data.type = this.entry.data.type;
+                    }
+
+                    // Submit the update
+                    const response = await this.wippyApi.api.put(
+                        `/api/v1/keeper/registry/entry?id=${encodeURIComponent(this.entry.id)}`,
+                        updatePayload
+                    );
+
+                    if (!response.data.success) {
+                        throw new Error(response.data.error || 'Failed to save configuration');
+                    }
+
+                    // Update original entry reference
+                    this.originalEntry = JSON.parse(JSON.stringify(this.entry));
+
+                    // Reset dirty flags
+                    this.dirtyFields = {
+                        comment: false,
+                        directory: false,
+                        autoInit: false,
+                        mode: false,
+                        type: false
+                    };
+
+                    this.showNotification('success', 'Directory configuration saved successfully');
+                } catch (error) {
+                    console.error('Error saving configuration:', error);
+                    this.showNotification('error', `Failed to save: ${error.message}`);
+
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        this.wippyApi.iframe?.handleError('auth-expired', error);
+                    }
+                } finally {
+                    this.isSaving = false;
+                }
+            },
+
+            // Computed properties
+            get isDirty() {
+                return this.dirtyFields.comment ||
+                    this.dirtyFields.directory ||
+                    this.dirtyFields.autoInit ||
+                    this.dirtyFields.mode ||
+                    this.dirtyFields.type;
+            },
+
+            // UI feedback
+            showNotification(type, message) {
+                window.dispatchEvent(new CustomEvent('shownotification', {
+                    detail: { type, message }
+                }));
+            }
+        }));
+    });
+</script>
+{{ end }}

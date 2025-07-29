@@ -1,0 +1,15 @@
+version: "1.0"
+namespace: keeper.editors
+
+entries:
+  # keeper.editors:entry_editor_registry
+  - name: entry_editor_registry
+    kind: library.lua
+    meta:
+      comment: Registry for managing dynamic entry editors
+    source: file://entry_editor_registry.lua
+    modules:
+      - registry
+    imports:
+      start_tokens: wippy.session:start_tokens
+    

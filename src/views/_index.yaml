@@ -1,0 +1,87 @@
+version: "1.0"
+namespace: keeper.views
+
+entries:
+  # keeper.views:git_sync
+  - name: git_sync
+    kind: template.jet
+    meta:
+      name: control.git
+      type: view.page
+      title: Git Synchronization
+      group: Keeper
+      icon: tabler:git-branch
+      description: Manage Git operations for Wippy platform resources
+      order: 20
+      content_type: text/html
+      announced: true
+      group_icon: tabler:settings
+      group_order: 9999
+      group_placement: bottom
+      public: true
+      secure: true
+    source: file://git_sync.jet
+    set: keeper.views.common:templates
+
+  # keeper.views:registry
+  - name: registry
+    kind: registry.entry
+    meta:
+      name: registry
+      type: view.page
+      title: Wippy Editor
+      group: Keeper
+      icon: tabler:irregular-polyhedron
+      order: 990
+      announced: true
+      group_icon: tabler:settings
+      group_order: 9999
+      group_placement: bottom
+      internal: /keeper
+
+  # keeper.views:tests
+  - name: tests
+    kind: template.jet
+    meta:
+      name: control.tests
+      type: view.page
+      title: Application Tests
+      group: Keeper
+      icon: tabler:test-pipe
+      description: Manage and run system tests
+      order: 120
+      content_type: text/html
+      announced: true
+      group_icon: tabler:settings
+      group_order: 9999
+      group_placement: bottom
+      secure: true
+      space: admin
+    source: file://tests.jet
+    set: keeper.views.common:templates
+
+  # keeper.views:token_usage
+  - name: token_usage
+    kind: template.jet
+    meta:
+      name: control.token_usage
+      type: view.page
+      title: Token Usage Statistics
+      group: Keeper
+      icon: tabler:chart-pie
+      description: Monitor and analyze token usage across agents, users, and operations
+      order: 30
+      content_type: text/html
+      announced: true
+      group_icon: tabler:settings
+      group_order: 9999
+      group_placement: bottom
+      public: false
+      secure: true
+    source: file://token_usage.jet
+    set: app.views.common:templates
+    resources: {}
+    data_func: ""
+
+    # DEPENDENCIES
+

@@ -1,0 +1,32 @@
+version: "1.0"
+namespace: keeper.views.editors.endpoint
+
+entries:
+  # keeper.views.editors.endpoint:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for HTTP endpoint entries
+      target_kind: http.endpoint
+    editors:
+      - title: General
+        icon: tabler:world
+        order: 1
+        id: default
+        page_name: keeper.views.editors.endpoint:info
+    
+  # keeper.views.editors.endpoint:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/endpoint
+      type: view.page
+      title: Endpoint Information
+      icon: tabler:world
+      description: View and edit HTTP endpoint information
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    

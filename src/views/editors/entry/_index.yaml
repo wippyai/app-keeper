@@ -1,0 +1,35 @@
+version: "1.0"
+namespace: keeper.views.editors.entry
+
+entries:
+  # keeper.views.editors.entry:generic_registry_editor
+  - name: generic_registry_editor
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Generic JSON editor for any registry entry
+      priority: -10
+      target_kind: registry.entry
+    editors:
+      - title: JSON Editor
+        icon: tabler:json
+        order: 1
+        id: default
+        page_name: keeper.views.editors.entry:json_editor
+    
+  # keeper.views.editors.entry:json_editor
+  - name: json_editor
+    kind: template.jet
+    meta:
+      name: editors/json_editor
+      type: view.page
+      title: JSON Editor
+      icon: tabler:json
+      description: Simple editor for registry entries
+      content_type: text/html
+      secure: true
+    source: file://json_editor.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

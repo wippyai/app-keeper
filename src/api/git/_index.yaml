@@ -1,0 +1,337 @@
+version: "1.0"
+namespace: keeper.api.git
+
+entries:
+  # keeper.api.git:create_branch
+  - name: create_branch
+    kind: function.lua
+    meta:
+      comment: Create a new Git branch
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://create_branch.lua
+    modules:
+      - http
+      - json
+      - security
+    imports:
+      branch: keeper.git:branch
+      env: env
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:create_branch.endpoint
+  - name: create_branch.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for creating Git branches
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: create_branch
+    path: /keeper/git/branches/create
+    
+  # keeper.api.git:create_commit
+  - name: create_commit
+    kind: function.lua
+    meta:
+      comment: Create a Git commit
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://create_commit.lua
+    modules:
+      - http
+      - json
+      - security
+    imports:
+      commit: keeper.git:commit
+      env: env
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:create_commit.endpoint
+  - name: create_commit.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for creating Git commits
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: create_commit
+    path: /keeper/git/commit
+    
+  # keeper.api.git:fetch_updates
+  - name: fetch_updates
+    kind: function.lua
+    meta:
+      comment: Fetch updates from remote Git repository
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://fetch_updates.lua
+    modules:
+      - http
+      - json
+      - security
+    imports:
+      env: env
+      remote: keeper.git:remote
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:fetch_updates.endpoint
+  - name: fetch_updates.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for fetching Git updates
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: fetch_updates
+    path: /keeper/git/fetch
+    
+  # keeper.api.git:generate_message
+  - name: generate_message
+    kind: function.lua
+    meta:
+      comment: Generate Git commit message
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://generate_message.lua
+    modules:
+      - http
+      - json
+      - security
+      - env
+    imports:
+      prompt: wippy.llm:prompt
+      llm: wippy.llm:llm
+      status: keeper.git:status
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:generate_message.endpoint
+  - name: generate_message.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for generating Git commit messages
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: generate_message
+    path: /keeper/git/generate-message
+    
+  # keeper.api.git:get_status
+  - name: get_status
+    kind: function.lua
+    meta:
+      comment: Get Git repository status
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://get_status.lua
+    modules:
+      - http
+      - json
+      - security
+      - env
+    imports:
+      start_tokens: wippy.session:start_tokens
+      status: keeper.git:status
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:get_status.endpoint
+  - name: get_status.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that returns Git repository status
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: get_status
+    path: /keeper/git/status
+    
+  # keeper.api.git:list_branches
+  - name: list_branches
+    kind: function.lua
+    meta:
+      comment: List Git branches
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://list_branches.lua
+    modules:
+      - http
+      - json
+      - security
+    imports:
+      branch: keeper.git:branch
+      env: env
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:list_branches.endpoint
+  - name: list_branches.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that returns Git branch list
+      depends_on:
+        - ns:app
+      router: app:api
+    method: GET
+    func: list_branches
+    path: /keeper/git/branches
+    
+  # keeper.api.git:pull_changes
+  - name: pull_changes
+    kind: function.lua
+    meta:
+      comment: Pull changes from remote Git repository
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://pull_changes.lua
+    modules:
+      - http
+      - json
+      - security
+    imports:
+      env: env
+      remote: keeper.git:remote
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:pull_changes.endpoint
+  - name: pull_changes.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for pulling Git changes
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: pull_changes
+    path: /keeper/git/pull
+    
+  # keeper.api.git:push_changes
+  - name: push_changes
+    kind: function.lua
+    meta:
+      comment: Push changes to remote Git repository
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://push_changes.lua
+    modules:
+      - http
+      - json
+      - security
+    imports:
+      env: env
+      remote: keeper.git:remote
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:push_changes.endpoint
+  - name: push_changes.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for pushing Git changes
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: push_changes
+    path: /keeper/git/push
+    
+  # keeper.api.git:stage_files
+  - name: stage_files
+    kind: function.lua
+    meta:
+      comment: Stage Git files
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://stage_files.lua
+    modules:
+      - http
+      - json
+      - security
+    imports:
+      commit: keeper.git:commit
+      env: env
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:stage_files.endpoint
+  - name: stage_files.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for staging Git files
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: stage_files
+    path: /keeper/git/stage
+    
+  # keeper.api.git:switch_branch
+  - name: switch_branch
+    kind: function.lua
+    meta:
+      comment: Switch to a different Git branch
+      depends_on:
+        - ns:app
+        - ns:keeper.git
+      router: app:api
+    source: file://switch_branch.lua
+    modules:
+      - http
+      - json
+      - security
+    imports:
+      branch: keeper.git:branch
+      env: env
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.git:switch_branch.endpoint
+  - name: switch_branch.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint for switching Git branches
+      depends_on:
+        - ns:app
+      router: app:api
+    method: POST
+    func: switch_branch
+    path: /keeper/git/branches/switch
+    

@@ -1,0 +1,151 @@
+version: "1.0"
+namespace: keeper.api.docscout
+
+entries:
+  # keeper.api.docscout:create_group
+  - name: create_group
+    kind: function.lua
+    meta:
+      comment: Creates a new DocScout extraction group
+      depends_on:
+        - app:api
+    source: file://create_group.lua
+    modules:
+      - http
+      - json
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.docscout:create_group.endpoint
+  - name: create_group.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that creates a new DocScout extraction group
+      depends_on:
+        - app:api
+      router: app:api
+    method: POST
+    func: create_group
+    path: /keeper/docscout/groups/create
+    
+  # keeper.api.docscout:delete_group
+  - name: delete_group
+    kind: function.lua
+    meta:
+      comment: Deletes a DocScout extraction group
+      depends_on:
+        - app:api
+    source: file://delete_group.lua
+    modules:
+      - http
+      - json
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.docscout:delete_group.endpoint
+  - name: delete_group.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that deletes a DocScout extraction group
+      depends_on:
+        - app:api
+      router: app:api
+    method: DELETE
+    func: delete_group
+    path: /keeper/docscout/groups/delete
+    
+  # keeper.api.docscout:list_groups
+  - name: list_groups
+    kind: function.lua
+    meta:
+      comment: Lists all DocScout extraction groups with optional filtering
+      depends_on:
+        - app:api
+    source: file://list_groups.lua
+    modules:
+      - http
+      - json
+      - registry
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.docscout:list_groups.endpoint
+  - name: list_groups.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that lists all DocScout extraction groups
+      depends_on:
+        - app:api
+      router: app:api
+    method: GET
+    func: list_groups
+    path: /keeper/docscout/groups/list
+    
+  # keeper.api.docscout:test_extraction
+  - name: test_extraction
+    kind: function.lua
+    meta:
+      comment: Tests a DocScout extraction on a file and returns the results
+      depends_on:
+        - app:api
+    source: file://test_extraction.lua
+    modules:
+      - http
+      - json
+    imports:
+      extractor: docscout:extractor
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.docscout:test_extraction.endpoint
+  - name: test_extraction.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that runs a DocScout extraction test
+      depends_on:
+        - app:api
+      router: app:api
+    method: POST
+    func: test_extraction
+    path: /keeper/docscout/test
+    
+  # keeper.api.docscout:update_group
+  - name: update_group
+    kind: function.lua
+    meta:
+      comment: Updates an existing DocScout extraction group
+      depends_on:
+        - app:api
+    source: file://update_group.lua
+    modules:
+      - http
+      - json
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    pool:
+      size: 1
+    
+  # keeper.api.docscout:update_group.endpoint
+  - name: update_group.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that updates an existing DocScout extraction group
+      depends_on:
+        - app:api
+      router: app:api
+    method: PUT
+    func: update_group
+    path: /keeper/docscout/groups/update
+    

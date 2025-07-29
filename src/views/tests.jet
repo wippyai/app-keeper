@@ -1,0 +1,1574 @@
+{{ extends "common/layout" }}
+
+{{ block title() }}Test Suite Runner{{ end }}
+{{ block metaDescription() }}Discover and run automated tests{{ end }}
+{{ block containerWidth() }}max-w-7xl{{ end }}
+
+{{ block mainContent() }}
+<div x-data="testRunnerApp" x-init="initialize()" class="flex flex-col gap-6">
+    {{ yield headerSection() }}
+    {{ yield mainLayout() }}
+</div>
+{{ end }}
+
+{* Header Section *}
+{{ block headerSection() }}
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+    <div class="px-6 py-4 border-b border-surface-200 dark:border-surface-600">
+        <div class="flex items-center justify-between flex-wrap sm:flex-nowrap">
+            <div>
+                <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">
+                    Test Suite Runner
+                </h3>
+                <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">
+                    Run tests individually, by group, or all at once
+                </p>
+            </div>
+            <div class="flex-shrink-0 flex gap-x-3">
+                <button
+                        @click="refreshTests"
+                        :disabled="isLoading || isRunning"
+                        :class="{'opacity-50 cursor-not-allowed': isLoading || isRunning}"
+                        class="relative inline-flex items-center px-3 py-2 border border-surface-300 dark:border-surface-600 shadow-sm text-sm font-medium rounded-md text-surface-700 dark:text-surface-200 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <iconify-icon :icon="isLoading ? 'tabler:loader-2' : 'tabler:refresh'" :class="{'animate-spin': isLoading}" class="mr-2" width="20" height="20"></iconify-icon>
+                    <span x-text="isLoading ? 'Refreshing...' : 'Refresh'"></span>
+                </button>
+                <button
+                        @click="runAllTests"
+                        :disabled="isLoading || isRunning || !hasTests"
+                        :class="{'opacity-50 cursor-not-allowed': isLoading || isRunning || !hasTests}"
+                        class="relative inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">
+                    <iconify-icon icon="tabler:run" class="mr-2" width="20" height="20"></iconify-icon>
+                    <span>Run All Tests</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Main Layout - Split Panel Design *}
+{{ block mainLayout() }}
+<div class="flex flex-col md:flex-row gap-4 h-[calc(100vh-280px)] min-h-[600px]">
+    <!-- Left Panel: Test Groups and Selection -->
+    <div class="md:w-1/3 bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden flex flex-col">
+        {{ yield testGroupsPanel() }}
+    </div>
+
+    <!-- Right Panel: Test Results -->
+    <div class="md:w-2/3 bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden flex flex-col">
+        {{ yield resultsSection() }}
+    </div>
+</div>
+{{ end }}
+
+{* Test Groups Panel - Showing test status inline *}
+{{ block testGroupsPanel() }}
+<div class="flex-none px-4 py-3 border-b border-surface-200 dark:border-surface-600 bg-surface-100 dark:bg-surface-800 flex justify-between items-center">
+    <h3 class="font-medium text-surface-900 dark:text-surface-100">Test Groups</h3>
+    <div class="text-xs text-surface-500 dark:text-surface-400" x-show="!isLoading && Object.keys(groupedTests).length > 0">
+        <span x-text="Object.keys(allTests).length"></span> tests in
+        <span x-text="Object.keys(groupedTests).length"></span> groups
+    </div>
+</div>
+
+<div class="overflow-y-auto flex-grow" style="scrollbar-width: thin;">
+    <template x-if="isLoading">
+        <div class="p-6 text-center text-surface-500 dark:text-surface-400 h-full flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:loader-2" class="animate-spin w-8 h-8 mb-2" width="32" height="32"></iconify-icon>
+            <p>Loading tests...</p>
+        </div>
+    </template>
+
+    <template x-if="!isLoading && Object.keys(groupedTests).length === 0">
+        <div class="p-6 text-center text-surface-500 dark:text-surface-400 h-full flex flex-col items-center justify-center">
+            <iconify-icon icon="tabler:test-pipe-off" class="w-12 h-12 mb-2" width="48" height="48"></iconify-icon>
+            <p>No tests found</p>
+            <button @click="refreshTests" class="mt-4 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm">
+                Discover Tests
+            </button>
+        </div>
+    </template>
+
+    <div x-show="!isLoading && Object.keys(groupedTests).length > 0" class="divide-y divide-surface-200 dark:divide-surface-600">
+        <template x-for="(tests, groupName) in groupedTests" :key="groupName">
+            <div class="group">
+                <!-- Group Header with Stats -->
+                <div
+                        class="px-4 py-3 bg-surface-100/50 dark:bg-surface-700/50 cursor-pointer hover:bg-surface-200 dark:hover:bg-surface-600 flex justify-between items-center"
+                        @click="toggleGroup(groupName)">
+                    <div class="flex items-center flex-grow overflow-hidden">
+                        <iconify-icon
+                                :icon="expandedGroups[groupName] ? 'tabler:chevron-down' : 'tabler:chevron-right'"
+                                class="mr-2 flex-shrink-0 text-surface-500 dark:text-surface-400"
+                                width="18" height="18"></iconify-icon>
+                        <span class="font-medium text-surface-800 dark:text-surface-200 truncate" x-text="groupName"></span>
+                        <span class="ml-2 text-xs text-surface-500 dark:text-surface-400 flex-shrink-0" x-text="`(${tests.length})`"></span>
+                    </div>
+
+                    <!-- Group Status Summary -->
+                    <div class="flex items-center gap-2 mr-2 flex-shrink-0" x-show="getGroupStats(groupName).total > 0">
+                        <div x-show="getGroupStats(groupName).passed > 0" class="flex items-center text-green-600 dark:text-green-400 text-xs">
+                            <span x-text="getGroupStats(groupName).passed"></span>
+                            <iconify-icon icon="tabler:circle-check" class="ml-1" width="14" height="14"></iconify-icon>
+                        </div>
+                        <div x-show="getGroupStats(groupName).failed > 0" class="flex items-center text-red-600 dark:text-red-400 text-xs">
+                            <span x-text="getGroupStats(groupName).failed"></span>
+                            <iconify-icon icon="tabler:circle-x" class="ml-1" width="14" height="14"></iconify-icon>
+                        </div>
+                        <div x-show="getGroupStats(groupName).skipped > 0" class="flex items-center text-yellow-600 dark:text-yellow-400 text-xs">
+                            <span x-text="getGroupStats(groupName).skipped"></span>
+                            <iconify-icon icon="tabler:player-skip-forward" class="ml-1" width="14" height="14"></iconify-icon>
+                        </div>
+                    </div>
+
+                    <button
+                            @click.stop="runGroup(groupName)"
+                            :disabled="isRunning"
+                            :class="{'opacity-50 cursor-not-allowed': isRunning}"
+                            class="p-1.5 w-8 h-8 flex items-center justify-center rounded bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 focus:outline-none">
+                        <iconify-icon icon="tabler:player-play" width="16" height="16"></iconify-icon>
+                    </button>
+                </div>
+
+                <!-- Group Tests with Status -->
+                <div x-show="expandedGroups[groupName]" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+                    <template x-for="test in tests" :key="test.id">
+                        <div
+                                class="px-4 py-2 pl-8 border-t border-surface-200/40 dark:border-surface-600/40 hover:bg-surface-100 dark:hover:bg-surface-600/50 flex justify-between items-center"
+                                :class="{'bg-primary-50 dark:bg-primary-900/20': selectedTestId === test.id}"
+                                @click="selectTest(test.id)">
+                            <div class="flex items-center cursor-pointer flex-grow truncate">
+                                <!-- Test Status Icon -->
+                                <div class="flex-shrink-0 mr-2">
+                                    <template x-if="!testResults[test.id]">
+                                        <iconify-icon icon="tabler:test-pipe" class="text-surface-500 dark:text-surface-400" width="16" height="16"></iconify-icon>
+                                    </template>
+                                    <template x-if="testResults[test.id] && testResults[test.id].status === 'passed'">
+                                        <iconify-icon icon="tabler:circle-check" class="text-green-600 dark:text-green-400" width="16" height="16"></iconify-icon>
+                                    </template>
+                                    <template x-if="testResults[test.id] && testResults[test.id].status === 'failed'">
+                                        <iconify-icon icon="tabler:circle-x" class="text-red-600 dark:text-red-400" width="16" height="16"></iconify-icon>
+                                    </template>
+                                    <template x-if="testResults[test.id] && testResults[test.id].status === 'skipped'">
+                                        <iconify-icon icon="tabler:player-skip-forward" class="text-yellow-600 dark:text-yellow-400" width="16" height="16"></iconify-icon>
+                                    </template>
+                                    <template x-if="testResults[test.id] && testResults[test.id].status === 'running'">
+                                        <iconify-icon icon="tabler:player-play" class="text-blue-600 dark:text-blue-400" width="16" height="16"></iconify-icon>
+                                    </template>
+                                </div>
+
+                                <!-- Test Name -->
+                                <span class="text-sm text-surface-700 dark:text-surface-300 truncate" x-text="test.name"></span>
+                            </div>
+
+                            <button
+                                    @click.stop="runTest(test.id)"
+                                    :disabled="isRunning"
+                                    :class="{'opacity-50 cursor-not-allowed': isRunning}"
+                                    class="p-1.5 w-6 h-6 flex items-center justify-center rounded text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 focus:outline-none flex-shrink-0">
+                                <iconify-icon icon="tabler:player-play" width="14" height="14"></iconify-icon>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+{{ end }}
+
+{* Results Section *}
+{{ block resultsSection() }}
+<div class="flex-none px-4 py-3 border-b border-surface-200 dark:border-surface-600 bg-surface-100 dark:bg-surface-800 flex justify-between items-center">
+    <h3 class="font-medium text-surface-900 dark:text-surface-100">
+        <template x-if="selectedTestId && allTests[selectedTestId]">
+            <span>
+                Test Results: <span class="text-primary-600 dark:text-primary-400" x-text="allTests[selectedTestId].name"></span>
+            </span>
+        </template>
+        <template x-if="!selectedTestId">
+            <span>Test Results</span>
+        </template>
+    </h3>
+
+    <div class="flex items-center gap-2">
+        <template x-if="isRunning && (isRunningAll || isRunningGroup)">
+            <div class="flex items-center gap-3 mr-3">
+                <span class="inline-flex items-center text-green-600 dark:text-green-400">
+                    <span x-text="runAllPassed"></span>
+                    <iconify-icon icon="tabler:circle-check" class="ml-1" width="16" height="16"></iconify-icon>
+                </span>
+                <span class="inline-flex items-center text-red-600 dark:text-red-400">
+                    <span x-text="runAllFailed"></span>
+                    <iconify-icon icon="tabler:circle-x" class="ml-1" width="16" height="16"></iconify-icon>
+                </span>
+                <span class="inline-flex items-center text-yellow-600 dark:text-yellow-400">
+                    <span x-text="runAllSkipped"></span>
+                    <iconify-icon icon="tabler:player-skip-forward" class="ml-1" width="16" height="16"></iconify-icon>
+                </span>
+            </div>
+        </template>
+
+        <template x-if="isRunning">
+            <button
+                    @click="abortRunning"
+                    class="inline-flex items-center px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md">
+                <iconify-icon icon="tabler:square" class="mr-1" width="14" height="14"></iconify-icon>
+                Abort
+            </button>
+        </template>
+
+        <button
+                @click="clearLog"
+                :disabled="!hasLogEntries"
+                :class="{'opacity-50 cursor-not-allowed': !hasLogEntries}"
+                class="inline-flex items-center px-2 py-1 border border-surface-300 dark:border-surface-600 text-xs font-medium rounded text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 focus:outline-none">
+            <iconify-icon icon="tabler:eraser" class="mr-1" width="14" height="14"></iconify-icon>
+            Clear
+        </button>
+
+        <button
+                @click="copyResultsToClipboard"
+                :disabled="!hasFilteredLogEntries || copyButtonText === 'Copied!'"
+                :class="{'opacity-50 cursor-not-allowed': !hasFilteredLogEntries || copyButtonText === 'Copied!'}"
+                class="relative inline-flex items-center px-2 py-1 border border-surface-300 dark:border-surface-600 text-xs font-medium rounded text-surface-700 dark:text-surface-300 bg-white dark:bg-surface-700 hover:bg-surface-50 dark:hover:bg-surface-600 focus:outline-none">
+            <iconify-icon :icon="copyButtonText === 'Copied!' ? 'tabler:check' : (copyButtonText === 'Error' ? 'tabler:alert-circle' : 'tabler:copy')" class="mr-1" width="14" height="14"></iconify-icon>
+            <span x-text="copyButtonText"></span>
+        </button>
+    </div>
+</div>
+
+<template x-if="isRunning && (isRunningAll || isRunningGroup)">
+    <div class="px-4 py-2 bg-surface-200 dark:bg-surface-600 flex items-center">
+        <div class="text-sm text-surface-600 dark:text-surface-300 mr-3" x-text="`Running ${runAllCompleted}/${runAllTotal}...`"></div>
+        <div class="w-full bg-surface-300 dark:bg-surface-700 rounded-full h-2 flex-grow">
+            <div class="bg-primary-500 h-2 rounded-full transition-all duration-300 ease-linear" :style="`width: ${runAllProgress}%`"></div>
+        </div>
+    </div>
+</template>
+
+<div class="flex-grow overflow-hidden flex flex-col">
+    <div
+            x-ref="logOutput"
+            class="flex-grow overflow-y-auto font-mono text-xs p-0 bg-surface-50 dark:bg-surface-900"
+            style="scrollbar-width: thin;">
+
+        <template x-if="getFilteredLogEntries().length === 0">
+            <div class="flex items-center justify-center h-full text-surface-400 dark:text-surface-500">
+                <div class="text-center">
+                    <iconify-icon icon="tabler:terminal" class="w-12 h-12 mb-3" width="48" height="48"></iconify-icon>
+                    <template x-if="selectedTestId">
+                        <p>No logs for the selected test</p>
+                    </template>
+                    <template x-if="!selectedTestId">
+                        <p>Run tests to see results</p>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <div class="p-4" x-show="getFilteredLogEntries().length > 0">
+            <template x-for="(entry, index) in getFilteredLogEntries()" :key="`log-${index}`">
+                <div class="mb-1 last:mb-0 rounded bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700">
+                    {{ yield logEntryTemplate() }}
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{* Log Entry Template *}
+{{ block logEntryTemplate() }}
+<div class="flex border-l-3 rounded-l" :class="getLogEntryBorderClass(entry.type)">
+    <div class="p-1.5 flex-grow">
+        <div class="flex">
+            <!-- Status icon column -->
+            <div class="flex-shrink-0 mr-2">
+                <iconify-icon :icon="getLogEntryIcon(entry.type)" :class="getLogEntryIconClass(entry.type)" width="16" height="16"></iconify-icon>
+            </div>
+
+            <!-- Content column with timestamp at the end -->
+            <div class="flex-grow flex">
+                <!-- Main message -->
+                <div class="flex-grow">
+                    <div :class="getLogEntryClass(entry.type)" class="font-medium">
+                        <span class="whitespace-pre-wrap break-words" x-text="entry.message"></span>
+                    </div>
+
+                    <!-- Additional data (if any) -->
+                    <template x-if="entry.data">
+                        <pre class="mt-1 p-1.5 text-xs bg-surface-200/50 dark:bg-surface-800/50 rounded overflow-x-auto border border-surface-300/50 dark:border-surface-700/50 text-surface-700 dark:text-surface-300"><code x-text="entry.data"></code></pre>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('testRunnerApp', () => ({
+            /** Test Runner Implementation */
+            initTestRunner(config) {
+                // TestRunner Class implementation (directly included to avoid external dependency)
+                const TestRunner = function(config = {}) {
+                    // --- Configuration Validation ---
+                    if (!config.discoveryUrl || typeof config.discoveryUrl !== 'string') {
+                        throw new Error("TestRunner config requires a valid 'discoveryUrl' string.");
+                    }
+                    if (!config.runUrl || typeof config.runUrl !== 'string') {
+                        throw new Error("TestRunner config requires a valid 'runUrl' string.");
+                    }
+                    // Auth token is optional
+                    if (config.authToken && typeof config.authToken !== 'string') {
+                        console.warn("[TestRunner] Provided authToken is not a string.");
+                        config.authToken = null;
+                    }
+
+                    this.config = { ...config };
+                    this.discoveredTests = {};
+                    this.listeners = [];
+                    this.activeRunController = null;
+                };
+
+                // Helper Methods
+                TestRunner.prototype._createHeaders = function() {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/event-stream'
+                    };
+                    if (this.config.authToken) {
+                        headers['Authorization'] = `Bearer ${this.config.authToken}`;
+                    }
+                    return headers;
+                };
+
+                // Event Listener Management
+                TestRunner.prototype.addEventListener = function(callback) {
+                    if (typeof callback === 'function' && !this.listeners.includes(callback)) {
+                        this.listeners.push(callback);
+                    }
+                    return this;
+                };
+
+                TestRunner.prototype.removeEventListener = function(callback) {
+                    this.listeners = this.listeners.filter(l => l !== callback);
+                    return this;
+                };
+
+                TestRunner.prototype._triggerEvent = function(eventName, data) {
+                    // Add a timestamp to every triggered event for potential debugging
+                    const eventDataWithTimestamp = { ...data, _clientTriggerTs: Date.now() };
+                    [...this.listeners].forEach(callback => {
+                        try {
+                            callback(eventName, eventDataWithTimestamp);
+                        } catch (e) {
+                            console.error(`[TestRunner] Listener error (${eventName}):`, e);
+                        }
+                    });
+                };
+
+                // Core Methods
+                TestRunner.prototype.discover = async function() {
+                    try {
+                        const headers = this._createHeaders();
+                        const response = await fetch(this.config.discoveryUrl, { headers });
+
+                        if (!response.ok) {
+                            let e = `HTTP ${response.status}`;
+                            try {
+                                e = await response.text();
+                            } catch(_) {}
+                            throw new Error(`Discovery failed: ${e}`);
+                        }
+
+                        const jsonData = await response.json();
+                        const processedTests = {};
+                        // Adjusted to handle potential variations in response structure
+                        const tests = jsonData.tests || (jsonData.data ? (jsonData.data.tests || jsonData.data) : []) || [];
+
+
+                        if (!Array.isArray(tests)) {
+                            console.warn("[TR] Invalid 'tests' structure in discovery response. Expected array:", jsonData);
+                            // Attempt to handle if it's an object keyed by ID (less ideal)
+                            if (typeof tests === 'object' && tests !== null) {
+                                Object.values(tests).forEach(test => {
+                                    if (test && test.id) {
+                                        processedTests[test.id] = {
+                                            id: test.id,
+                                            name: test.name || `Test ${test.id}`,
+                                            group: test.group || 'Uncategorized'
+                                        };
+                                    }
+                                });
+                                if (Object.keys(processedTests).length > 0) {
+                                    console.warn("[TR] Processed tests assuming object structure.");
+                                } else {
+                                    throw new Error("Invalid 'tests' structure in response. Neither array nor valid object.");
+                                }
+                            } else {
+                                throw new Error("Invalid 'tests' structure in response. Not an array.");
+                            }
+                        } else {
+                            // Original array processing logic
+                            tests.forEach(test => {
+                                if (test && test.id) {
+                                    processedTests[test.id] = {
+                                        id: test.id,
+                                        name: test.name || `Test ${test.id}`,
+                                        group: test.group || 'Uncategorized'
+                                    };
+                                } else {
+                                    console.warn('[TR] Skipping invalid test entry:', test);
+                                }
+                            });
+                        }
+
+
+                        this.discoveredTests = processedTests;
+                        return processedTests;
+                    } catch (error) {
+                        console.error('[TR] discover() failed:', error);
+                        throw error;
+                    }
+                };
+
+                TestRunner.prototype.runTest = async function(testId) {
+                    if (!testId) {
+                        throw new Error("runTest requires testId.");
+                    }
+
+                    // Abort previous run if any
+                    if (this.activeRunController) {
+                        console.warn(`[TR] Aborting previous run before starting test: ${testId}`);
+                        this.activeRunController.abort();
+                        this._triggerEvent('run:abort', { reason: 'New test started' });
+                    }
+
+                    this.activeRunController = new AbortController();
+                    const signal = this.activeRunController.signal;
+
+                    this._triggerEvent('run:start', { testId });
+
+                    let targetUrl;
+                    try {
+                        targetUrl = new URL(this.config.runUrl);
+                        targetUrl.searchParams.append('test_id', testId);
+                    } catch (e) {
+                        const error = new Error(`Invalid runUrl: ${this.config.runUrl}. ${e.message}`);
+                        this._triggerEvent('run:error', { error, testId });
+                        this.activeRunController = null; // Clear controller on URL error
+                        throw error;
+                    }
+
+                    try {
+                        const headers = this._createHeaders();
+                        // Use 'cors' mode if URLs are cross-origin, adjust as needed
+                        const response = await fetch(targetUrl.toString(), { headers, signal, mode: 'cors' });
+
+                        if (!response.ok) {
+                            let errorDetails = `HTTP ${response.status}`;
+                            try {
+                                errorDetails = await response.text();
+                            } catch(_) { /* Ignore if body cannot be read */ }
+                            throw new Error(`Run failed (${testId}): ${errorDetails}`);
+                        }
+
+                        if (!response.body) {
+                            throw new Error("Response body missing (stream not available).");
+                        }
+
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+
+                        // Process stream asynchronously, don't await here
+                        this._processStream(reader, decoder, signal, testId)
+                            .then(() => {
+                                // This 'then' block runs only when the stream *successfully* closes
+                                if (!signal.aborted) {
+                                    // Note: run:complete might be redundant if test:complete always fires
+                                    // console.log(`[TR] Stream finished cleanly for ${testId}`);
+                                    // this._triggerEvent('run:complete', { success: true, testId });
+                                }
+                            })
+                            .catch(streamError => {
+                                if (streamError.name !== 'AbortError' && !signal.aborted) {
+                                    // console.error(`[TR] Stream processing error for ${testId}:`, streamError);
+                                    const errData = { error: streamError, testId };
+                                    this._triggerEvent('stream:error', errData); // Specific event for stream issues
+                                    // Trigger general run error as well to ensure state cleanup
+                                    this._triggerEvent('run:error', errData);
+                                } else {
+                                    // console.log(`[TR] Stream processing aborted for ${testId}.`);
+                                    // Abort event already handled by the abort() call or signal listener
+                                }
+                            })
+                            .finally(() => {
+                                // console.log(`[TR] Stream processing final block for ${testId}`);
+                                // Ensure the controller associated with *this specific run* is cleared
+                                if (this.activeRunController?.signal === signal) {
+                                    // console.log(`[TR] Clearing activeRunController for ${testId}`);
+                                    this.activeRunController = null;
+                                }
+                            });
+
+                        // Add listener for external abort signal
+                        signal.addEventListener('abort', () => {
+                            // console.log(`[TR] Abort signal received for test ${testId}`);
+                            // Close the reader to stop processing
+                            reader.cancel().catch(e => console.warn(`[TR] Error cancelling reader for ${testId}:`, e));
+                            // Ensure the controller is cleared if it hasn't been already
+                            if (this.activeRunController?.signal === signal) {
+                                this.activeRunController = null;
+                            }
+                        }, { once: true });
+
+
+                        return true; // Indicates the run was successfully initiated
+                    } catch (error) {
+                        // Handle initial fetch errors (network, CORS, etc.)
+                        if (error.name === 'AbortError') {
+                            // console.log(`[TR] Initial fetch aborted for ${testId}.`);
+                            // Abort event is handled elsewhere
+                            this._triggerEvent('run:abort', { reason: 'Fetch aborted', testId });
+                            return false; // Run was not successfully initiated
+                        }
+
+                        console.error(`[TR] runTest(${testId}) initial fetch error:`, error);
+                        const errorData = { error, testId };
+                        this._triggerEvent('run:error', errorData);
+
+                        // Ensure controller is cleared on initial error
+                        if (this.activeRunController?.signal === signal) {
+                            this.activeRunController = null;
+                        }
+
+                        throw error; // Re-throw for the calling function to handle
+                    }
+                };
+
+
+                // Stream Processing Methods
+                TestRunner.prototype._processStream = async function(reader, decoder, signal, testIdForContext) {
+                    let buffer = '';
+                    // console.log(`[TR Stream ${testIdForContext}] Starting processing`);
+                    try {
+                        while (true) {
+                            // Check for abort signal before reading
+                            if (signal.aborted) {
+                                // console.log(`[TR Stream ${testIdForContext}] Aborted before read`);
+                                throw new DOMException('Aborted', 'AbortError');
+                            }
+
+                            const { done, value } = await reader.read();
+
+                            if (done) {
+                                // console.log(`[TR Stream ${testIdForContext}] Reader marked as done.`);
+                                if (buffer.trim()) {
+                                    // console.log(`[TR Stream ${testIdForContext}] Processing final buffer chunk:`, buffer);
+                                    try {
+                                        // Try processing the final chunk as JSON(s)
+                                        this._processJsonChunk(buffer, testIdForContext);
+                                    } catch (e) {
+                                        console.error(`[TR Stream ${testIdForContext}] Final buffer processing error:`, e, "Buffer:", buffer);
+                                        this._triggerEvent('event:parse_error', { error: e, buffer, testId: testIdForContext });
+                                    }
+                                }
+                                break; // Exit the loop cleanly
+                            }
+
+                            // Check for abort signal immediately after read yields value
+                            if (signal.aborted) {
+                                // console.log(`[TR Stream ${testIdForContext}] Aborted after read`);
+                                throw new DOMException('Aborted', 'AbortError');
+                            }
+
+                            const chunk = decoder.decode(value, { stream: true });
+                            // console.log(`[TR Stream ${testIdForContext}] Received chunk:`, chunk);
+                            buffer += chunk;
+
+                            // console.log(`[TR Stream ${testIdForContext}] Buffer state:`, buffer);
+                            try {
+                                // Extract and process complete JSON objects from the buffer
+                                const { completeObjects, remainder } = this._extractJsonObjects(buffer);
+                                // console.log(`[TR Stream ${testIdForContext}] Extracted: ${completeObjects.length} objects, Remainder:`, remainder);
+                                buffer = remainder; // Update buffer with unprocessed part
+
+                                for (const jsonStr of completeObjects) {
+                                    if (jsonStr.trim()) {
+                                        // console.log(`[TR Stream ${testIdForContext}] Processing object:`, jsonStr);
+                                        this._processJsonChunk(jsonStr, testIdForContext);
+                                    }
+                                }
+                            } catch(e) {
+                                // Handle errors during JSON extraction/processing within a chunk
+                                console.error(`[TR Stream ${testIdForContext}] Chunk processing error:`, e, "Buffer:", buffer);
+                                this._triggerEvent('event:parse_error', { error: e, buffer, testId: testIdForContext });
+                                // Decide if processing should continue or break on chunk error
+                                // For now, let's continue processing subsequent chunks if possible
+                            }
+                        }
+                    } catch (error) {
+                        // Catch errors from reader.read() itself or re-thrown AbortError
+                        if (error.name === 'AbortError') {
+                            // console.log(`[TR Stream ${testIdForContext}] Stream processing caught AbortError.`);
+                            // Don't trigger generic error event here, abort is handled elsewhere
+                            throw error; // Re-throw for the runTest catch block
+                        } else {
+                            console.error(`[TR Stream ${testIdForContext}] Stream read error:`, error);
+                            throw error; // Re-throw non-abort errors for runTest catch block
+                        }
+                    } finally {
+                        // console.log(`[TR Stream ${testIdForContext}] Stream processing finished (finally block).`);
+                        // Ensure reader is closed/cancelled if possible, especially on errors
+                        // reader.cancel().catch(e => console.warn(`[TR Stream ${testIdForContext}] Error cancelling reader in finally:`, e));
+                    }
+                };
+
+                TestRunner.prototype._extractJsonObjects = function(str) {
+                    const completeObjects = [];
+                    let remainder = str;
+                    let depth = 0;
+                    let startPos = -1;
+                    let inString = false;
+                    let escapeNext = false;
+
+                    // console.log('[TR Extract] Input string:', str);
+
+                    for (let i = 0; i < str.length; i++) {
+                        const char = str[i];
+
+                        if (inString) {
+                            if (escapeNext) {
+                                escapeNext = false;
+                            } else if (char === '\\') {
+                                escapeNext = true;
+                            } else if (char === '"') {
+                                inString = false;
+                            }
+                            // Continue skipping characters inside string
+                            continue;
+                        }
+
+                        // Not in string handling
+                        if (char === '"') {
+                            // Only start string if not inside a JSON structure already deep
+                            if (depth > 0) {
+                                inString = true;
+                            } else {
+                                // If we encounter a quote outside of a structure, it might be start of JSON
+                                // or just noise. If depth is 0 and startPos is -1, let '{' handle start.
+                            }
+                        } else if (char === '{') {
+                            if (depth === 0) {
+                                startPos = i; // Mark start of potential JSON object
+                                // console.log('[TR Extract] Found potential start { at', i);
+                            }
+                            depth++;
+                        } else if (char === '}') {
+                            if (depth > 0) {
+                                depth--;
+                                if (depth === 0 && startPos !== -1) {
+                                    // Found a complete object
+                                    const objStr = str.substring(startPos, i + 1);
+                                    // console.log('[TR Extract] Found complete object } at', i, ':', objStr);
+                                    completeObjects.push(objStr);
+
+                                    // Update remainder and reset scanner for next object in the remaining string
+                                    remainder = str.substring(i + 1);
+                                    // console.log('[TR Extract] New remainder:', remainder);
+                                    str = remainder; // Continue scanning from the new remainder
+                                    i = -1; // Reset index to start scanning the remainder from beginning
+                                    startPos = -1; // Reset start position
+                                }
+                            } else {
+                                // Found '}' while depth is 0 - likely malformed JSON or noise, ignore.
+                                // console.log('[TR Extract] Found extraneous } at', i);
+                                // Reset startPos if it was somehow set incorrectly
+                                if(startPos !== -1) startPos = -1;
+                            }
+                        } else if (depth === 0 && startPos === -1 && !/\s/.test(char)) {
+                            // If we encounter non-whitespace character before a '{' starts an object,
+                            // it might be noise between valid JSONs or start of malformed JSON.
+                            // We discard this noise by advancing the potential remainder start.
+                            // console.log(`[TR Extract] Discarding noise char '${char}' at ${i} before object start.`);
+                        }
+                    }
+
+                    // If loop finishes, remainder contains the incomplete part
+                    // console.log('[TR Extract] Final remainder:', remainder);
+                    return { completeObjects, remainder };
+                };
+
+
+                TestRunner.prototype._processJsonChunk = function(jsonStr, testIdForContext) {
+                    try {
+                        const eventData = JSON.parse(jsonStr);
+                        // Inject testId context if missing in payload, useful for associating logs/errors
+                        if (!eventData.data?.ref_id && !eventData.data?.test_id && testIdForContext) {
+                            if (typeof eventData.data === 'object' && eventData.data !== null) {
+                                eventData.data.ref_id = testIdForContext; // Add ref_id for context
+                            }
+                        }
+                        this._processTestEvent(eventData);
+                    } catch (e) {
+                        console.error('[TR] JSON parse error:', e, "Input:", jsonStr, "Context:", testIdForContext);
+                        // Trigger specific parse error event
+                        this._triggerEvent('event:parse_error', { error: e, json: jsonStr, testId: testIdForContext });
+                    }
+                };
+
+                TestRunner.prototype._processTestEvent = function(eventData) {
+                    // Raw event trigger (useful for debugging)
+                    this._triggerEvent('event:raw', eventData);
+
+                    if (!eventData || typeof eventData !== 'object') {
+                        console.warn('[TR] Received invalid event data (not an object):', eventData);
+                        return;
+                    }
+
+                    // Standardize getting event type and payload
+                    const eventType = eventData.type || eventData.event; // Allow 'event' for compatibility
+                    const payload = eventData.data || eventData; // Allow data directly if 'type' is present
+
+                    if (!eventType) {
+                        console.warn('[TR] Received event data without type:', eventData);
+                        return; // Cannot process without a type
+                    }
+
+                    // Trigger specific event type (e.g., 'event:test:case:start')
+                    this._triggerEvent(`event:${eventType}`, payload);
+                };
+
+                // Create and return TestRunner instance
+                return new TestRunner(config);
+            },
+
+            // === State Management ===
+            // Configuration
+            discoveryUrl: '/api/v1/keeper/tests/discover',
+            runUrl: '/api/v1/keeper/tests/run',
+
+            // API & Classes
+            wippyApi: null,
+            testRunner: null,
+            authToken: null,
+
+            // UI State
+            isLoading: false,
+            isRunningSingle: false,
+            isRunningAll: false,
+            isRunningGroup: false,
+            selectedTestId: '',
+            selectedGroupName: '',
+            expandedGroups: {},
+
+            // Test Data
+            allTests: {}, // { testId: { id, name, group } }
+            groupedTests: {}, // { groupName: [ { id, name, group } ] }
+            logEntries: [], // [ { timestamp, shortTime, message, type, data, index } ]
+
+            // Track test results for status display
+            // Format: { test_id: { status: 'passed|failed|skipped|running', timestamp: Date } }
+            testResults: {},
+            // Format: { test_id: [ logEntryIndices ] } - Tracks which log entries belong to which test
+            testLogs: {},
+
+            // Run All/Group State
+            runAllQueue: [], // Array of test IDs to run
+            runAllTotal: 0,
+            runAllCompleted: 0,
+            runAllPassed: 0,
+            runAllFailed: 0,
+            runAllSkipped: 0,
+            currentTestId: null, // ID of the test currently being executed by the TestRunner
+
+            // De-duplication state
+            lastEventKey: null, // Used to prevent processing identical consecutive events
+
+            // Copy to clipboard state
+            copyButtonText: 'Copy', // 'Copy', 'Copied!', 'Error'
+            copiedTimeout: null,
+
+
+            // === Computed Properties ===
+            get isRunning() {
+                // True if any run type is active
+                return this.isRunningSingle || this.isRunningAll || this.isRunningGroup;
+            },
+
+            get hasTests() {
+                return Object.keys(this.allTests).length > 0;
+            },
+
+            get hasLogEntries() {
+                return this.logEntries.length > 0;
+            },
+
+            get hasFilteredLogEntries() {
+                return this.getFilteredLogEntries().length > 0;
+            },
+
+            get runAllProgress() {
+                // Calculate progress for Run All / Run Group
+                return this.runAllTotal > 0 ? Math.min(100, Math.round((this.runAllCompleted / this.runAllTotal) * 100)) : 0;
+            },
+
+            // === Initialization ===
+            async initialize() {
+                try {
+                    this.log('Initializing test runner...', 'info');
+
+                    // Initialize Wippy API (assuming it's globally available)
+                    if (typeof window.initWippyApi !== 'function') {
+                        throw new Error("initWippyApi function not found on window object");
+                    }
+                    this.wippyApi = await window.initWippyApi();
+                    if (!this.wippyApi || !this.wippyApi.config) {
+                        throw new Error("Failed to initialize Wippy API or API config missing");
+                    }
+                    this.authToken = this.wippyApi?.config?.auth?.token;
+                    this.log('Wippy API initialized', 'info');
+
+                    // Determine base API URL
+                    const baseApiUrl = this.wippyApi.config?.feature?.env?.APP_API_URL || window.location.origin;
+                    const discoveryUrl = baseApiUrl + this.discoveryUrl;
+                    const runUrl = baseApiUrl + this.runUrl;
+
+                    // Initialize TestRunner library
+                    this.testRunner = this.initTestRunner({
+                        discoveryUrl: discoveryUrl,
+                        runUrl: runUrl,
+                        authToken: this.authToken
+                    });
+                    this.log('Test Runner library initialized', 'success');
+
+                    // Set up event listeners for test runner events
+                    this.setupEventListeners();
+
+                    // Load initial list of tests
+                    await this.refreshTests();
+
+                } catch (error) {
+                    console.error('Initialization error:', error);
+                    this.log(`Initialization failed: ${error.message}`, 'error', error.stack);
+                    // Potentially display a user-facing error message here
+                }
+            },
+
+            setupEventListeners() {
+                if (!this.testRunner) return;
+
+                this.testRunner.addEventListener((eventName, payload) => {
+                    // --- Event De-duplication ---
+                    // Create a unique key for the event based on name, test ID, and critical payload parts
+                    // This helps prevent processing the exact same event twice in quick succession
+                    const eventTestId = payload?.ref_id || payload?.test_id || payload?.context || this.currentTestId || 'unknown';
+                    let eventKeyPayload = { ...payload };
+                    delete eventKeyPayload._clientTriggerTs; // Ignore internal timestamp for de-dupe
+                    const currentEventKey = `${eventName}-${eventTestId}-${JSON.stringify(eventKeyPayload)}`;
+
+                    if (currentEventKey === this.lastEventKey) {
+                        // console.warn(`[Listener] Duplicate event detected, skipping: ${eventName}`, payload);
+                        return; // Skip processing this potentially duplicate event
+                    }
+                    this.lastEventKey = currentEventKey; // Store this event key as the last processed one
+                    // --- End De-duplication ---
+
+
+                    // Log raw events for debugging if needed
+                    // console.log(`[Listener] Event received: ${eventName}`, payload);
+
+                    // Determine the relevant test ID for this event
+                    // Prioritize ref_id from payload, fallback to test_id, context, or the globally tracked currentTestId
+                    const testId = payload?.ref_id || payload?.test_id || payload?.context || this.currentTestId;
+
+                    // --- Event Handling Logic ---
+                    if (eventName === 'run:start') {
+                        // Fired by TestRunner library when runTest is called
+                        this.currentTestId = payload.testId; // Track the ID being run
+                        this.updateTestStatus(this.currentTestId, 'running');
+                        if (!this.isRunningAll && !this.isRunningGroup) {
+                            this.isRunningSingle = true; // Set flag for single run UI state
+                        }
+                    }
+                    else if (eventName === 'run:complete') {
+                        // Fired by TestRunner library when stream ends cleanly
+                        // Note: Often superseded by 'event:test:complete' from backend
+                        // console.log(`[Listener] run:complete for test: ${payload.testId}`);
+                        // Final status is usually set by test:complete, but ensure cleanup if that's missed
+                        if (this.currentTestId === payload.testId && !this.testResults[payload.testId]) {
+                            console.warn(`[Listener] run:complete received for ${payload.testId} but no final status set. Marking as potentially incomplete.`);
+                            // Maybe mark as 'unknown' or leave as 'running' until test:complete?
+                        }
+                        // No state change needed here if test:complete is reliable
+                        // this.currentTestId = null; // Don't clear currentTestId here, wait for test:complete or error
+                    }
+                    else if (eventName === 'run:abort') {
+                        // Fired by TestRunner library when abort() is called or fetch is aborted
+                        this.log(`Run aborted: ${payload.reason || 'User action'}`, 'warning');
+                        // If a test was running when aborted, mark it (e.g., as failed or skipped)
+                        if (this.currentTestId && this.testResults[this.currentTestId]?.status === 'running') {
+                            this.updateTestStatus(this.currentTestId, 'failed'); // Or 'skipped'? Decide policy.
+                            this.log(`Test ${this.currentTestId} marked as failed due to abort.`, 'warning');
+                        }
+                        this.resetRunningState(); // Reset all running flags and queue
+                    }
+                    else if (eventName === 'run:error' || eventName === 'stream:error') {
+                        // Fired by TestRunner library on fetch/URL errors or stream processing errors
+                        const errorOrigin = eventName === 'stream:error' ? 'Stream' : 'Run initiation';
+                        const errorTestId = payload.testId || this.currentTestId; // Use provided ID or fallback
+                        const errorMessage = payload.error?.message || 'Unknown error';
+
+                        console.error(`[Listener] ${errorOrigin} error for test ${errorTestId}:`, payload.error);
+                        this.log(`${errorOrigin} error: ${errorMessage}`, 'error', payload.error?.stack || JSON.stringify(payload.error));
+
+                        if (errorTestId) {
+                            this.updateTestStatus(errorTestId, 'failed');
+                            this.addLogToTest(errorTestId, this.logEntries.length - 1); // Add this error log to the test's log list
+                        }
+
+                        // Crucially, ensure the run sequence continues or terminates correctly
+                        if (this.isRunningAll || this.isRunningGroup) {
+                            // Treat this error as the completion (failure) of the current test in the sequence
+                            this.handleTestCompletion(false, { failed: 1, passed: 0, skipped: 0, ref_id: errorTestId });
+                        } else {
+                            // For a single run, just stop and reset the state
+                            this.resetRunningState();
+                        }
+                    }
+                    else if (eventName === 'event:parse_error') {
+                        // Fired by TestRunner library on JSON parsing errors
+                        const parseErrorTestId = payload.testId || this.currentTestId;
+                        console.error(`[Listener] JSON parse error for test ${parseErrorTestId}:`, payload.error, "JSON:", payload.json);
+                        this.log('Stream JSON parse error', 'error', `Error: ${payload.error?.message}. Received: ${payload.json || '(empty)'}`);
+                        if (parseErrorTestId) {
+                            this.addLogToTest(parseErrorTestId, this.logEntries.length - 1);
+                        }
+                        // Don't necessarily stop the run here, maybe the next chunk is ok?
+                        // But if errors persist, stream:error should eventually trigger.
+                    }
+                    // --- Backend Test Protocol Events ---
+                    else if (eventName === 'event:test:discover') {
+                        // Optional: Log discovered tests from backend if needed for debugging
+                        // console.log('[Listener] Backend discovered tests:', payload);
+                    }
+                    else if (eventName === 'event:test:suite:start') {
+                        // Log suite start if desired
+                        // this.log(`Starting suite: ${payload.name || '?'} (ID: ${payload.id})`, 'info');
+                        // Note: test:case:start usually provides more granular info
+                    }
+                    else if (eventName === 'event:test:case:start') {
+                        const logEntry = this.log(`RUNNING: ${payload.suite || '?'} -> ${payload.test || '?'}`, 'running');
+                        if (testId) this.addLogToTest(testId, logEntry.index);
+                        // Ensure status is marked as running if not already
+                        if (testId && this.testResults[testId]?.status !== 'running') {
+                            this.updateTestStatus(testId, 'running');
+                        }
+                    }
+                    else if (eventName === 'event:test:case:pass') {
+                        const duration = (payload.duration !== undefined ? payload.duration : 0);
+                        const logEntry = this.log(`PASSED: ${payload.suite || '?'} -> ${payload.test || '?'} (${duration.toFixed(3)}s)`, 'success');
+                        if (testId) this.addLogToTest(testId, logEntry.index);
+                        // Note: Overall test status is set by test:complete
+                    }
+                    else if (eventName === 'event:test:case:fail') {
+                        const logEntry = this.log(`FAILED: ${payload.suite || '?'} -> ${payload.test || '?'}`, 'error', payload.error ? JSON.stringify(payload.error, null, 2) : null);
+                        if (testId) this.addLogToTest(testId, logEntry.index);
+                        // Note: Overall test status is set by test:complete
+                    }
+                    else if (eventName === 'event:test:case:skip') {
+                        const logEntry = this.log(`SKIPPED: ${payload.suite || '?'} -> ${payload.test || '?'}`, 'warning', payload.reason ? JSON.stringify(payload.reason, null, 2) : null);
+                        if (testId) this.addLogToTest(testId, logEntry.index);
+                        // Note: Overall test status is set by test:complete
+                    }
+                    else if (eventName === 'event:test:error') {
+                        // Specific error reported by the backend *during* a test run (e.g., init failure)
+                        const errorTestId = payload.context || testId; // Prefer context ID from payload
+                        const errorMessage = payload.message || 'Unknown test error occurred';
+                        console.error(`[Listener] Backend reported test error for ${errorTestId}:`, payload);
+                        const logEntry = this.log(`ERROR: ${errorMessage}`, 'error', JSON.stringify(payload, null, 2));
+
+                        if (errorTestId) {
+                            this.updateTestStatus(errorTestId, 'failed');
+                            this.addLogToTest(errorTestId, logEntry.index);
+                        }
+
+                        // Treat this as the completion (failure) of the current test
+                        if (this.isRunningAll || this.isRunningGroup) {
+                            this.handleTestCompletion(false, { failed: 1, passed: 0, skipped: 0, ref_id: errorTestId });
+                        } else {
+                            this.resetRunningState(); // Stop single run on backend error
+                        }
+                    }
+                    else if (eventName === 'event:test:complete') {
+                        // Final status report for a single test file execution from backend
+                        const completedTestId = payload.ref_id || testId; // Use ref_id!
+
+                        if (!completedTestId) {
+                            console.warn("[Listener] Received test:complete event without a usable test ID (ref_id or context). Cannot process.", payload);
+                            return; // Cannot associate this completion event
+                        }
+
+                        // Determine status based on failure count
+                        const status = (payload.failed !== undefined && payload.failed > 0) ? 'failed' : 'passed';
+
+                        this.updateTestStatus(completedTestId, status);
+
+                        const logSummary = `Passed: ${payload.passed || 0}, Failed: ${payload.failed || 0}, Skipped: ${payload.skipped || 0}`;
+                        const logEntry = this.log(`Test Run Complete: ${this.allTests[completedTestId]?.name || completedTestId} (${status.toUpperCase()})`,
+                            status === 'passed' ? 'success' : 'error',
+                            logSummary);
+
+                        this.addLogToTest(completedTestId, logEntry.index);
+
+                        // If running multiple tests, trigger the next one
+                        if (this.isRunningAll || this.isRunningGroup) {
+                            this.handleTestCompletion(status === 'passed', payload);
+                        } else {
+                            // For single run, just reset the state now that it's complete
+                            this.resetRunningState();
+                        }
+                    }
+                    else if (eventName === 'event:test:summary') {
+                        // Optional: Handle overall summary if backend sends one after multiple tests
+                        // console.log('[Listener] Received final summary:', payload);
+                        // This might be useful if running groups on backend side
+                    }
+                });
+            },
+
+            // === Test Status Tracking ===
+            updateTestStatus(testId, status) {
+                if (!testId || !this.allTests[testId]) {
+                    // console.warn(`[Status] Attempted to update status for unknown test ID: ${testId}`);
+                    return;
+                };
+
+                // Avoid overwriting a final state (passed/failed/skipped) with 'running'
+                // unless explicitly starting a new run. Allow changing from running to final state.
+                const currentStatus = this.testResults[testId]?.status;
+                if (status === 'running' && ['passed', 'failed', 'skipped'].includes(currentStatus)) {
+                    // This can happen if events arrive slightly out of order, ignore setting back to running
+                    // console.warn(`[Status] Ignoring update to 'running' for already completed test ${testId} (${currentStatus})`);
+                    return;
+                }
+
+
+                this.testResults = {
+                    ...this.testResults, // Shallow copy existing results
+                    [testId]: { // Overwrite or add entry for this testId
+                        status: status,
+                        timestamp: new Date()
+                    }
+                };
+            },
+
+            addLogToTest(testId, logIndex) {
+                if (!testId) return;
+
+                if (!this.testLogs[testId]) {
+                    this.testLogs[testId] = [];
+                }
+                // Avoid adding duplicate index
+                if (!this.testLogs[testId].includes(logIndex)) {
+                    this.testLogs[testId].push(logIndex);
+                }
+            },
+
+            getGroupStats(groupName) {
+                const stats = { passed: 0, failed: 0, skipped: 0, running: 0, total: 0 };
+                const tests = this.groupedTests[groupName] || [];
+
+                tests.forEach(test => {
+                    const result = this.testResults[test.id];
+                    if (result) {
+                        stats.total++;
+                        if (result.status === 'passed') stats.passed++;
+                        else if (result.status === 'failed') stats.failed++;
+                        else if (result.status === 'skipped') stats.skipped++;
+                        else if (result.status === 'running') stats.running++;
+                    }
+                });
+                // Total should reflect tests with *any* result status
+                // stats.total = stats.passed + stats.failed + stats.skipped + stats.running;
+                return stats;
+            },
+
+            getFilteredLogEntries() {
+                // If a specific test is selected, show only its logs
+                if (this.selectedTestId && this.testLogs[this.selectedTestId]) {
+                    // Ensure indices are valid and map them to log entries
+                    return this.testLogs[this.selectedTestId]
+                        .map(index => this.logEntries[index])
+                        .filter(entry => entry !== undefined); // Filter out potential undefined if indices mismatch
+                }
+                // Otherwise (no test selected), show all log entries
+                return this.logEntries;
+            },
+
+            // === Test Discovery Functions ===
+            async refreshTests() {
+                if (this.isLoading || this.isRunning) return;
+
+                this.isLoading = true;
+                this.clearLog(); // Clear logs on refresh
+                this.resetTestStates(); // Reset results and logs
+                this.log('Discovering tests...', 'info');
+
+                try {
+                    const discoveredTests = await this.testRunner.discover();
+                    this.allTests = discoveredTests || {};
+
+                    // Group tests
+                    const groups = {};
+                    Object.values(this.allTests).forEach(test => {
+                        const groupName = test.group || 'Uncategorized';
+                        if (!groups[groupName]) {
+                            groups[groupName] = [];
+                        }
+                        groups[groupName].push(test);
+                    });
+
+                    // Sort groups and tests within groups
+                    const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+                    const sortedGroupedTests = {};
+                    sortedGroupNames.forEach(groupName => {
+                        groups[groupName].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                        sortedGroupedTests[groupName] = groups[groupName];
+                        // Auto-expand if few groups or only one group
+                        if (sortedGroupNames.length <= 3 || sortedGroupNames.length === 1) {
+                            this.expandedGroups[groupName] = true;
+                        }
+                    });
+
+                    this.groupedTests = sortedGroupedTests;
+
+                    const totalTests = Object.keys(this.allTests).length;
+                    this.log(`Discovery complete: found ${totalTests} tests in ${Object.keys(this.groupedTests).length} groups`, 'success');
+
+                } catch (error) {
+                    console.error('Test discovery error:', error);
+                    this.log(`Discovery failed: ${error.message}`, 'error', error.stack);
+                    this.allTests = {};
+                    this.groupedTests = {};
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            // === Test Group Interaction ===
+            toggleGroup(groupName) {
+                this.expandedGroups[groupName] = !this.expandedGroups[groupName];
+            },
+
+            selectTest(testId) {
+                this.selectedTestId = testId;
+                // Optionally scroll log view?
+            },
+
+            // === Test Execution Functions ===
+            async runTest(testId) {
+                if (this.isLoading || this.isRunning) return;
+
+                // Reset status for this specific test before running
+                this.resetTestState(testId);
+                this.selectedTestId = testId; // Select the test being run
+                // this.clearLog(); // Decide if running single test clears *all* logs or just its previous logs
+
+                this.log(`Running test: ${this.allTests[testId]?.name || testId}`, 'info');
+
+                try {
+                    // isRunningSingle flag is set by run:start event
+                    const initiated = await this.testRunner.runTest(testId);
+                    if (!initiated) {
+                        // Run wasn't started (e.g., aborted immediately)
+                        this.log(`Test run for ${testId} aborted before starting.`, 'warning');
+                        this.resetRunningState(); // Ensure state is reset
+                    }
+                } catch (error) {
+                    // Catch errors from runTest initiation itself (e.g., invalid URL)
+                    // Errors during the run are handled by run:error/stream:error listeners
+                    console.error('Error initiating test run:', error);
+                    this.log(`Failed to initiate test run: ${error.message}`, 'error', error.stack);
+                    // Ensure state is reset if initiation fails
+                    this.resetRunningState();
+                    if (testId) {
+                        this.updateTestStatus(testId, 'failed'); // Mark as failed if initiation failed
+                    }
+                }
+            },
+
+            async runGroup(groupName) {
+                if (this.isLoading || this.isRunning) return;
+
+                const testsInGroup = this.groupedTests[groupName];
+                if (!testsInGroup || testsInGroup.length === 0) {
+                    this.log(`Group "${groupName}" has no tests to run.`, 'warning');
+                    return;
+                }
+
+                // Reset statuses for tests in this group
+                testsInGroup.forEach(test => this.resetTestState(test.id));
+
+                this.selectedGroupName = groupName; // Track the group being run
+                this.clearLog(); // Clear log view for the group run
+                this.isRunningGroup = true; // Set group running flag
+
+                // Setup run queue
+                this.runAllQueue = testsInGroup.map(test => test.id);
+                this.runAllTotal = this.runAllQueue.length;
+                this.runAllCompleted = 0;
+                this.runAllPassed = 0;
+                this.runAllFailed = 0;
+                this.runAllSkipped = 0;
+
+                this.log(`Starting group run: ${groupName} (${this.runAllTotal} tests)`, 'info');
+                this.processNextTest(); // Start the first test
+            },
+
+            async runAllTests() {
+                if (this.isLoading || this.isRunning) return;
+                if (!this.hasTests) {
+                    this.log('No tests available to run.', 'warning');
+                    return;
+                }
+
+                // Reset all test statuses
+                this.resetTestStates();
+
+                this.clearLog(); // Clear log view for the full run
+                this.isRunningAll = true; // Set all running flag
+
+                // Setup run queue
+                this.runAllQueue = Object.keys(this.allTests);
+                this.runAllTotal = this.runAllQueue.length;
+                this.runAllCompleted = 0;
+                this.runAllPassed = 0;
+                this.runAllFailed = 0;
+                this.runAllSkipped = 0;
+
+                this.log(`Starting full test run (${this.runAllTotal} tests)`, 'info');
+                this.processNextTest(); // Start the first test
+            },
+
+            async processNextTest() {
+                // Check if the run was aborted
+                if (!this.isRunningAll && !this.isRunningGroup) {
+                    // console.log('[ProcessNext] Run aborted, stopping sequence.');
+                    // State already reset by abortRunning or error handler
+                    return;
+                }
+
+                if (this.runAllQueue.length === 0) {
+                    // console.log('[ProcessNext] Queue empty, finishing run.');
+                    this.finishRunAll(); // No more tests left
+                    return;
+                }
+
+                const testId = this.runAllQueue.shift(); // Get the next test ID
+                if (!testId || !this.allTests[testId]) {
+                    console.warn(`[ProcessNext] Invalid test ID found in queue: ${testId}. Skipping.`);
+                    // Immediately process the next one if ID was invalid
+                    this.$nextTick(() => this.processNextTest());
+                    return;
+                }
+
+                // Update UI immediately, status is set by run:start event
+                this.selectedTestId = testId; // Select test in UI
+                this.log(`(${this.runAllCompleted + 1}/${this.runAllTotal}) Running test: ${this.allTests[testId]?.name || testId}`, 'info');
+
+                try {
+                    // runTest will trigger run:start event which sets currentTestId and status
+                    const initiated = await this.testRunner.runTest(testId);
+                    if (!initiated) {
+                        // Run wasn't started (e.g., aborted immediately)
+                        this.log(`Test run for ${testId} aborted before starting.`, 'warning');
+                        // Treat as failed for the sequence? Or just skip? Let's count as failed.
+                        this.handleTestCompletion(false, { failed: 1, passed: 0, skipped: 0, ref_id: testId });
+                    }
+                    // If successful, the event listener for 'test:complete' or errors will trigger 'handleTestCompletion'
+                } catch (error) {
+                    // Catch errors from runTest initiation *within the sequence*
+                    console.error(`[ProcessNext] Failed to initiate test ${testId}:`, error);
+                    this.log(`Failed to initiate test ${testId}: ${error.message}`, 'error');
+                    this.updateTestStatus(testId, 'failed'); // Mark as failed
+                    // Treat this initiation failure as the completion (failure) for the sequence
+                    this.handleTestCompletion(false, { failed: 1, passed: 0, skipped: 0, ref_id: testId });
+                }
+            },
+
+            // Called by event listeners (test:complete, run:error, test:error) during Run All/Group
+            handleTestCompletion(success, testData) {
+                // Ensure this only runs when in a group/all sequence
+                if (!this.isRunningAll && !this.isRunningGroup) return;
+
+                const completedTestId = testData?.ref_id || this.currentTestId; // Get ID from data or fallback
+
+                // console.log(`[HandleComplete] Test ${completedTestId} completed. Success: ${success}`, testData);
+
+
+                // Update counts based on provided data or simple success flag
+                if (testData && typeof testData.failed === 'number') {
+                    if (testData.failed > 0) {
+                        this.runAllFailed++;
+                    } else if (testData.skipped > 0 && testData.passed === 0) {
+                        // Only count as skipped if no tests passed (avoids double counting if a suite has mixed results)
+                        this.runAllSkipped++;
+                    } else {
+                        this.runAllPassed++;
+                    }
+                } else {
+                    // Fallback if detailed data isn't available
+                    if (success) {
+                        this.runAllPassed++;
+                    } else {
+                        this.runAllFailed++;
+                    }
+                }
+
+                this.runAllCompleted++;
+                this.currentTestId = null; // Clear the globally tracked running test ID
+
+                // Check if the run was aborted *while* waiting for this completion
+                if (!this.isRunningAll && !this.isRunningGroup) {
+                    console.log('[HandleComplete] Run aborted while handling completion, stopping.');
+                    return;
+                }
+
+                // Schedule the next test slightly delayed to allow UI updates
+                setTimeout(() => {
+                    // Check again for abort before processing next
+                    if (this.isRunningAll || this.isRunningGroup) {
+                        this.processNextTest();
+                    }
+                }, 50); // Short delay (e.g., 50ms)
+            },
+
+            finishRunAll() {
+                // console.log('[FinishRunAll] Finishing batch run.');
+                const wasRunningGroup = this.isRunningGroup;
+                const groupName = this.selectedGroupName;
+                const runType = wasRunningGroup ? `group "${groupName}"` : 'all tests';
+                const finalStatus = this.runAllFailed > 0 ? 'warning' : 'success';
+
+                this.log(`Finished running ${runType}: ${this.runAllPassed} passed, ${this.runAllFailed} failed, ${this.runAllSkipped} skipped (${this.runAllCompleted}/${this.runAllTotal})`,
+                    finalStatus);
+
+                // Reset all running state variables
+                this.resetRunningState();
+            },
+
+            abortRunning() {
+                if (!this.isRunning) return;
+
+                this.log('Aborting test run...', 'warning');
+
+                if (this.testRunner && this.testRunner.activeRunController) {
+                    this.testRunner.activeRunController.abort(); // Signal abortion to TestRunner
+                    // The 'run:abort' event listener should handle state reset
+                } else {
+                    // If no active controller, manually reset state just in case
+                    this.resetRunningState();
+                }
+            },
+
+            resetRunningState() {
+                // console.log('[State] Resetting running state');
+                this.isRunningSingle = false;
+                this.isRunningAll = false;
+                this.isRunningGroup = false;
+                this.runAllQueue = [];
+                this.currentTestId = null;
+                // Do not reset runAll counts here, finishRunAll uses them
+                // Do not reset selectedGroupName here
+                this.lastEventKey = null; // Reset de-dupe key on new run or abort
+            },
+
+            resetTestState(testId) {
+                // Clears result and logs for a specific test
+                if (this.testResults[testId]) {
+                    delete this.testResults[testId];
+                    // Force reactivity if needed: this.testResults = { ...this.testResults };
+                }
+                if (this.testLogs[testId]) {
+                    // Find related log entries and potentially remove them? Or just clear the mapping?
+                    // Clearing the mapping is safer.
+                    delete this.testLogs[testId];
+                }
+            },
+
+            resetTestStates() {
+                // Clears results and logs for ALL tests
+                this.testResults = {};
+                this.testLogs = {};
+                // Also clear summary counts if resetting all
+                this.runAllCompleted = 0;
+                this.runAllPassed = 0;
+                this.runAllFailed = 0;
+                this.runAllSkipped = 0;
+                this.runAllTotal = 0;
+            },
+
+
+            // === Log Handling Functions ===
+            log(message, type = 'info', data = null) {
+                const now = new Date();
+                // Use ISO string for potential server-side correlation or precise sorting
+                const timestamp = now.toISOString();
+                // Keep local time for display
+                const shortTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                // Sanitize data for display - convert non-strings
+                let displayData = data;
+                if (displayData !== null && typeof displayData !== 'string') {
+                    try {
+                        displayData = JSON.stringify(displayData, null, 2);
+                    } catch (e) {
+                        displayData = '[Unserializable Data]';
+                    }
+                }
+
+                const logEntry = {
+                    timestamp,
+                    shortTime,
+                    message,
+                    type, // 'info', 'success', 'error', 'warning', 'running'
+                    data: displayData, // Store sanitized data
+                    index: this.logEntries.length // Assign index before pushing
+                };
+
+                this.logEntries.push(logEntry);
+
+                // Associate with current test if one is actively running
+                // Use a copy of currentTestId in case it changes rapidly
+                const logTestId = this.currentTestId;
+                if (logTestId) {
+                    this.addLogToTest(logTestId, logEntry.index);
+                }
+
+                // Scroll log output to the bottom
+                this.$nextTick(() => {
+                    const logOutputEl = this.$refs.logOutput;
+                    if (logOutputEl) {
+                        // Only scroll if user isn't already scrolled up significantly
+                        const isScrolledToBottom = logOutputEl.scrollHeight - logOutputEl.clientHeight <= logOutputEl.scrollTop + 50; // Allow 50px tolerance
+                        if (isScrolledToBottom) {
+                            logOutputEl.scrollTo({ top: logOutputEl.scrollHeight, behavior: 'smooth' });
+                        }
+                    }
+                });
+
+                return logEntry; // Return the created entry
+            },
+
+            clearLog() {
+                this.logEntries = [];
+                // When clearing logs, also clear the log associations for tests
+                this.testLogs = {};
+                // Reset selected test if logs are cleared? Optional.
+                // this.selectedTestId = '';
+            },
+
+            async copyResultsToClipboard() {
+                if (this.copiedTimeout) clearTimeout(this.copiedTimeout);
+
+                const entriesToCopy = this.getFilteredLogEntries();
+                if (entriesToCopy.length === 0) {
+                    this.log('No results to copy.', 'warning');
+                    this.copyButtonText = 'Copy'; // Reset if it was 'Error' before
+                    return;
+                }
+
+                let reportHeaderText = "Log Output:\n";
+                if (this.selectedTestId && this.allTests[this.selectedTestId]) {
+                    reportHeaderText = `Results for Test: ${this.allTests[this.selectedTestId].name}\n`;
+                    if (this.allTests[this.selectedTestId].group) {
+                        reportHeaderText += `Group: ${this.allTests[this.selectedTestId].group}\n`;
+                    }
+                    if (this.testResults[this.selectedTestId]) {
+                        reportHeaderText += `Status: ${this.testResults[this.selectedTestId].status.toUpperCase()}\n`;
+                    }
+                }
+
+                let reportText = reportHeaderText + "----------------------------------------\n\n";
+
+                entriesToCopy.forEach(entry => {
+                    reportText += `[${entry.shortTime}] [${entry.type.toUpperCase()}] ${entry.message}\n`;
+                    if (entry.data) {
+                        reportText += `Data:\n${entry.data}\n`;
+                    }
+                    reportText += "---\n";
+                });
+
+                try {
+                    await navigator.clipboard.writeText(reportText);
+                    this.log('Results copied to clipboard.', 'success');
+                    this.copyButtonText = 'Copied!';
+                    this.copiedTimeout = setTimeout(() => {
+                        this.copyButtonText = 'Copy';
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy results: ', err);
+                    this.log('Failed to copy results to clipboard.', 'error', err.message);
+                    this.copyButtonText = 'Error';
+                    this.copiedTimeout = setTimeout(() => {
+                        this.copyButtonText = 'Copy';
+                    }, 2000);
+                }
+            },
+
+            // --- UI Helper Functions for Log Styling ---
+            getLogEntryClass(type) {
+                switch (type) {
+                    case 'success': return 'text-green-700 dark:text-green-400';
+                    case 'error': return 'text-red-700 dark:text-red-400';
+                    case 'warning': return 'text-yellow-700 dark:text-yellow-400';
+                    case 'running': return 'text-blue-700 dark:text-blue-400';
+                    case 'info':
+                    default: return 'text-surface-700 dark:text-surface-300';
+                }
+            },
+
+            getLogEntryBorderClass(type) {
+                switch (type) {
+                    case 'success': return 'border-green-500 dark:border-green-600';
+                    case 'error': return 'border-red-500 dark:border-red-600';
+                    case 'warning': return 'border-yellow-500 dark:border-yellow-600';
+                    case 'running': return 'border-blue-500 dark:border-blue-600';
+                    case 'info':
+                    default: return 'border-surface-300 dark:border-surface-600';
+                }
+            },
+
+            getLogEntryIcon(type) {
+                switch (type) {
+                    case 'success': return 'tabler:circle-check-filled';
+                    case 'error': return 'tabler:circle-x-filled';
+                    case 'warning': return 'tabler:alert-triangle-filled';
+                    case 'running': return 'tabler:player-play-filled';
+                    case 'info': return 'tabler:info-circle-filled';
+                    default: return 'tabler:message-circle';
+                }
+            },
+
+            getLogEntryIconClass(type) {
+                // Match border colors for consistency
+                switch (type) {
+                    case 'success': return 'text-green-500 dark:text-green-600';
+                    case 'error': return 'text-red-500 dark:text-red-600';
+                    case 'warning': return 'text-yellow-500 dark:text-yellow-600';
+                    case 'running': return 'text-blue-500 dark:text-blue-600';
+                    case 'info':
+                    default: return 'text-surface-400 dark:text-surface-500'; // Subtler info icon
+                }
+            }
+
+        }));
+    });
+</script>
+{{ end }}

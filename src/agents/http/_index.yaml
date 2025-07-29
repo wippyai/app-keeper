@@ -1,0 +1,172 @@
+version: "1.0"
+namespace: keeper.agents.http
+
+entries:
+  # keeper.agents.http:analyze_endpoint
+  - name: analyze_endpoint
+    kind: function.lua
+    meta:
+      type: tool
+      title: HTTP Endpoint Analyzer
+      description: Provides comprehensive analysis of HTTP endpoints including endpoint details, router configuration, handler function analysis, and security settings
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "endpoint_id": {
+              "type": "string",
+              "description": "The ID of the HTTP endpoint to analyze (e.g., 'app.api.entries:list_agents.endpoint')"
+            }
+          },
+          "required": ["endpoint_id"]
+        }
+      llm_description: Analyzes HTTP endpoints with comprehensive details including endpoint configuration, router information, handler function analysis, security middleware, and full URL path resolution. Validates endpoint-router relationships and handler function existence.
+    source: file://analyze_endpoint.lua
+    modules:
+      - registry
+      - json
+    method: handler
+    
+  # keeper.agents.http:create_http_endpoint
+  - name: create_http_endpoint
+    kind: function.lua
+    meta:
+      type: tool
+      title: Create HTTP Endpoint
+      comment: Creates HTTP endpoint registry entries with router validation, path validation, method validation, and duplicate checking
+      description: Creates and validates HTTP endpoint registry entries with comprehensive validation
+      input_schema: '{"type": "object", "properties": {"endpoint_id": {"type": "string", "description": "Full ID for the endpoint in namespace:name format (e.g., ''app.api:users.endpoint'')"}, "router_id": {"type": "string", "description": "ID of the router this endpoint belongs to (e.g., ''app:api'')"}, "path": {"type": "string", "description": "Endpoint path starting with / (e.g., ''/users/:id'')"}, "method": {"type": "string", "description": "HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)"}, "function_id": {"type": "string", "description": "Full ID of the handler function for this endpoint (e.g., ''app.api:user_handler'')"}, "comment": {"type": "string", "description": "Description of what this endpoint does"}}, "required": ["endpoint_id", "router_id", "path", "method", "function_id", "comment"]}'
+      llm_description: Creates a new HTTP endpoint registry entry with validation of router existence, handler function existence, HTTP method, path format, and duplicate checking. Returns success with endpoint details or comprehensive error information.
+    source: file://create_http_endpoint.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.http:delete_http_endpoint
+  - name: delete_http_endpoint
+    kind: function.lua
+    meta:
+      type: tool
+      title: Delete HTTP Endpoint
+      comment: Deletes HTTP endpoint registry entries with validation, router relationship checking, and comprehensive error handling
+      description: Safely deletes HTTP endpoint registry entries with validation of existence, type checking, and router relationship analysis
+      input_schema: '{"type": "object", "properties": {"endpoint_id": {"type": "string", "description": "Full ID of the HTTP endpoint to delete in namespace:name format (e.g., ''app.api:users.endpoint'')"}}, "required": ["endpoint_id"]}'
+      llm_description: Deletes an HTTP endpoint registry entry with validation of existence, type checking, and router relationship analysis. Returns success with deletion details or comprehensive error information.
+    source: file://delete_http_endpoint.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.http:endpoint_specialist
+  - name: endpoint_specialist
+    kind: registry.entry
+    meta:
+      name: HTTP Endpoint Specialist
+      type: agent.gen1
+      title: HTTP Endpoint Specialist
+      comment: Specialized agent for comprehensive HTTP endpoint and router management in Wippy. Handles endpoint discovery, creation, modification, deletion, and router analysis with full path resolution.
+      group:
+        - System Utilities
+      tags:
+        - http
+        - endpoints
+        - routers
+        - api
+        - management
+        - crud
+      icon: tabler:api
+    prompt: |-
+      You are the HTTP Endpoint Specialist for Wippy - a focused expert in HTTP endpoint and router management.
+    
+      ## Your Expertise
+    
+      You specialize in the complete HTTP ecosystem of Wippy:
+      - **HTTP Endpoints**: Registry entries with kind "http.endpoint" - their paths, methods, handlers, and configurations
+      - **HTTP Routers**: Registry entries with kind "http.router" - their prefixes, middleware chains, and endpoint assignments
+      - **Path Resolution**: Combining router prefixes with endpoint paths to show complete URLs (e.g., "/api/v1/" + "/agents/list" = "/api/v1/agents/list")
+      - **Security Models**: Understanding protected vs public routers, middleware chains (token_auth, cors, websocket_relay)
+      - **Endpoint Relationships**: How endpoints connect to routers, handlers, and the broader API architecture
+    
+      ## Your Core Functions
+    
+      1. **List Endpoints**: Show all HTTP endpoints with full resolved paths, methods, comments, and router assignments organized by router
+      2. **Create Endpoints**: Add new http.endpoint registry entries with proper validation and router assignment
+      3. **Manage Endpoints**: Update or delete existing endpoints with conflict checking and validation
+      4. **Router Analysis**: Display all HTTP routers with their configurations, middleware, and assigned endpoints
+    
+      ## Your Approach
+    
+      **Be Precise**: Always show complete information including full paths, not just endpoint paths
+      **Validate Everything**: Check router existence, path formats, HTTP methods, and prevent conflicts
+      **Organize Clearly**: Group endpoints by router, show middleware chains, provide summary statistics
+      **Handle Errors Gracefully**: Provide clear error messages and suggestions for fixes
+    
+      ## Key Patterns You Know
+    
+      - **Router Prefixes**: app:api uses "/api/v1/", app:api.public uses "/api/public"
+      - **Endpoint Structure**: Each endpoint has method, path, handler function, and router assignment
+      - **Middleware Chains**: token_auth for authentication, cors for cross-origin, websocket_relay for WebSocket support
+      - **Security Levels**: Protected endpoints on app:api, public endpoints on app:api.public
+    
+      ## Your Tools
+    
+      - **list_http_endpoints**: Comprehensive endpoint discovery with full path resolution
+      - **create_http_endpoint**: Validated endpoint creation with router assignment
+      - **manage_http_endpoint**: Safe endpoint updates and deletions
+      - **list_http_routers**: Complete router analysis with endpoint assignments
+    
+      You provide complete, accurate HTTP endpoint management with a focus on clarity, validation, and proper organization.
+    model: gpt-4.1
+    temperature: 0.7
+    max_tokens: 4096
+    tools:
+      - keeper.agents.http:*
+    memory:
+      - Endpoint-router relationship management
+      - HTTP endpoint registry patterns and structures
+      - HTTP method validation and path format standards
+      - Middleware chain configurations and security implications
+      - Router prefix resolution for complete URL paths
+      - Wippy API architecture patterns and conventions
+    traits:
+      - dev
+      - research
+    
+  # keeper.agents.http:list_http_endpoints
+  - name: list_http_endpoints
+    kind: function.lua
+    meta:
+      type: tool
+      title: List HTTP Endpoints
+      comment: Lists all HTTP endpoints with router resolution and complete path information
+      description: Provides comprehensive listing of HTTP endpoints grouped by router with full path resolution
+      input_schema: '{"type": "object", "properties": {"router_filter": {"type": "string", "description": "Optional filter to show endpoints only for specific router ID (e.g., ''app:api'')"}}}'
+      llm_description: Lists all HTTP endpoints in the Wippy system with their complete paths, methods, routers, and middleware. Groups endpoints by router and resolves full URLs by combining router prefixes with endpoint paths.
+    source: file://list_http_endpoints.lua
+    modules:
+      - registry
+      - json
+    method: handler
+    
+  # keeper.agents.http:list_http_routers
+  - name: list_http_routers
+    kind: function.lua
+    meta:
+      type: tool
+      title: List HTTP Routers
+      comment: Lists all HTTP routers with their configurations, middleware, and assigned endpoints
+      description: Provides comprehensive listing of HTTP routers with their complete configuration details, middleware chains, endpoint assignments, and summary statistics
+      input_schema: '{"type": "object", "properties": {"include_endpoints": {"type": "boolean", "description": "Whether to include detailed endpoint information for each router (default: true)"}, "router_filter": {"type": "string", "description": "Optional filter to show only specific router ID (e.g., ''app:api'')"}}}'
+      llm_description: Lists all HTTP routers in the Wippy system with their complete configuration including middleware chains, URL prefixes, post-middleware, options, and assigned endpoints. Provides router visibility and endpoint relationships with summary statistics.
+    source: file://list_http_routers.lua
+    modules:
+      - registry
+      - json
+    method: handler
+    

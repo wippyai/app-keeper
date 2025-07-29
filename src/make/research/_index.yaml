@@ -1,0 +1,89 @@
+version: "1.0"
+namespace: keeper.make.research
+
+entries:
+  # keeper.make.research:arena
+  - name: arena
+    kind: registry.entry
+    meta:
+      type: agent.arena
+      title: Research Arena (Question & Investigation)
+      comment: Arena for research supervisor agents to conduct comprehensive research using context search agents and provide detailed answers about the Wippy system and other topics.
+      tags:
+        - research
+        - investigation
+        - context-search
+        - arena
+    title: Research Arena (Question & Investigation)
+    description: Arena for research supervisor agents to conduct comprehensive research using context search agents and provide detailed answers about the Wippy system and other topics.
+    prompt: |
+      You are a Research Supervisor Agent specialized in conducting comprehensive research to answer questions and investigate topics related to the Wippy system and beyond.
+    
+      **Your Core Role:**
+      1. **Understand Research Requests**: Analyze user questions and determine what information is needed to provide comprehensive answers.
+      2. **Plan Research Strategy**: Decide what areas need investigation and what context search queries will gather the most relevant information.
+      3. **Conduct Thorough Research**: Use your `perform_research` tool to gather comprehensive context from specialized search agents.
+      4. **Synthesize Findings**: Combine research results into clear, actionable, and complete answers.
+      5. **Ensure Completeness**: Make sure all aspects of the user's question are addressed.
+    
+      **Tool Usage Strategy:**
+      - `perform_research`: Your PRIMARY tool for gathering information. Use multiple times with focused queries to build comprehensive understanding.
+    
+      **Research Process:**
+      1. **ANALYZE** the user's question to understand what they're really asking.
+      2. **PLAN** your research approach - what areas need investigation?
+      3. **RESEARCH** systematically using focused queries to gather relevant context.
+      4. **ITERATE** if initial research reveals gaps or suggests additional areas to investigate.
+      5. **SYNTHESIZE** all findings into a comprehensive, well-structured answer.
+    
+      **Best Practices:**
+      - Use multiple focused research queries rather than one broad query
+      - Build on previous research results to go deeper
+      - Always aim to provide complete, actionable answers
+      - Include relevant examples and implementation details when available
+      - Cite specific Wippy components when relevant
+    
+      Your goal is to provide thorough, accurate, and useful answers by leveraging the full knowledge base of the Wippy system through systematic research.
+    tools:
+      - keeper.make.context.tools:search_context
+      - keeper.make.context.tools:view_context
+    id: keeper.make.research:arena
+    iterations:
+      max: 20
+      min: 1
+    output:
+      schema:
+        name: finish_research
+        description: Complete the research investigation with comprehensive findings and answer
+        definition: |
+          {
+            "type": "object",
+            "properties": {
+              "success": { "type": "boolean", "description": "Whether research was completed successfully." },
+              "answer": { "type": "string", "description": "Comprehensive answer based on research findings." },
+              "research_summary": { "type": "string", "description": "Summary of research areas investigated." },
+              "key_findings": { "type": "array", "items": {"type": "string"}, "description": "Key findings from research." },
+              "relevant_components": { "type": "array", "items": {"type": "string"}, "description": "Relevant Wippy components discovered." },
+              "error_details": { "type": "string", "description": "Error details if research failed." }
+            },
+            "required": ["success", "answer"]
+          }
+    start_function: keeper.make.research:research_init
+    
+  # keeper.make.research:research_init
+  - name: research_init
+    kind: function.lua
+    meta:
+      type: function
+      title: Research Initialization
+      description: Initializes research by selecting appropriate research supervisor agent and preparing research context.
+    source: file://research_init.lua
+    modules:
+      - json
+      - ctx
+      - uuid
+      - funcs
+    imports:
+      agent_registry: wippy.agent.gen1:registry
+    method: execute
+    

@@ -1,0 +1,56 @@
+version: "1.0"
+namespace: keeper.views.docscout
+
+entries:
+  # keeper.views.docscout:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for DocScout configurations
+      target_meta_type: docscout.extraction_group
+    editors:
+      - title: Configuration
+        icon: tabler:library
+        order: 1
+        id: default
+        page_name: keeper.views.docscout:entry
+    
+  # keeper.views.docscout:entry
+  - name: entry
+    kind: template.jet
+    meta:
+      name: docscout/entry
+      type: view.page
+      title: DocScout Group
+      group: Keeper
+      icon: tabler:code
+      description: Edit or create DocScout group
+      order: 5
+      content_type: text/html
+      secure: true
+    source: file://entry.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    
+  # keeper.views.docscout:groups
+  - name: groups
+    kind: template.jet
+    meta:
+      name: docscout/groups
+      type: view.page
+      title: DocScout
+      group: Keeper
+      icon: tabler:book
+      description: Manage document extraction groups and templates
+      order: 10
+      content_type: text/html
+      announced: true
+      group_icon: tabler:file-analytics
+      secure: true
+    source: file://groups.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

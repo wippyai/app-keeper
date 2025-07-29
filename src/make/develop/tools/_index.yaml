@@ -1,0 +1,23 @@
+version: "1.0"
+namespace: keeper.make.develop.tools
+
+entries:
+  # keeper.make.develop.tools:delegate
+  - name: delegate
+    kind: function.lua
+    meta:
+      type: tool
+      title: Delegate Task
+      description: Delegates a task to a specialized `developer_assistant` agent with optional context sharing.
+      input_schema: "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"agent_id\": { \n      \"type\": \"string\", \n      \"description\": \"Full Wippy ID of the target `developer_assistant`.\" \n    },\n    \"task_query\": { \n      \"type\": \"string\", \n      \"description\": \"Clear, detailed task description for the assistant.\" \n    },\n    \"context_data\": { \n      \"type\": \"string\", \n      \"description\": \"Optional. Relevant context (code, IDs, YAML/JSON).\" \n    },\n    \"expected_outcome_description\": { \n      \"type\": \"string\", \n      \"description\": \"What the supervisor expects back.\" \n    },\n    \"title\": { \n      \"type\": \"string\", \n      \"description\": \"Short title for the delegated task (max 5 words).\" \n    },\n    \"context_uuids\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Optional array of context UUIDs to share with the assistant\"\n    }\n  },\n  \"required\": [\"agent_id\", \"task_query\", \"expected_outcome_description\"]\n}\n"
+      llm_alias: delegate
+      llm_description: Assigns a sub-task to a specialized `developer_assistant`. Provide `agent_id`, `task_query`, `expected_outcome_description`, and optional `context_data`, `title`, and `context_uuids` to share relevant context.
+    source: file://delegate.lua
+    modules:
+      - json
+      - ctx
+      - uuid
+    imports:
+      consts: dataflow:consts
+    method: execute
+    

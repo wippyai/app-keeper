@@ -1,0 +1,227 @@
+version: "1.0"
+namespace: keeper.agents.system
+
+entries:
+  # keeper.agents.system:analyze_pprof
+  - name: analyze_pprof
+    kind: function.lua
+    meta:
+      type: tool
+      title: Analyze Performance Profiles
+      description: Analyzes pprof data using go tool pprof
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "profile_path": {
+              "type": "string",
+              "description": "Path to profile file to analyze"
+            },
+            "analysis_type": {
+              "type": "string",
+              "description": "Type of analysis to perform",
+              "enum": ["top", "list", "tree", "peek", "disasm"],
+              "default": "top"
+            },
+            "lines": {
+              "type": "integer",
+              "description": "Number of lines to show",
+              "minimum": 5,
+              "maximum": 50,
+              "default": 10
+            },
+            "focus": {
+              "type": "string",
+              "description": "Focus on specific function/package (regex)"
+            }
+          },
+          "required": ["profile_path"]
+        }
+      llm_alias: analyze_pprof
+      llm_description: Analyzes performance profile data with size-limited output
+    source: file://analyze_pprof.lua
+    modules:
+      - exec
+      - json
+    method: handler
+    
+  # keeper.agents.system:control_gc
+  - name: control_gc
+    kind: function.lua
+    meta:
+      type: tool
+      title: Control Garbage Collection
+      description: Controls garbage collection behavior
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "description": "Action to perform",
+              "enum": ["run", "get_percent", "set_percent"]
+            },
+            "percent": {
+              "type": "integer",
+              "description": "GC target percentage (for set_percent action)",
+              "minimum": 50,
+              "maximum": 1000
+            }
+          },
+          "required": ["action"]
+        }
+      llm_alias: control_gc
+      llm_description: Controls garbage collection behavior
+    source: file://control_gc.lua
+    modules:
+      - system
+      - json
+    method: handler
+    
+  # keeper.agents.system:get_system_stats
+  - name: get_system_stats
+    kind: function.lua
+    meta:
+      type: tool
+      title: Get System Statistics
+      description: Gets comprehensive system, runtime, and memory statistics
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "description": "Size format",
+              "enum": ["bytes", "kb", "mb", "gb"],
+              "default": "mb"
+            }
+          }
+        }
+      llm_alias: get_system_stats
+      llm_description: Gets system info, runtime stats, and memory statistics in one call
+    source: file://get_system_stats.lua
+    modules:
+      - system
+      - json
+    method: handler
+    
+  # keeper.agents.system:snapshot_pprof
+  - name: snapshot_pprof
+    kind: function.lua
+    meta:
+      type: tool
+      title: Take Performance Profile Snapshot
+      description: Captures pprof performance data using curl
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "profiles": {
+              "type": "array",
+              "description": "Profile types to capture",
+              "items": {
+                "type": "string",
+                "enum": ["cpu", "heap", "allocs", "goroutine", "block", "mutex"]
+              },
+              "default": ["cpu", "heap"]
+            },
+            "cpu_seconds": {
+              "type": "integer",
+              "description": "CPU profile duration in seconds",
+              "minimum": 1,
+              "maximum": 60,
+              "default": 30
+            },
+            "output_dir": {
+              "type": "string",
+              "description": "Output directory for profiles (relative path)",
+              "default": "./profiles"
+            }
+          }
+        }
+      llm_alias: snapshot_pprof
+      llm_description: Captures performance profiles from pprof endpoints
+    source: file://snapshot_pprof.lua
+    modules:
+      - exec
+      - json
+    method: handler
+    
+  # keeper.agents.system:sys_manager
+  - name: sys_manager
+    kind: registry.entry
+    meta:
+      name: wippy.system
+      type: agent.gen1
+      title: Wippy System Manager
+      comment: System monitoring and management agent
+      group:
+        - System Utilities
+      tags:
+        - system
+        - memory
+        - runtime
+        - monitoring
+      icon: tabler:device-analytics
+      depends_on:
+        - ns:system
+      class:
+        - public
+    prompt: |
+      You are the System Manager agent for monitoring and managing system resources.
+    
+      Your tools:
+      - get_system_stats: Get comprehensive system, runtime, and memory statistics
+      - control_gc: Control garbage collection behavior
+      - tune_runtime: Get or set GOMAXPROCS and memory limit
+      - snapshot_pprof: Capture performance profiles from pprof endpoints
+      - analyze_pprof: Analyze captured performance profiles with go tool pprof
+    
+      Present data clearly and help users understand system performance and resource usage.
+    model: claude-3-7-sonnet
+    temperature: 0.5
+    max_tokens: 8000
+    tools:
+      - keeper.agents.system:*
+    delegate:
+      wippy.keeper:
+        name: back_to_keeper
+        rule: Return to Wippy Keeper agent when user requests to go back or switch agents
+    
+  # keeper.agents.system:tune_runtime
+  - name: tune_runtime
+    kind: function.lua
+    meta:
+      type: tool
+      title: Tune Runtime
+      description: Adjusts runtime parameters (GOMAXPROCS and memory limit)
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "parameter": {
+              "type": "string",
+              "description": "Parameter to adjust",
+              "enum": ["max_procs", "memory_limit"]
+            },
+            "action": {
+              "type": "string",
+              "description": "Action to perform",
+              "enum": ["get", "set"]
+            },
+            "value": {
+              "type": "number",
+              "description": "Value to set (max_procs count or memory limit in MB, use -1 for unlimited memory)",
+              "minimum": -1
+            }
+          },
+          "required": ["parameter", "action"]
+        }
+      llm_alias: tune_runtime
+      llm_description: Gets or sets GOMAXPROCS and memory limit
+    source: file://tune_runtime.lua
+    modules:
+      - system
+      - json
+    method: handler
+    

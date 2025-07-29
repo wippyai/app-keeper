@@ -1,0 +1,631 @@
+version: "1.0"
+namespace: keeper.agents.views
+
+entries:
+  # keeper.agents.views:add_block
+  - name: add_block
+    kind: function.lua
+    meta:
+      type: tool
+      title: Add Block to View
+      description: Adds a new block to a view template
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the view to modify"
+            },
+            "block_name": {
+              "type": "string",
+              "description": "The name of the block to add"
+            },
+            "block_content": {
+              "type": "string",
+              "description": "The content of the block"
+            },
+            "parameters": {
+              "type": "string",
+              "description": "Optional parameters for the block in the format 'param1, param2=default'"
+            },
+            "position": {
+              "type": "string",
+              "enum": ["start", "end", "after_extends"],
+              "description": "Where to add the block: start (beginning of file), end (end of file), or after_extends (after extends statement)"
+            }
+          },
+          "required": ["id", "block_name", "block_content"]
+        }
+      llm_alias: add_block
+      llm_description: Adds a new block to a view template with specified content and parameters
+    source: file://add_block.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+      template_utils: keeper.agents.views:template_utils
+    method: handler
+    
+  # keeper.agents.views:create_view
+  - name: create_view
+    kind: function.lua
+    meta:
+      type: tool
+      title: Create View
+      description: Creates a new view with template, resources, and optional data function
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The unique name identifier for the view"
+            },
+            "title": {
+              "type": "string",
+              "description": "The display title of the view"
+            },
+            "description": {
+              "type": "string",
+              "description": "Optional description of the view"
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Optional namespace for the view (default: app.views)"
+            },
+            "icon": {
+              "type": "string",
+              "description": "Optional icon name (default: tabler:file-text)"
+            },
+            "order": {
+              "type": "integer",
+              "description": "Optional display order (default: 100)"
+            },
+            "secure": {
+              "type": "boolean",
+              "description": "Whether the view requires authentication (default: false)"
+            },
+            "public": {
+              "type": "boolean",
+              "description": "Whether the view is publicly accessible (default: false)"
+            },
+            "announced": {
+              "type": "boolean",
+              "description": "Whether the view is announced (default: same as public)"
+            },
+            "template_set": {
+              "type": "string",
+              "description": "Template set to use (default: app.views.common:templates)"
+            },
+            "content_type": {
+              "type": "string",
+              "description": "Content type of the view (default: text/html)"
+            },
+            "content": {
+              "type": "string",
+              "description": "The Jet template content of the view"
+            },
+            "data_func": {
+              "type": "string",
+              "description": "Optional data function ID to provide dynamic data, avoid using until knowing exactly the data flow"
+            },
+            "resources": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional array of resource IDs to attach"
+            }
+          },
+          "required": ["name", "namespace", "template_set", "title", "content"]
+        }
+      llm_alias: create_view
+      llm_description: Creates a new view with custom template content, metadata, resources, and optional data function
+    source: file://create_view.lua
+    modules:
+      - registry
+      - security
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.views:delete_view
+  - name: delete_view
+    kind: function.lua
+    meta:
+      type: tool
+      title: Delete View
+      description: Deletes an existing view from the system
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the view to delete"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: delete_view
+      llm_description: Permanently removes a view from the platform by its ID
+    source: file://delete_view.lua
+    modules:
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    
+  # keeper.agents.views:get_source
+  - name: get_source
+    kind: function.lua
+    meta:
+      type: tool
+      title: Get View Source
+      description: Retrieves source code from a view at either full view or block level
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the view to retrieve source from"
+            },
+            "block_name": {
+              "type": "string",
+              "description": "Optional block name to retrieve only that block's source"
+            },
+            "include_parameters": {
+              "type": "boolean",
+              "description": "Whether to include block parameters in the response (default: true)"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: get_source
+      llm_description: Retrieves source code from a view at either full view level (when only id is provided) or block level (when block_name is specified)
+    source: file://get_source.lua
+    modules:
+      - registry
+      - json
+    imports:
+      template_utils: keeper.agents.views:template_utils
+    method: handler
+    
+  # keeper.agents.views:list_blocks
+  - name: list_blocks
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Blocks in View
+      description: Lists all blocks in a view template
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the view to list blocks from"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: list_blocks
+      llm_description: Lists all blocks defined in a view template with their names and parameters
+    source: file://list_blocks.lua
+    modules:
+      - registry
+      - json
+    imports:
+      template_utils: keeper.agents.views:template_utils
+    method: handler
+    
+  # keeper.agents.views:list_resources
+  - name: list_resources
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Resources
+      description: Lists all available view resources with complete details
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {}
+        }
+      llm_alias: list_resources
+      llm_description: Lists all available view resources in the Wippy platform with full details
+    source: file://list_resources.lua
+    modules:
+      - registry
+    method: handler
+    
+  # keeper.agents.views:list_templates
+  - name: list_templates
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Templates
+      description: Lists all templates, layouts, and components
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {}
+        }
+      llm_alias: list_templates
+      llm_description: Lists all templates, layouts, and components in the Wippy platform
+    source: file://list_templates.lua
+    modules:
+      - registry
+    method: handler
+    
+  # keeper.agents.views:list_views
+  - name: list_views
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Views
+      description: Lists all available system views
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {}
+        }
+      llm_alias: list_views
+      llm_description: Lists all available system views in the Wippy platform
+    source: file://list_views.lua
+    modules:
+      - registry
+    method: handler
+    
+  # keeper.agents.views:remove_block
+  - name: remove_block
+    kind: function.lua
+    meta:
+      type: tool
+      title: Remove Block from View
+      description: Removes a block from a view template after checking for references
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the view to modify"
+            },
+            "block_name": {
+              "type": "string",
+              "description": "The name of the block to remove"
+            },
+            "force": {
+              "type": "boolean",
+              "description": "Force removal even if references exist (default: false)"
+            }
+          },
+          "required": ["id", "block_name"]
+        }
+      llm_alias: remove_block
+      llm_description: Removes a block from a view template after checking for references to prevent accidental deletion of used blocks
+    source: file://remove_block.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+      template_utils: keeper.agents.views:template_utils
+    method: handler
+    
+  # keeper.agents.views:render_view
+  - name: render_view
+    kind: function.lua
+    meta:
+      type: tool
+      title: Render View
+      description: Renders a view with optional parameters for testing
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the view to render"
+            },
+            "route_params": {
+              "type": "object",
+              "description": "Optional route parameters for rendering"
+            },
+            "query_params": {
+              "type": "object",
+              "description": "Optional query parameters for rendering"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: render_view
+      llm_description: Renders a view with optional parameters to test its appearance and functionality
+    source: file://render_view.lua
+    imports:
+      renderer: wippy.views:renderer
+    method: handler
+    
+  # keeper.agents.views:template_utils
+  - name: template_utils
+    kind: library.lua
+    meta:
+      type: library
+      title: Template Utilities Library
+      comment: Utilities for working with Jet templates
+      description: Provides powerful functions for parsing, extracting, and manipulating blocks, yields, and other elements in Jet templates
+    source: file://template_utils.lua
+    
+  # keeper.agents.views:update_source
+  - name: update_source
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update View Source
+      description: Updates source code in a view at either full view or block level
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the view to update"
+            },
+            "source": {
+              "type": "string",
+              "description": "The new source code content"
+            },
+            "block_name": {
+              "type": "string",
+              "description": "Optional block name to update only that block"
+            },
+            "parameters": {
+              "type": "string",
+              "description": "Optional new parameters for the block (only used when block_name is provided)"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["replace", "patch", "insert"],
+              "description": "Operation to perform: replace (default), patch (find and replace text), or insert (add before/after target)"
+            },
+            "target": {
+              "type": "string",
+              "description": "Target text to find when using patch or insert operations"
+            },
+            "position": {
+              "type": "string",
+              "enum": ["before", "after"],
+              "description": "Position to insert content relative to target (only used with insert operation)"
+            }
+          },
+          "required": ["id", "source"]
+        }
+      llm_alias: update_source
+      llm_description: Updates source code in a view at either full view level or block level with flexible operations
+    source: file://update_source.lua
+    modules:
+      - registry
+      - json
+    imports:
+      governance_client: gov:client
+      template_utils: keeper.agents.views:template_utils
+    method: handler
+    
+  # keeper.agents.views:update_view
+  - name: update_view
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update View
+      description: Updates an existing view with new content or metadata
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the view to update"
+            },
+            "title": {
+              "type": "string",
+              "description": "Optional new title for the view"
+            },
+            "description": {
+              "type": "string",
+              "description": "Optional new description for the view"
+            },
+            "icon": {
+              "type": "string",
+              "description": "Optional new icon name"
+            },
+            "order": {
+              "type": "integer",
+              "description": "Optional new display order"
+            },
+            "secure": {
+              "type": "boolean",
+              "description": "Optional security setting update"
+            },
+            "public": {
+              "type": "boolean",
+              "description": "Optional public visibility update"
+            },
+            "announced": {
+              "type": "boolean",
+              "description": "Optional announcement status update"
+            },
+            "inline": {
+              "type": "boolean",
+              "description": "Optional inline content flag update"
+            },
+            "group": {
+              "type": "string",
+              "description": "Optional group name update"
+            },
+            "group_icon": {
+              "type": "string",
+              "description": "Optional group icon update"
+            },
+            "group_order": {
+              "type": "integer",
+              "description": "Optional group order update"
+            },
+            "content": {
+              "type": "string",
+              "description": "Optional new template content"
+            },
+            "data_func": {
+              "type": "string",
+              "description": "Optional new data function ID"
+            },
+            "template_set": {
+              "type": "string",
+              "description": "Optional new template set"
+            },
+            "resources": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional array of resource IDs to attach (replaces existing resources)"
+            },
+            "content_type": {
+              "type": "string",
+              "description": "Optional content type update (default: text/html)"
+            }
+          },
+          "required": ["id"]
+        }
+      llm_alias: update_view
+      llm_description: Updates an existing view with partial changes to content or metadata properties
+    source: file://update_view.lua
+    modules:
+      - registry
+      - security
+    imports:
+      governance_client: gov:client
+      template_utils: keeper.agents.views:template_utils
+    method: handler
+    
+  # keeper.agents.views:views
+  - name: views
+    kind: registry.entry
+    meta:
+      name: wippy.views
+      type: agent.gen1
+      title: Wippy Views
+      comment: Managed application presentation layer
+      group:
+        - System Utilities
+      tags:
+        - views
+        - layouts
+        - resources
+      icon: tabler:layout-dashboard
+    prompt: |
+      You are designated to manage the presentation layer of the application with a focus on creating and managing VIEWS.
+    
+      Key Concepts:
+      1. VIEWS are complete web pages that users interact with
+      2. TEMPLATES are building blocks (layouts, components) that views use
+      3. When a user asks for a "view", "page", or similar - ALWAYS create a proper VIEW, not just a template
+    
+      Core Capabilities:
+      1. View Management: Create, update, delete, and list views (complete pages)
+      2. Template Management: Work with templates, layouts, and components (building blocks)
+      3. Resource Management: Manage and attach resources to views (CSS, JavaScript, fonts)
+      4. View Rendering: Render views with parameters to validate functionality
+    
+      View Structure:
+      - ALWAYS start by examining existing views with list_views and get_source before creating new views
+      - ALL views must extend a layout template (usually "app.views.common:templates/layout.jet")
+      - Learn proper syntax from other views or docs
+      - Most views (80%) DON'T need a data function - only add one if specifically requested
+      - Views must have proper template inheritance using "extends" at the top of the template
+    
+      When a user requests a view or page:
+      1. First LIST existing views to understand current structure
+      2. READ at least one existing view to understand structure and patterns
+      3. Create a new view that EXTENDS an appropriate layout
+      4. Attach necessary resources (CSS/JS)
+      5. Verify the final result with the render_view tool
+    
+      When working with templates and views, follow these strict rules:
+      - Views MUST start with an "extends" statement to inherit from a layout
+      - Implement content using proper "block" declarations
+      - Ensure correct resource attachment
+      - Only add data functions when specifically needed or requested
+      - Always check existing views as examples before creating new ones
+    
+      For charts and visualizations:
+      - Ensure appropriate JavaScript libraries are attached as resources
+      - Use standard patterns from existing views
+      - Include necessary initialization code in the view template
+    
+      For data functions I always refer to other agents.
+    
+      I never suggest URLs to user, I dont control this part of the system and user should be able to locate pages by themselves.
+    
+      I never inject any resource or URL into the view, I always use the resources that are already defined in the system.
+    
+      Remember to always check existing views as examples before creating new ones. I always make views announced by default, unless the user specifically requests otherwise.
+    
+      The embedded page must call window.initWippyApi() ONCE to get {config, iframe, api, form, on} somewhere in view hierarchy and store it globally
+      Only report FATAL errors that should close the whole doc using iframe.handleError()
+      Use PrimeVue classes (i.e. p-button, p-inputtext, p-textarea) and semantic colors (primary, secondary, text, surface). Only if these are not enough, add additional tailwind classes.
+      Remember that "secondary" color is not default in PrimeVue, but is available in Wippy's embedded config
+    model: claude-3-7-sonnet
+    temperature: 0.3
+    max_tokens: 12000
+    tools:
+      - keeper.agents.views:*
+      - keeper.agents.registry:get_contextual_entries
+      - keeper.agents.registry:get_entries
+      - keeper.agents.registry:find_relevant
+    memory:
+      - ALWAYS check existing views using list_views and get_source before creating new views to understand the current patterns and structures.
+      - Views are COMPLETE PAGES that users interact with. Templates are BUILDING BLOCKS (layouts, components) that views use.
+      - When a user asks for a 'view', 'page', or similar - ALWAYS create a proper VIEW, not just a template.
+      - All views MUST start with an 'extends' statement to inherit from a layout template (usually app.views.common:templates/layout.jet).
+      - Most views (80%) DON'T need a data function - only add one if specifically requested.
+      - Resources (JS/CSS) are crucial for views. Always attach necessary resources for functionality.
+      - Views written in Jet template syntax MUST use 'extends' statement at the beginning of the template.
+      - Use {{ block name() }}content{{ end }} syntax for defining content blocks that override the parent template.
+      - For variable output in templates, use {{ variable }} syntax.
+      - The layout.jet template provides the base structure for most views. Override blocks like 'title()', 'metaDescription()', and 'mainContent()' to customize content.
+      - For charts and visualizations, ensure the appropriate JavaScript libraries are attached as resources.
+      - After creating a view, ALWAYS test it with the render_view tool to ensure it displays correctly.
+      - When reading existing views, pay attention to how they extend layouts and override blocks.
+      - The Wippy platform uses Tailwind CSS for styling by default.
+      - For forms, ensure proper field validation is implemented.
+      - Resources are grouped by type (script, style, font, etc.) and are accessed in templates via the 'resources' variable.
+      - I prefer to start with welcome page since it shows the most of patterns and avoids the use of data funcs.
+      - I prefer partial updates when working with existing views, unless the user specifically requests a complete rewrite.
+      - Pages must call window.initWippyApi() ONCE to get {config, iframe, api, form, on} and store it somewhere globally
+      - For API calls, use the pre-configured axios instance (api) that already has authentication built-in
+      - Use iframe.startChat(), iframe.openSession(), and iframe.navigate() for parent window communication
+      - Only report FATAL errors with iframe.handleError() that should close the iframe
+      - Use PrimeVue classes (i.e. p-button, p-inputtext, p-textarea) and semantic colors (primary, secondary, text, surface). Only if these are not enough, add additional tailwind classes.
+      - The "secondary" color is not default in PrimeVue but is available in Wippy's embedded config
+      - iconify-icon size inherits font-size, don't set it manually
+      - Use block argument for functions to localize changes.
+      - When refactoring views, extract content to blocks first and then update other blocks to include references to it.
+      - Always use {{ yield blockName() }} to reference and render a block, even within the same template file, not just for parent template blocks.
+      - Be careful about block naming to avoid conflicts - use list_blocks to check for existing blocks before creating new ones.
+      - Blocks can be defined anywhere in the template, but for better organization, prefer defining them at the root level.
+      - When adding blocks with add_block, ensure proper formatting with correct parameters and content structure.
+      - Before removing blocks with remove_block, check if the block is referenced elsewhere in the template.
+      - Local template blocks allow for better organization and reuse within the same file - define the block once and yield it where needed.
+      - When nesting blocks, be careful about proper nesting and closing tags - use get_source to examine existing blocks as examples.
+      - Yields can be used inside JavaScript code in Jet templates, but wrap them properly in string delimiters if needed.
+      - Template blocks can have parameters, making them more versatile - check parameters in existing blocks with list_blocks.
+      - When creating a template with many reusable parts, define blocks for each part and then yield them where needed rather than duplicating code.
+      - 'If a block will be used multiple times with different content, use a content block pattern: { { yield blockName() content } }...{{ end }}'
+      - 'When working with large, complex views, decompose them into specialized blocks: UI components in separate blocks yielded by the main content block, and script functionality in separate blocks yielded by the script container block. This creates a modular structure where each block has a single responsibility, making the view more maintainable, readable, and easier to update. For JavaScript frameworks, separate data models, initialization, API calls, and event handlers into their own blocks to keep the code organized. Use the yield mechanism to assemble these blocks in their appropriate containers, allowing for clean composition without duplication. This block-based approach enables easier maintenance as each component can be updated independently.'
+      - I can always refactor large views but taking a deep breath and after asking user permission to refactor it. I propose refactor when I have to consistently update large portions of code or when I see a pattern that can be improved.
+    inherit:
+      - keeper.agents.docs:docs
+    

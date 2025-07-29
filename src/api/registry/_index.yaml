@@ -1,0 +1,147 @@
+version: "1.0"
+namespace: keeper.api.registry
+
+entries:
+  # keeper.api.registry:get_entry
+  - name: get_entry
+    kind: function.lua
+    meta:
+      comment: Gets a single registry entry with all data
+      depends_on:
+        - app:api
+    source: file://get_entry.lua
+    modules:
+      - http
+      - json
+      - registry
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.registry:get_entry.endpoint
+  - name: get_entry.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that retrieves a single registry entry by ID
+      depends_on:
+        - app:api
+      router: app:api
+    method: GET
+    func: get_entry
+    path: /keeper/registry/entry
+    
+  # keeper.api.registry:get_entry_editors
+  - name: get_entry_editors
+    kind: function.lua
+    meta:
+      comment: Gets a single registry entry dynamic editors
+      depends_on:
+        - app:api
+    source: file://get_entry_editors.lua
+    modules:
+      - http
+      - json
+    imports:
+      entry_editor_registry: keeper.editors:entry_editor_registry
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.registry:get_entry_editors.endpoint
+  - name: get_entry_editors.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that retrieves a single registry entry editors by ID
+      depends_on:
+        - app:api
+      router: app:api
+    method: GET
+    func: get_entry_editors
+    path: /keeper/registry/entry/editors
+    
+  # keeper.api.registry:list_entries
+  - name: list_entries
+    kind: function.lua
+    meta:
+      comment: Lists registry entries with optional namespace filter
+      depends_on:
+        - app:api
+    source: file://list_entries.lua
+    modules:
+      - http
+      - json
+      - registry
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.registry:list_entries.endpoint
+  - name: list_entries.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that lists registry entries with optional namespace filter
+      depends_on:
+        - app:api
+      router: app:api
+    method: GET
+    func: list_entries
+    path: /keeper/registry/entries
+    
+  # keeper.api.registry:list_namespaces
+  - name: list_namespaces
+    kind: function.lua
+    meta:
+      comment: Lists all namespaces with count of entries
+      depends_on:
+        - app:api
+    source: file://list_namespaces.lua
+    modules:
+      - http
+      - json
+      - registry
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.registry:list_namespaces.endpoint
+  - name: list_namespaces.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that lists all namespaces with entry counts
+      depends_on:
+        - app:api
+      router: app:api
+    method: GET
+    func: list_namespaces
+    path: /keeper/registry/namespaces
+    
+  # keeper.api.registry:update_entry
+  - name: update_entry
+    kind: function.lua
+    meta:
+      comment: Updates a registry entry (data and/or metadata)
+      depends_on:
+        - app:api
+    source: file://update_entry.lua
+    modules:
+      - http
+      - json
+      - registry
+    imports:
+      governance_client: gov:client
+    method: handler
+    pool:
+      size: 2
+    
+  # keeper.api.registry:update_entry.endpoint
+  - name: update_entry.endpoint
+    kind: http.endpoint
+    meta:
+      comment: Endpoint that updates a registry entry
+      depends_on:
+        - app:api
+      router: app:api
+    method: PUT
+    func: update_entry
+    path: /keeper/registry/entry
+    

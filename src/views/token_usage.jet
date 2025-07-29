@@ -1,0 +1,990 @@
+{{ extends "common/layout" }}
+
+{* Page title and description *}
+{{ block title() }}Token Usage Statistics{{ end }}
+{{ block metaDescription() }}Monitor and analyze token usage across models and operations{{ end }}
+
+{{ block mainContent() }}
+<!-- Time Range Selector -->
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden mb-6 p-4">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h3 class="text-lg font-medium text-surface-900 dark:text-surface-100">Time Range</h3>
+            <p class="text-sm text-surface-500 dark:text-surface-400" id="timezone-display"></p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <button id="period-today" data-period="today" class="period-btn px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">Today</button>
+            <button id="period-week" data-period="week" class="period-btn px-4 py-2 bg-surface-200 dark:bg-surface-600 text-surface-700 dark:text-surface-300 rounded-md hover:bg-surface-300 dark:hover:bg-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">Last 7 Days</button>
+            <button id="period-month" data-period="month" class="period-btn px-4 py-2 bg-surface-200 dark:bg-surface-600 text-surface-700 dark:text-surface-300 rounded-md hover:bg-surface-300 dark:hover:bg-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">Last 30 Days</button>
+            <button id="period-custom" data-period="custom" class="period-btn px-4 py-2 bg-surface-200 dark:bg-surface-600 text-surface-700 dark:text-surface-300 rounded-md hover:bg-surface-300 dark:hover:bg-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">Custom</button>
+        </div>
+    </div>
+    <!-- Custom date range selector (hidden by default) -->
+    <div id="custom-range" class="hidden mt-4 flex flex-wrap items-center gap-4">
+        <div class="flex items-center gap-2">
+            <label for="start-date" class="text-sm text-surface-700 dark:text-surface-300">Start:</label>
+            <input type="datetime-local" id="start-date" class="border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-1 px-2 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-400 focus:border-primary-400 sm:text-sm">
+        </div>
+        <div class="flex items-center gap-2">
+            <label for="end-date" class="text-sm text-surface-700 dark:text-surface-300">End:</label>
+            <input type="datetime-local" id="end-date" class="border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-1 px-2 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-400 focus:border-primary-400 sm:text-sm">
+        </div>
+        <div class="flex items-center gap-2">
+            <label for="interval" class="text-sm text-surface-700 dark:text-surface-300">Interval:</label>
+            <select id="interval" class="border border-surface-300 dark:border-surface-600 rounded-md shadow-sm py-1 px-2 bg-surface-50 dark:bg-surface-700 text-surface-900 dark:text-surface-100 focus:outline-none focus:ring-primary-400 focus:border-primary-400 sm:text-sm">
+                <option value="hour">Hourly</option>
+                <option value="day" selected>Daily</option>
+                <option value="week">Weekly</option>
+                <option value="month">Monthly</option>
+            </select>
+        </div>
+        <button id="apply-custom-range" class="px-3 py-1 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 text-sm">Apply</button>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" id="primary-metrics">
+    <!-- Total Tokens Card -->
+    <div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-blue-100 dark:bg-blue-900 rounded-md p-3">
+                    <iconify-icon icon="tabler:coin" class="h-6 w-6 text-blue-600 dark:text-blue-400" width="24" height="24"></iconify-icon>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-surface-500 dark:text-surface-400 truncate">Total Tokens</dt>
+                        <dd>
+                            <div id="total-tokens" class="text-lg font-medium text-surface-900 dark:text-surface-100">--</div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between">
+                    <div id="time-range-display" class="text-sm text-surface-500 dark:text-surface-400">
+                        <!-- Time range will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Tokens Card -->
+    <div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-green-100 dark:bg-green-900 rounded-md p-3">
+                    <iconify-icon icon="tabler:message-dots" class="h-6 w-6 text-green-600 dark:text-green-400" width="24" height="24"></iconify-icon>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-surface-500 dark:text-surface-400 truncate">Prompt Tokens</dt>
+                        <dd>
+                            <div id="prompt-tokens" class="text-lg font-medium text-surface-900 dark:text-surface-100">--</div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between">
+                    <div id="prompt-tokens-percent" class="text-sm text-surface-500 dark:text-surface-400 flex items-center">
+                        <!-- Percentage data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completion Tokens Card -->
+    <div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-purple-100 dark:bg-purple-900 rounded-md p-3">
+                    <iconify-icon icon="tabler:file-text" class="h-6 w-6 text-purple-600 dark:text-purple-400" width="24" height="24"></iconify-icon>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-surface-500 dark:text-surface-400 truncate">Completion Tokens</dt>
+                        <dd>
+                            <div id="completion-tokens" class="text-lg font-medium text-surface-900 dark:text-surface-100">--</div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between">
+                    <div id="completion-tokens-percent" class="text-sm text-surface-500 dark:text-surface-400 flex items-center">
+                        <!-- Percentage data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Metrics Cards (only shown when values exist) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 hidden" id="additional-metrics">
+    <!-- Thinking Tokens Card -->
+    <div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden" id="thinking-tokens-card">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-amber-100 dark:bg-amber-900 rounded-md p-3">
+                    <iconify-icon icon="tabler:brain" class="h-6 w-6 text-amber-600 dark:text-amber-400" width="24" height="24"></iconify-icon>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-surface-500 dark:text-surface-400 truncate">Thinking Tokens</dt>
+                        <dd>
+                            <div id="thinking-tokens" class="text-lg font-medium text-surface-900 dark:text-surface-100">--</div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between">
+                    <div id="thinking-tokens-percent" class="text-sm text-surface-500 dark:text-surface-400 flex items-center">
+                        <!-- Percentage data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cache Read Tokens Card -->
+    <div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden" id="cache-read-tokens-card">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-teal-100 dark:bg-teal-900 rounded-md p-3">
+                    <iconify-icon icon="tabler:database-import" class="h-6 w-6 text-teal-600 dark:text-teal-400" width="24" height="24"></iconify-icon>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-surface-500 dark:text-surface-400 truncate">Cache Read Tokens</dt>
+                        <dd>
+                            <div id="cache-read-tokens" class="text-lg font-medium text-surface-900 dark:text-surface-100">--</div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between">
+                    <div id="cache-read-tokens-percent" class="text-sm text-surface-500 dark:text-surface-400 flex items-center">
+                        <!-- Percentage data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cache Write Tokens Card -->
+    <div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden" id="cache-write-tokens-card">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-cyan-100 dark:bg-cyan-900 rounded-md p-3">
+                    <iconify-icon icon="tabler:database-export" class="h-6 w-6 text-cyan-600 dark:text-cyan-400" width="24" height="24"></iconify-icon>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-surface-500 dark:text-surface-400 truncate">Cache Write Tokens</dt>
+                        <dd>
+                            <div id="cache-write-tokens" class="text-lg font-medium text-surface-900 dark:text-surface-100">--</div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between">
+                    <div id="cache-write-tokens-percent" class="text-sm text-surface-500 dark:text-surface-400 flex items-center">
+                        <!-- Percentage data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Token Usage Over Time Chart -->
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden mb-6">
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Token Usage Over Time</h3>
+        <p class="mt-1 text-sm text-surface-500 dark:text-surface-400" id="time-chart-subtitle">Daily token consumption trends</p>
+    </div>
+    <div class="px-4 py-5 sm:p-6">
+        <div style="height: 400px;">
+            <canvas id="tokenTimeChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Token Usage by Model -->
+<div class="bg-surface-50 dark:bg-surface-700 shadow rounded-lg overflow-hidden mb-6">
+    <div class="px-4 py-5 border-b border-surface-200 dark:border-surface-600 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-surface-900 dark:text-surface-100">Token Usage by Model</h3>
+        <p class="mt-1 text-sm text-surface-500 dark:text-surface-400">Distribution of tokens across different AI models</p>
+    </div>
+    <div class="px-4 py-5 sm:p-6">
+        <div style="height: 400px;">
+            <canvas id="modelTokenChart"></canvas>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ block customJs() }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/utc.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/timezone.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/localizedFormat.min.js"></script>
+<script>
+    // Load dayjs plugins
+    dayjs.extend(window.dayjs_plugin_utc);
+    dayjs.extend(window.dayjs_plugin_timezone);
+    dayjs.extend(window.dayjs_plugin_localizedFormat);
+
+    // Global variables
+    let iframe;
+    let config;
+    let currentPeriod = 'today';
+    let customStartDate = null;
+    let customEndDate = null;
+    let customInterval = 'day';
+    let charts = {};
+    let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Colors for charts
+    const colors = {
+        blue: '#3b82f6',
+        green: '#10b981',
+        purple: '#8b5cf6',
+        amber: '#f59e0b',
+        red: '#ef4444',
+        pink: '#ec4899',
+        indigo: '#6366f1',
+        teal: '#14b8a6',
+        orange: '#f97316',
+        cyan: '#06b6d4',
+        lime: '#84cc16',
+        emerald: '#10b981',
+        violet: '#8b5cf6',
+        fuchsia: '#d946ef',
+        rose: '#f43f5e'
+    };
+
+    // Initialize the app
+    document.addEventListener('DOMContentLoaded', function() {
+        // Display user's timezone
+        document.getElementById('timezone-display').textContent = `Your timezone: ${userTimezone}`;
+
+        initWippyApi().then((result) => {
+            iframe = result.iframe;
+            config = result.config;
+            console.log('App API is ready');
+
+            // Initialize date inputs for custom range with local timezone values
+            const now = new Date();
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+            // Set datetime-local inputs to ISO format strings without the timezone part
+            document.getElementById('start-date').value = formatDatetimeLocal(oneMonthAgo);
+            document.getElementById('end-date').value = formatDatetimeLocal(now);
+
+            // Set up event listeners
+            setupEventListeners();
+
+            // Load initial data with 'today' period
+            loadData('today');
+        }).catch((err) => {
+            console.error('Failed to initialize app', err);
+            alert('Failed to initialize: ' + err.message);
+        });
+
+        // Set up dark mode detection
+        const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        // Set global Chart.js defaults for dark mode
+        Chart.defaults.color = isDarkMode ? '#e5e7eb' : '#374151';
+        Chart.defaults.borderColor = isDarkMode ? '#4b5563' : '#e5e7eb';
+        Chart.defaults.scale.grid.color = isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.5)';
+    });
+
+    // Helper function to format Date for datetime-local input
+    function formatDatetimeLocal(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    // Helper function to convert from UTC to user's local time
+    function convertUtcToLocal(timestamp) {
+        if (typeof timestamp === 'number') {
+            // If timestamp is a Unix timestamp (seconds since epoch), convert to local
+            return dayjs.unix(timestamp).format('MMM D, YYYY h:mm A');
+        } else if (timestamp && timestamp.includes('T') && (timestamp.includes('Z') || timestamp.includes('+'))) {
+            // If timestamp is an ISO string with timezone info, convert to local
+            return dayjs(timestamp).format('MMM D, YYYY h:mm A');
+        } else if (timestamp && timestamp.includes(' ')) {
+            // If timestamp is in "YYYY-MM-DD HH:MM:SS" format (assumed to be UTC)
+            return dayjs.utc(timestamp).local().format('MMM D, YYYY h:mm A');
+        }
+        // Fallback for other formats
+        return dayjs(timestamp).format('MMM D, YYYY h:mm A');
+    }
+
+    // Set up event listeners
+    function setupEventListeners() {
+        // Period buttons
+        document.querySelectorAll('.period-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const period = this.getAttribute('data-period');
+                setActivePeriod(period);
+
+                // Show/hide custom range inputs
+                if (period === 'custom') {
+                    document.getElementById('custom-range').classList.remove('hidden');
+                } else {
+                    document.getElementById('custom-range').classList.add('hidden');
+                    loadData(period);
+                }
+            });
+        });
+
+        // Interval dropdown
+        document.getElementById('interval').addEventListener('change', function() {
+            customInterval = this.value;
+            // Update subtitle based on selected interval
+            updateTimeChartSubtitle(customInterval);
+        });
+
+        // Apply custom range button
+        document.getElementById('apply-custom-range').addEventListener('click', function() {
+            const startDateInput = document.getElementById('start-date').value;
+            const endDateInput = document.getElementById('end-date').value;
+            customInterval = document.getElementById('interval').value;
+
+            if (!startDateInput || !endDateInput) {
+                alert('Please select both start and end dates');
+                return;
+            }
+
+            // Convert the local datetime to UTC timestamp
+            const startDate = new Date(startDateInput);
+            const endDate = new Date(endDateInput);
+
+            if (startDate > endDate) {
+                alert('Start date must be before end date');
+                return;
+            }
+
+            customStartDate = Math.floor(startDate.getTime() / 1000);
+            customEndDate = Math.floor(endDate.getTime() / 1000);
+
+            // Update subtitle based on selected interval
+            updateTimeChartSubtitle(customInterval);
+
+            loadData('custom');
+        });
+    }
+
+    // Update the time chart subtitle based on interval
+    function updateTimeChartSubtitle(interval) {
+        const subtitle = document.getElementById('time-chart-subtitle');
+        switch (interval) {
+            case 'hour':
+                subtitle.textContent = 'Hourly token consumption trends';
+                break;
+            case 'day':
+                subtitle.textContent = 'Daily token consumption trends';
+                break;
+            case 'week':
+                subtitle.textContent = 'Weekly token consumption trends';
+                break;
+            case 'month':
+                subtitle.textContent = 'Monthly token consumption trends';
+                break;
+            default:
+                subtitle.textContent = 'Token consumption trends';
+        }
+    }
+
+    // Set active period button
+    function setActivePeriod(period) {
+        currentPeriod = period;
+
+        // Reset all buttons
+        document.querySelectorAll('.period-btn').forEach(btn => {
+            btn.classList.remove('bg-primary-600', 'text-white');
+            btn.classList.add('bg-surface-200', 'dark:bg-surface-600', 'text-surface-700', 'dark:text-surface-300');
+        });
+
+        // Set active button
+        const activeBtn = document.getElementById(`period-${period}`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-surface-200', 'dark:bg-surface-600', 'text-surface-700', 'dark:text-surface-300');
+            activeBtn.classList.add('bg-primary-600', 'text-white');
+        }
+    }
+
+    // Load data for selected period
+    function loadData(period) {
+        showLoadingState();
+
+        // Set default interval based on period if not custom
+        let interval;
+        if (period === 'today') {
+            interval = 'hour';
+            updateTimeChartSubtitle('hour');
+        } else if (period === 'week') {
+            interval = 'day';
+            updateTimeChartSubtitle('day');
+        } else if (period === 'month') {
+            interval = 'day';
+            updateTimeChartSubtitle('day');
+        } else if (period === 'custom') {
+            interval = customInterval;
+            updateTimeChartSubtitle(customInterval);
+        }
+
+        // Load data from all endpoints
+        Promise.all([
+            fetchSummary(period),
+            fetchUsageByTime(period, interval),
+            fetchUsageByModel(period)
+        ]).then(([summaryData, timeData, modelData]) => {
+            // Update UI with the fetched data
+            updateSummaryCards(summaryData);
+            updateTimeChart(timeData);
+            updateModelChart(modelData);
+
+            hideLoadingState();
+        }).catch(error => {
+            console.error('Error loading data:', error);
+            alert('Error loading data: ' + error.message);
+            hideLoadingState();
+        });
+    }
+
+    // Show loading state
+    function showLoadingState() {
+        // Set loading text for summary cards
+        document.getElementById('total-tokens').textContent = 'Loading...';
+        document.getElementById('prompt-tokens').textContent = 'Loading...';
+        document.getElementById('completion-tokens').textContent = 'Loading...';
+        document.getElementById('time-range-display').textContent = 'Loading...';
+
+        // Set loading for additional metrics if they're visible
+        if (!document.getElementById('additional-metrics').classList.contains('hidden')) {
+            document.getElementById('thinking-tokens').textContent = 'Loading...';
+            document.getElementById('cache-read-tokens').textContent = 'Loading...';
+            document.getElementById('cache-write-tokens').textContent = 'Loading...';
+        }
+    }
+
+    // Hide loading state
+    function hideLoadingState() {
+        // Nothing to do here as the data will replace the loading text
+    }
+
+    // Fetch summary data
+    async function fetchSummary(period) {
+        let url = '/api/v1/keeper/usage/summary?period=' + period;
+
+        if (period === 'custom' && customStartDate && customEndDate) {
+            url = `/api/v1/keeper/usage/summary?period=custom&start_time=${customStartDate}&end_time=${customEndDate}`;
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${config.auth.token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error('Failed to fetch summary data: ' + (data.error || 'Unknown error'));
+        }
+
+        return data;
+    }
+
+    // Fetch usage by time data
+    async function fetchUsageByTime(period, defaultInterval) {
+        let url = '/api/v1/keeper/usage/by-time?period=' + period;
+
+        // Add appropriate interval
+        const interval = defaultInterval || 'day';
+        url += '&interval=' + interval;
+
+        if (period === 'custom' && customStartDate && customEndDate) {
+            url = `/api/v1/keeper/usage/by-time?period=custom&start_time=${customStartDate}&end_time=${customEndDate}&interval=${interval}`;
+        }
+
+        console.log("Fetching time usage data:", url);
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${config.auth.token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error('Failed to fetch time data: ' + (data.error || 'Unknown error'));
+        }
+
+        return data;
+    }
+
+    // Fetch usage by model data
+    async function fetchUsageByModel(period) {
+        let url = '/api/v1/keeper/usage/by-model?period=' + period;
+
+        if (period === 'custom' && customStartDate && customEndDate) {
+            url = `/api/v1/keeper/usage/by-model?period=custom&start_time=${customStartDate}&end_time=${customEndDate}`;
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${config.auth.token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error('Failed to fetch model data: ' + (data.error || 'Unknown error'));
+        }
+
+        return data;
+    }
+
+    // Update summary cards
+    function updateSummaryCards(data) {
+        const summary = data.summary;
+        const timeRange = data.time_range;
+
+        // Check if any of the additional metrics have values
+        const hasThinkingTokens = summary.thinking_tokens > 0;
+        const hasCacheReadTokens = summary.cache_read_tokens > 0;
+        const hasCacheWriteTokens = summary.cache_write_tokens > 0;
+
+        // Show/hide additional metrics section based on whether any metrics have values
+        const additionalMetricsDiv = document.getElementById('additional-metrics');
+        if (hasThinkingTokens || hasCacheReadTokens || hasCacheWriteTokens) {
+            additionalMetricsDiv.classList.remove('hidden');
+
+            // Show/hide individual cards based on whether they have values
+            document.getElementById('thinking-tokens-card').classList.toggle('hidden', !hasThinkingTokens);
+            document.getElementById('cache-read-tokens-card').classList.toggle('hidden', !hasCacheReadTokens);
+            document.getElementById('cache-write-tokens-card').classList.toggle('hidden', !hasCacheWriteTokens);
+        } else {
+            additionalMetricsDiv.classList.add('hidden');
+        }
+
+        // Format numbers with commas
+        document.getElementById('total-tokens').textContent = formatNumber(summary.total_tokens);
+        document.getElementById('prompt-tokens').textContent = formatNumber(summary.prompt_tokens);
+        document.getElementById('completion-tokens').textContent = formatNumber(summary.completion_tokens);
+
+        // Update additional metrics if they have values
+        if (hasThinkingTokens) {
+            document.getElementById('thinking-tokens').textContent = formatNumber(summary.thinking_tokens);
+        }
+        if (hasCacheReadTokens) {
+            document.getElementById('cache-read-tokens').textContent = formatNumber(summary.cache_read_tokens);
+        }
+        if (hasCacheWriteTokens) {
+            document.getElementById('cache-write-tokens').textContent = formatNumber(summary.cache_write_tokens);
+        }
+
+        // Calculate and display percentages
+        if (summary.total_tokens > 0) {
+            const promptPercent = ((summary.prompt_tokens / summary.total_tokens) * 100).toFixed(1);
+            const completionPercent = ((summary.completion_tokens / summary.total_tokens) * 100).toFixed(1);
+
+            document.getElementById('prompt-tokens-percent').textContent = `${promptPercent}% of total`;
+            document.getElementById('completion-tokens-percent').textContent = `${completionPercent}% of total`;
+
+            // Update additional metrics percentages if they have values
+            if (hasThinkingTokens) {
+                const thinkingPercent = ((summary.thinking_tokens / summary.total_tokens) * 100).toFixed(1);
+                document.getElementById('thinking-tokens-percent').textContent = `${thinkingPercent}% of total`;
+            }
+
+            // For cache tokens, we calculate percentages but don't include them in the total
+            if (hasCacheReadTokens) {
+                const cacheReadPercent = ((summary.cache_read_tokens / (summary.total_tokens + summary.cache_read_tokens + summary.cache_write_tokens)) * 100).toFixed(1);
+                document.getElementById('cache-read-tokens-percent').textContent = `${cacheReadPercent}% of all tokens`;
+            }
+
+            if (hasCacheWriteTokens) {
+                const cacheWritePercent = ((summary.cache_write_tokens / (summary.total_tokens + summary.cache_read_tokens + summary.cache_write_tokens)) * 100).toFixed(1);
+                document.getElementById('cache-write-tokens-percent').textContent = `${cacheWritePercent}% of all tokens`;
+            }
+        } else {
+            document.getElementById('prompt-tokens-percent').textContent = '0% of total';
+            document.getElementById('completion-tokens-percent').textContent = '0% of total';
+
+            if (hasThinkingTokens) {
+                document.getElementById('thinking-tokens-percent').textContent = '0% of total';
+            }
+            if (hasCacheReadTokens) {
+                document.getElementById('cache-read-tokens-percent').textContent = '0% of all tokens';
+            }
+            if (hasCacheWriteTokens) {
+                document.getElementById('cache-write-tokens-percent').textContent = '0% of all tokens';
+            }
+        }
+
+        // Update time range display with localized time in a more readable format
+        if (timeRange) {
+            // Convert Unix timestamps to local time
+            const startFormatted = dayjs.unix(timeRange.start_time).format('MMM D, YYYY h:mm A');
+            const endFormatted = dayjs.unix(timeRange.end_time).format('MMM D, YYYY h:mm A');
+
+            // If same day, only show the date once
+            if (dayjs.unix(timeRange.start_time).isSame(dayjs.unix(timeRange.end_time), 'day')) {
+                const startTimeOnly = dayjs.unix(timeRange.start_time).format('h:mm A');
+                document.getElementById('time-range-display').textContent =
+                    `${startFormatted} to ${dayjs.unix(timeRange.end_time).format('h:mm A')}`;
+            } else {
+                document.getElementById('time-range-display').textContent = `${startFormatted} to ${endFormatted}`;
+            }
+        }
+    }
+
+    // Update token usage over time chart
+    function updateTimeChart(data) {
+        const periods = data.periods || [];
+
+        // Format time labels based on the interval
+        const interval = data.time_range?.interval || 'day';
+
+        // Extract labels and datasets
+        const labels = periods.map(period => {
+            // Format the time_period appropriately based on interval
+            const timePeriod = period.time_period;
+
+            if (interval === 'hour' && timePeriod.includes(' ')) {
+                // IMPORTANT: The time_period from the server is in UTC
+                // We need to parse it as UTC and convert to local time
+                // Use 12-hour format with AM/PM for better readability
+                return dayjs.utc(timePeriod).local().format('h:mm A');
+            } else if (interval === 'month' && timePeriod.length === 7) {
+                // Monthly data: parse YYYY-MM and format as "Month Year"
+                return dayjs.utc(timePeriod + '-01').local().format('MMM YYYY');
+            } else if (interval === 'week') {
+                // Weekly data: show the start date formatted nicely
+                return dayjs.utc(timePeriod).local().format('MMM D, YYYY') + ' (week)';
+            } else {
+                // Daily data: format as Month-Day
+                if (timePeriod.length >= 10) {
+                    return dayjs.utc(timePeriod).local().format('MMM D');
+                }
+                return timePeriod;
+            }
+        });
+
+        const promptData = periods.map(period => period.prompt_tokens || 0);
+        const completionData = periods.map(period => period.completion_tokens || 0);
+        const thinkingData = periods.map(period => period.thinking_tokens || 0);
+        const cacheReadData = periods.map(period => period.cache_read_tokens || 0);
+        const cacheWriteData = periods.map(period => period.cache_write_tokens || 0);
+
+        // Check if we have non-zero values for each token type
+        const hasThinkingTokens = thinkingData.some(value => value > 0);
+        const hasCacheReadTokens = cacheReadData.some(value => value > 0);
+        const hasCacheWriteTokens = cacheWriteData.some(value => value > 0);
+
+        // Create datasets array, always include prompt and completion
+        const datasets = [
+            {
+                label: 'Prompt Tokens',
+                data: promptData,
+                borderColor: colors.green,
+                backgroundColor: hexToRgba(colors.green, 0.1),
+                tension: 0.3,
+                fill: true
+            },
+            {
+                label: 'Completion Tokens',
+                data: completionData,
+                borderColor: colors.purple,
+                backgroundColor: hexToRgba(colors.purple, 0.1),
+                tension: 0.3,
+                fill: true
+            }
+        ];
+
+        // Only add datasets that have non-zero values
+        if (hasThinkingTokens) {
+            datasets.push({
+                label: 'Thinking Tokens',
+                data: thinkingData,
+                borderColor: colors.amber,
+                backgroundColor: hexToRgba(colors.amber, 0.1),
+                tension: 0.3,
+                fill: true
+            });
+        }
+
+        if (hasCacheReadTokens) {
+            datasets.push({
+                label: 'Cache Read Tokens',
+                data: cacheReadData,
+                borderColor: colors.teal,
+                backgroundColor: hexToRgba(colors.teal, 0.1),
+                tension: 0.3,
+                fill: true
+            });
+        }
+
+        if (hasCacheWriteTokens) {
+            datasets.push({
+                label: 'Cache Write Tokens',
+                data: cacheWriteData,
+                borderColor: colors.cyan,
+                backgroundColor: hexToRgba(colors.cyan, 0.1),
+                tension: 0.3,
+                fill: true
+            });
+        }
+
+        // Create or update chart
+        if (charts.timeChart) {
+            charts.timeChart.data.labels = labels;
+            charts.timeChart.data.datasets = datasets;
+            charts.timeChart.update();
+        } else {
+            const ctx = document.getElementById('tokenTimeChart').getContext('2d');
+            charts.timeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + formatNumber(context.raw);
+                                },
+                                // Add title callback to improve tooltip time display
+                                title: function(tooltipItems) {
+                                    // For hourly data, add the date information to make it clearer
+                                    if (interval === 'hour') {
+                                        const idx = tooltipItems[0].dataIndex;
+                                        const period = periods[idx];
+                                        if (period && period.time_period) {
+                                            // Parse the time_period as UTC and convert to local time
+                                            const formattedDate = dayjs.utc(period.time_period).local().format('MMM D, YYYY');
+                                            const timeLabel = tooltipItems[0].label;
+                                            return `${formattedDate} ${timeLabel}`;
+                                        }
+                                    }
+                                    return tooltipItems[0].label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatAxis(value);
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: interval === 'week' ? 45 : 0,
+                                autoSkip: interval !== 'hour', // Don't auto-skip for hourly data
+                                maxTicksLimit: interval === 'hour' ? 24 : 20, // Show more ticks for hourly data
+                                font: {
+                                    size: 11 // Slightly smaller font to fit more labels
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+    }
+
+    // Update model usage chart
+    function updateModelChart(data) {
+        const models = data.models || [];
+
+        // Extract data for chart
+        const labels = models.map(model => model.model_id);
+        const promptData = models.map(model => model.prompt_tokens || 0);
+        const completionData = models.map(model => model.completion_tokens || 0);
+        const thinkingData = models.map(model => model.thinking_tokens || 0);
+        const cacheReadData = models.map(model => model.cache_read_tokens || 0);
+        const cacheWriteData = models.map(model => model.cache_write_tokens || 0);
+
+        // Check if we have non-zero values for each token type
+        const hasThinkingTokens = thinkingData.some(value => value > 0);
+        const hasCacheReadTokens = cacheReadData.some(value => value > 0);
+        const hasCacheWriteTokens = cacheWriteData.some(value => value > 0);
+
+        // Create datasets array, always include prompt and completion
+        const datasets = [
+            {
+                label: 'Prompt Tokens',
+                data: promptData,
+                backgroundColor: colors.blue,
+                borderColor: hexToRgba(colors.blue, 0.8),
+                borderWidth: 1
+            },
+            {
+                label: 'Completion Tokens',
+                data: completionData,
+                backgroundColor: colors.purple,
+                borderColor: hexToRgba(colors.purple, 0.8),
+                borderWidth: 1
+            }
+        ];
+
+        // Only add datasets that have non-zero values
+        if (hasThinkingTokens) {
+            datasets.push({
+                label: 'Thinking Tokens',
+                data: thinkingData,
+                backgroundColor: colors.amber,
+                borderColor: hexToRgba(colors.amber, 0.8),
+                borderWidth: 1
+            });
+        }
+
+        if (hasCacheReadTokens) {
+            datasets.push({
+                label: 'Cache Read Tokens',
+                data: cacheReadData,
+                backgroundColor: colors.teal,
+                borderColor: hexToRgba(colors.teal, 0.8),
+                borderWidth: 1
+            });
+        }
+
+        if (hasCacheWriteTokens) {
+            datasets.push({
+                label: 'Cache Write Tokens',
+                data: cacheWriteData,
+                backgroundColor: colors.cyan,
+                borderColor: hexToRgba(colors.cyan, 0.8),
+                borderWidth: 1
+            });
+        }
+
+        // Create or update chart
+        if (charts.modelChart) {
+            charts.modelChart.data.labels = labels;
+            charts.modelChart.data.datasets = datasets;
+            charts.modelChart.update();
+        } else {
+            const ctx = document.getElementById('modelTokenChart').getContext('2d');
+            charts.modelChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + formatNumber(context.raw);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatAxis(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // Helper function to convert hex to rgba
+    function hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    // Helper function to format numbers
+    function formatNumber(num) {
+        if (!num) return '0';
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    // Helper function to format axis labels
+    function formatAxis(value) {
+        if (value >= 1000000) {
+            return (value / 1000000).toFixed(1) + 'M';
+        } else if (value >= 1000) {
+            return (value / 1000).toFixed(1) + 'K';
+        }
+        return value;
+    }
+</script>
+{{ end }}

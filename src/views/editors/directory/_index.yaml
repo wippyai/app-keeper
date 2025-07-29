@@ -1,0 +1,34 @@
+version: "1.0"
+namespace: keeper.views.editors.directory
+
+entries:
+  # keeper.views.editors.directory:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for filesystem directory entries
+      target_kind: fs.directory
+    editors:
+      - title: General
+        icon: tabler:folder
+        order: 1
+        id: default
+        page_name: keeper.views.editors.directory:info
+    
+  # keeper.views.editors.directory:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/directory
+      type: view.page
+      title: Directory Information
+      icon: tabler:folder
+      description: View and edit filesystem directory configuration
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

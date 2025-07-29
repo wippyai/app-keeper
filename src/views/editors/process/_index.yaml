@@ -1,0 +1,40 @@
+version: "1.0"
+namespace: keeper.views.editors.process
+
+entries:
+  # keeper.views.editors.process:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for Lua process entries
+      target_kind: process.lua
+    editors:
+      - title: General
+        icon: tabler:settings-cog
+        order: 1
+        id: default
+        page_name: keeper.views.editors.process:info
+      - title: Source
+        icon: tabler:code
+        order: 2
+        field: source
+        id: source
+        language: lua
+    
+  # keeper.views.editors.process:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/process
+      type: view.page
+      title: Process Information
+      icon: tabler:settings-cog
+      description: View and edit process metadata
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

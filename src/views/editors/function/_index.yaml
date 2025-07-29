@@ -1,0 +1,40 @@
+version: "1.0"
+namespace: keeper.views.editors.function
+
+entries:
+  # keeper.views.editors.function:editors
+  - name: editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for Lua function entries
+      target_kind: function.lua
+    editors:
+      - title: General
+        icon: tabler:library
+        order: 1
+        id: default
+        page_name: keeper.views.editors.function:info
+      - title: Source
+        icon: tabler:code
+        order: 1
+        field: source
+        id: source
+        language: lua
+    
+  # keeper.views.editors.function:info
+  - name: info
+    kind: template.jet
+    meta:
+      name: editors/info/function
+      type: view.page
+      title: Function Information
+      icon: tabler:book
+      description: View function metadata in a clean format
+      content_type: text/html
+      secure: true
+    source: file://info.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    

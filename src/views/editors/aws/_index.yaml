@@ -1,0 +1,64 @@
+version: "1.0"
+namespace: keeper.views.editors.aws
+
+entries:
+  # keeper.views.editors.aws:config
+  - name: config
+    kind: template.jet
+    meta:
+      name: editors/info/aws
+      type: view.page
+      title: AWS Configuration
+      icon: tabler:brand-aws
+      description: View and edit AWS credential configuration
+      content_type: text/html
+      secure: true
+    source: file://config.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    
+  # keeper.views.editors.aws:config_editors
+  - name: config_editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for AWS configuration entries
+      target_kind: config.aws
+    editors:
+      - title: General
+        icon: tabler:brand-aws
+        order: 1
+        id: default
+        page_name: keeper.views.editors.aws:config
+    
+  # keeper.views.editors.aws:storage
+  - name: storage
+    kind: template.jet
+    meta:
+      name: editors/info/storage
+      type: view.page
+      title: S3 Cloud Storage
+      icon: tabler:cloud-upload
+      description: View and edit S3 cloud storage configuration
+      content_type: text/html
+      secure: true
+    source: file://storage.jet
+    set: keeper.views.common:templates
+    resources:
+      - keeper.views.common:alpine.js
+    
+  # keeper.views.editors.aws:storage_editors
+  - name: storage_editors
+    kind: registry.entry
+    meta:
+      type: entry.editors
+      comment: Editors for S3 cloud storage entries
+      target_kind: cloudstorage.s3
+    editors:
+      - title: General
+        icon: tabler:cloud-upload
+        order: 1
+        id: default
+        page_name: keeper.views.editors.aws:storage
+    

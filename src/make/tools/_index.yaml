@@ -1,0 +1,73 @@
+version: "1.0"
+namespace: keeper.make.tools
+
+entries:
+  # keeper.make.tools:make
+  - name: make
+    kind: function.lua
+    meta:
+      type: tool
+      title: Make
+      description: Generic tool to ask Wippy for help with any task or question
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Your question, request, or description of what you need help with. Be as clear and specific as possible - include context, requirements, constraints, and desired outcomes."
+            }
+          },
+          "required": ["query"]
+        }
+      llm_alias: make
+      llm_description: Ask Wippy for help with any task, question, or request. Formulate your query clearly and specifically - include all relevant context, requirements, constraints, and what outcome you're looking for. Wippy will analyze your query and provide intelligent assistance using specialized agents and comprehensive context.
+    source: file://make.lua
+    modules:
+      - json
+      - ctx
+      - uuid
+    imports:
+      consts: dataflow:consts
+      starter: dataflow.runner:starter
+    method: execute
+    
+  # keeper.make.tools:research
+  - name: research
+    kind: function.lua
+    meta:
+      type: tool
+      title: Research
+      description: Conducts focused research using specialized context search agents to gather information about specific topics
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Specific research query describing what information is needed. Be detailed and focused."
+            },
+            "focus_area": {
+              "type": "string",
+              "description": "Optional focus area hint for agent selection (e.g., 'documentation', 'code', 'agents', 'api', 'debugging', 'views')"
+            },
+            "title": {
+              "type": "string",
+              "description": "Short descriptive title for this research investigation (3-5 words)",
+              "maxLength": 50
+            }
+          },
+          "required": ["query", "title"]
+        }
+      llm_alias: research
+      llm_description: Conducts focused research investigation using specialized context search agents. Provide specific query about what you need to research, a descriptive title, and optionally a focus area hint. Use multiple calls to build comprehensive understanding.
+    source: file://research.lua
+    modules:
+      - json
+      - ctx
+      - uuid
+    imports:
+      consts: dataflow:consts
+      starter: dataflow.runner:starter
+    method: execute
+    

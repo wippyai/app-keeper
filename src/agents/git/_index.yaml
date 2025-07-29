@@ -1,0 +1,323 @@
+version: "1.0"
+namespace: keeper.agents.git
+
+entries:
+  # keeper.agents.git:commit_changes
+  - name: commit_changes
+    kind: function.lua
+    meta:
+      type: tool
+      title: Commit Changes
+      description: Creates a commit with the staged changes
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "description": "Commit message"
+            },
+            "author": {
+              "type": "string",
+              "description": "Optional author information"
+            },
+            "amend": {
+              "type": "boolean",
+              "description": "Whether to amend the previous commit"
+            }
+          },
+          "required": ["message"]
+        }
+      llm_alias: commit_changes
+      llm_description: Creates a new commit with the specified message and optional author, or amends the previous commit
+    source: file://commit_changes.lua
+    imports:
+      commit: keeper.git:commit
+    method: handler
+    
+  # keeper.agents.git:get_repo_status
+  - name: get_repo_status
+    kind: function.lua
+    meta:
+      type: tool
+      title: Get Repository Status
+      description: Retrieves comprehensive repository status including branch info, uncommitted changes, and sync status
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {}
+        }
+      llm_alias: get_repo_status
+      llm_description: Provides full repository status information including current branch, staged/unstaged changes, and sync status with remote
+    source: file://get_repo_status.lua
+    imports:
+      status: keeper.git:status
+    method: handler
+    
+  # keeper.agents.git:git_agent
+  - name: git_agent
+    kind: registry.entry
+    meta:
+      name: wippy.git
+      type: agent.gen1
+      title: Wippy Git Manager
+      comment: Agent for managing Git repositories and operations
+      group:
+        - Development Tools
+      tags:
+        - git
+        - repository
+        - version control
+        - development
+      icon: git-branch
+    prompt: |
+      You are the Git Manager agent in the Wippy platform, providing comprehensive Git repository management capabilities.
+    
+      Core Capabilities:
+      1. Repository Status: Check repository status, uncommitted changes, and branch information
+      2. Branch Management: Create, list, switch, and delete branches
+      3. Commit Operations: Stage files, create commits, and view commit history
+      4. Remote Operations: Pull, push, fetch, and manage remote repositories
+    
+      Your goal is to help users effectively manage their Git repositories by executing necessary Git commands.
+    model: gpt-4o
+    temperature: 0.3
+    max_tokens: 4000
+    tools:
+      - keeper.agents.git:*
+    memory:
+      - Git is a distributed version control system used to track changes in source code during software development.
+      - The basic Git workflow involves staging changes (git add), committing them (git commit), and pushing to a remote repository (git push).
+      - Focus on executing Git commands effectively without unnecessary explanations.
+    delegate:
+      wippy.keeper:
+        name: back_to_keeper
+        rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside Git management
+    
+  # keeper.agents.git:list_branches
+  - name: list_branches
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Branches
+      description: Lists all branches in the repository with option to include remote branches
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "include_remote": {
+              "type": "boolean",
+              "description": "Whether to include remote branches in the results"
+            }
+          }
+        }
+      llm_alias: list_branches
+      llm_description: Lists all branches in the repository, with an option to include remote branches
+    source: file://list_branches.lua
+    imports:
+      branch: keeper.git:branch
+      status: keeper.git:status
+    method: handler
+    
+  # keeper.agents.git:manage_branch
+  - name: manage_branch
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Branch
+      description: Creates, switches, or deletes branches
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": ["create", "switch", "delete"],
+              "description": "The branch operation to perform"
+            },
+            "branch_name": {
+              "type": "string",
+              "description": "Name of the branch to operate on"
+            },
+            "start_point": {
+              "type": "string",
+              "description": "Starting point for the branch (only used with create action)"
+            },
+            "force": {
+              "type": "boolean",
+              "description": "Force the operation (only used with delete action)"
+            }
+          },
+          "required": ["action", "branch_name"]
+        }
+      llm_alias: manage_branch
+      llm_description: Creates new branches, switches between branches, or deletes branches based on specified action
+    source: file://manage_branch.lua
+    imports:
+      branch: keeper.git:branch
+    method: handler
+    
+  # keeper.agents.git:manage_remote
+  - name: manage_remote
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Remote
+      description: Adds, lists, or removes remote repositories
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": ["add", "list", "remove"],
+              "description": "The remote management action to perform"
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of the remote (required for add and remove actions)"
+            },
+            "url": {
+              "type": "string",
+              "description": "URL of the remote (required for add action)"
+            }
+          },
+          "required": ["action"]
+        }
+      llm_alias: manage_remote
+      llm_description: Manages remote repositories by adding new ones, listing existing ones, or removing them
+    source: file://manage_remote.lua
+    imports:
+      remote: keeper.git:remote
+    method: handler
+    
+  # keeper.agents.git:stage_changes
+  - name: stage_changes
+    kind: function.lua
+    meta:
+      type: tool
+      title: Stage Changes
+      description: Stages files for commit with options for specific files or all changes
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["file", "all", "unstage"],
+              "description": "The staging mode to use"
+            },
+            "file_path": {
+              "type": "string",
+              "description": "Path of the file to stage or unstage (required for file and unstage modes)"
+            }
+          },
+          "required": ["mode"]
+        }
+      llm_alias: stage_changes
+      llm_description: Stages specified files or all changes for commit, or unstages files
+    source: file://stage_changes.lua
+    imports:
+      commit: keeper.git:commit
+    method: handler
+    
+  # keeper.agents.git:sync_remote
+  - name: sync_remote
+    kind: function.lua
+    meta:
+      type: tool
+      title: Sync Remote
+      description: Handles pushing, pulling, and fetching from remote repositories
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": ["push", "pull", "fetch"],
+              "description": "The remote sync action to perform"
+            },
+            "remote_name": {
+              "type": "string",
+              "description": "Name of the remote (default: origin)"
+            },
+            "branch_name": {
+              "type": "string",
+              "description": "Name of the branch (default: current branch)"
+            },
+            "force": {
+              "type": "boolean",
+              "description": "Force the operation (only used with push action)"
+            }
+          },
+          "required": ["action"]
+        }
+      llm_alias: sync_remote
+      llm_description: Synchronizes with remote repositories through push, pull, or fetch operations
+    source: file://sync_remote.lua
+    imports:
+      branch: keeper.git:branch
+      remote: keeper.git:remote
+    method: handler
+    
+  # keeper.agents.git:view_diff
+  - name: view_diff
+    kind: function.lua
+    meta:
+      type: tool
+      title: View Diff
+      description: Shows differences between versions of files
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["file", "all"],
+              "description": "View diff for a specific file or all modified files",
+              "default": "file"
+            },
+            "file_path": {
+              "type": "string",
+              "description": "Path of the file to view differences for (required when mode is 'file')"
+            },
+            "staged": {
+              "type": "boolean",
+              "description": "Whether to show staged (true) or unstaged (false) changes",
+              "default": false
+            }
+          },
+          "required": ["mode"]
+        }
+      llm_alias: view_diff
+      llm_description: Shows the differences between working directory, staging area, and committed versions of files, with option to view all changes at once
+    source: file://view_diff.lua
+    imports:
+      git_repo: keeper.git:git_repo
+      status: keeper.git:status
+    method: handler
+    
+  # keeper.agents.git:view_history
+  - name: view_history
+    kind: function.lua
+    meta:
+      type: tool
+      title: View History
+      description: Shows commit history with configurable limit
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "count": {
+              "type": "integer",
+              "description": "Number of commits to retrieve (default: 10)"
+            }
+          }
+        }
+      llm_alias: view_history
+      llm_description: Retrieves and displays commit history with configurable number of entries
+    source: file://view_history.lua
+    imports:
+      commit: keeper.git:commit
+    method: handler
+    

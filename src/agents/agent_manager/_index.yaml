@@ -1,0 +1,631 @@
+version: "1.0"
+namespace: keeper.agents.agent_manager
+
+entries:
+  # keeper.agents.agent_manager:analyze_agent_config
+  - name: analyze_agent_config
+    kind: function.lua
+    meta:
+      type: tool
+      title: Agent Configuration Analyzer
+      description: Provides deep analysis of a single agent's complete configuration including inheritance tracing, tool expansion, delegation validation, and structured recommendations
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to analyze (e.g., 'namespace:agent_name')"
+            }
+          },
+          "required": ["agent_id"]
+        }
+      llm_description: Analyzes a single agent's complete configuration including inheritance chain, tool expansion (wildcards resolved), delegation validation, trait composition, memory sources, and provides warnings and recommendations for configuration improvements
+    source: file://analyze_agent_config.lua
+    modules:
+      - registry
+      - json
+    method: handler
+    
+  # keeper.agents.agent_manager:create_agent
+  - name: create_agent
+    kind: function.lua
+    meta:
+      type: tool
+      title: Create Agent
+      comment: Creates a new agent.gen1 entry in the registry with validation and error handling
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "Unique agent identifier in namespace:name format (e.g., 'app.agents:my_assistant')"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "System prompt that defines the agent's behavior and instructions"
+            },
+            "comment": {
+              "type": "string",
+              "description": "Description of what this agent does and its purpose"
+            },
+            "model": {
+              "type": "string",
+              "description": "LLM model to use (default: gpt-4.1)"
+            },
+            "max_tokens": {
+              "type": "number",
+              "description": "Maximum tokens for responses (default: 4096)"
+            },
+            "temperature": {
+              "type": "number",
+              "description": "Temperature for response generation 0.0-1.0 (default: 0.7)"
+            },
+            "thinking_effort": {
+              "type": "number",
+              "description": "Thinking effort level 0-100 for enhanced reasoning (default: 0)"
+            },
+            "memory": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of memory items to provide context to the agent"
+            },
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of tool IDs the agent can access"
+            },
+            "traits": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of trait names to incorporate into the agent"
+            },
+            "inherit": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of parent agent IDs to inherit capabilities from"
+            },
+            "title": {
+              "type": "string",
+              "description": "Display title for the agent"
+            },
+            "icon": {
+              "type": "string",
+              "description": "Icon identifier for the agent"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of tags for categorizing the agent"
+            },
+            "group": {
+              "type": "string",
+              "description": "Group name for organizing agents"
+            },
+            "class": {
+              "type": "string",
+              "description": "Class name for agent categorization"
+            }
+          },
+          "required": ["agent_id", "prompt", "comment"]
+        }
+      llm_alias: create_agent
+      llm_description: Creates a new AI agent with specified configuration including prompt, model settings, and capabilities
+    source: file://create_agent.lua
+    modules:
+      - json
+    imports:
+      create_entry: keeper.agents.registry:create_entry
+      find_entries: keeper.agents.registry:find_entries
+    method: handler
+    
+  # keeper.agents.agent_manager:list_agents
+  - name: list_agents
+    kind: function.lua
+    meta:
+      type: tool
+      title: Agent Lister
+      comment: Lists all agent.gen1 entries in the registry with basic metadata for agent discovery
+      description: Fast and lightweight tool for discovering all agent.gen1 entries in the registry with exact type matching and class information
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      llm_description: Lists all available agent.gen1 agents in the system with their IDs, descriptions, and classes for quick discovery. Uses exact matching for agent.gen1 type and includes class information when available.
+    source: file://list_agents.lua
+    modules:
+      - registry
+      - json
+    method: handler
+    
+  # keeper.agents.agent_manager:list_models
+  - name: list_models
+    kind: function.lua
+    meta:
+      type: tool
+      title: List LLM Models
+      comment: Lists available LLM models in the Wippy system with optional filtering by capabilities or provider
+      description: Comprehensive tool for discovering available LLM models with filtering capabilities and detailed model information
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "capabilities": {
+              "type": "array",
+              "description": "Optional array of capabilities to filter by (e.g., ['tool_use', 'vision', 'thinking'])",
+              "items": {
+                "type": "string",
+                "enum": ["tool_use", "vision", "thinking", "caching", "multilingual", "generate", "embed"]
+              }
+            },
+            "provider": {
+              "type": "string",
+              "description": "Optional provider name to filter by (e.g., 'openai', 'claude', 'google', 'local')"
+            },
+            "include_pricing": {
+              "type": "boolean",
+              "description": "Whether to include pricing information in the output (default: false)",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        }
+      llm_alias: list_llm_models
+      llm_description: Lists all available LLM models in the Wippy system. Can filter by capabilities (tool_use, vision, thinking, etc.) or provider (openai, claude, google, local). Returns essential model information including name, capabilities, token limits, and optionally pricing.
+    source: file://list_models.lua
+    modules:
+      - json
+    imports:
+      llm: wippy.llm:llm
+    method: handler
+    
+  # keeper.agents.agent_manager:list_tools
+  - name: list_tools
+    kind: function.lua
+    meta:
+      type: tool
+      title: List Tools
+      description: Comprehensive tool discovery and semantic search functionality for finding available tools in the Wippy system
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Optional semantic search query to find relevant tools based on description/functionality"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of tools to return (default: 50 when using query, unlimited for full list)",
+              "minimum": 1
+            },
+            "include_schemas": {
+              "type": "boolean",
+              "description": "Whether to include full tool schemas in output (default: false)",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        }
+      llm_alias: list_tools
+      llm_description: Discovers and lists all available tools in the Wippy system. Can perform semantic search when query is provided to find the most relevant tools based on functionality and description.
+    source: file://list_tools.lua
+    modules:
+      - registry
+      - json
+    imports:
+      llm: wippy.llm:llm
+    method: handler
+    
+  # keeper.agents.agent_manager:manage_agent_classes
+  - name: manage_agent_classes
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Agent Classes
+      comment: Add, remove, or set classes in an agent's meta.class field
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to modify (e.g., 'namespace:agent_name')"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["add", "remove", "set"],
+              "description": "Operation to perform: add, remove, or set classes"
+            },
+            "classes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of class names to add, remove, or set"
+            }
+          },
+          "required": ["agent_id", "operation", "classes"]
+        }
+      llm_description: Manages the meta.class field for an agent.gen1 entry. Supports add, remove, and set operations. Handles both string and array formats. Prevents duplicates and maintains proper class structure.
+    source: file://manage_agent_classes.lua
+    modules:
+      - registry
+      - json
+      - yaml
+    imports:
+      get_entries: keeper.agents.registry:get_entries
+      update_entry: keeper.agents.registry:update_entry
+    method: handler
+    
+  # keeper.agents.agent_manager:manage_agent_delegation
+  - name: manage_agent_delegation
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Agent Delegation
+      comment: Add, update, or remove delegation rules in an agent's delegate object
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to modify (e.g., 'namespace:agent_name')"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["add", "update", "remove"],
+              "description": "Operation to perform: add, update, or remove delegation rule"
+            },
+            "delegation_config": {
+              "type": "object",
+              "description": "Delegation configuration",
+              "properties": {
+                "target_id": {
+                  "type": "string",
+                  "description": "Target agent ID for delegation"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Tool name for the delegation (required for add/update)"
+                },
+                "rule": {
+                  "type": "string",
+                  "description": "Delegation rule description (required for add/update)"
+                }
+              },
+              "required": ["target_id"]
+            }
+          },
+          "required": ["agent_id", "operation", "delegation_config"]
+        }
+      llm_description: Manages the delegate object for an agent.gen1 entry. Can add, update, or remove delegation rules with validation to ensure target agents exist and are agent.gen1 type. Maintains proper delegation structure.
+    source: file://manage_agent_delegation.lua
+    modules:
+      - registry
+      - json
+    method: handler
+    
+  # keeper.agents.agent_manager:manage_agent_inheritance
+  - name: manage_agent_inheritance
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Agent Inheritance
+      comment: Add or remove parent agents from an agent's inherit array with circular dependency prevention
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to modify (e.g., 'namespace:agent_name')"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["add", "remove"],
+              "description": "Operation to perform: add or remove parent agents"
+            },
+            "parents": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of parent agent IDs to add or remove"
+            }
+          },
+          "required": ["agent_id", "operation", "parents"]
+        }
+      llm_description: Manages the inherit array for an agent.gen1 entry. Can add or remove parent agent IDs with validation to ensure parents exist and are agent.gen1 type. Prevents circular inheritance dependencies and maintains array integrity.
+    source: file://manage_agent_inheritance.lua
+    modules:
+      - registry
+      - json
+    imports:
+      agent_registry: wippy.agent.gen1:registry
+    method: handler
+    
+  # keeper.agents.agent_manager:manage_agent_memory
+  - name: manage_agent_memory
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Agent Memory
+      comment: Add or remove memory items from an agent's memory array
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to modify (e.g., 'namespace:agent_name')"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["add", "remove"],
+              "description": "Operation to perform: add or remove memory items"
+            },
+            "memory_items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of memory strings to add or remove"
+            }
+          },
+          "required": ["agent_id", "operation", "memory_items"]
+        }
+      llm_description: Manages the memory array for an agent.gen1 entry. Can add or remove memory strings. Prevents duplicates and maintains array integrity. Memory items are simple strings with no validation required.
+    source: file://manage_agent_memory.lua
+    modules:
+      - registry
+      - json
+      - yaml
+    imports:
+      get_entries: keeper.agents.registry:get_entries
+      update_entry: keeper.agents.registry:update_entry
+    method: handler
+    
+  # keeper.agents.agent_manager:manage_agent_tools
+  - name: manage_agent_tools
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Agent Tools
+      comment: Add or remove tools from an agent's tools array with validation
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to modify (e.g., 'namespace:agent_name')"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["add", "remove"],
+              "description": "Operation to perform: add or remove tools"
+            },
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of tool IDs to add or remove"
+            }
+          },
+          "required": ["agent_id", "operation", "tools"]
+        }
+      llm_description: Manages the tools array for an agent.gen1 entry. Can add or remove tool IDs with validation to ensure tools exist in the registry. Prevents duplicates and maintains array integrity.
+    source: file://manage_agent_tools.lua
+    modules:
+      - registry
+      - json
+      - yaml
+    imports:
+      get_entries: keeper.agents.registry:get_entries
+      update_entry: keeper.agents.registry:update_entry
+    method: handler
+    
+  # keeper.agents.agent_manager:manage_agent_traits
+  - name: manage_agent_traits
+    kind: function.lua
+    meta:
+      type: tool
+      title: Manage Agent Traits
+      comment: Add or remove traits from an agent's traits array with validation
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to modify (e.g., 'namespace:agent_name')"
+            },
+            "operation": {
+              "type": "string",
+              "enum": ["add", "remove"],
+              "description": "Operation to perform: add or remove traits"
+            },
+            "traits": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of trait names or IDs to add or remove"
+            }
+          },
+          "required": ["agent_id", "operation", "traits"]
+        }
+      llm_description: Manages the traits array for an agent.gen1 entry. Can add or remove trait names/IDs with validation using the wippy.agent:traits library. Prevents duplicates and maintains array integrity.
+    source: file://manage_agent_traits.lua
+    modules:
+      - registry
+      - json
+    imports:
+      traits: wippy.agent:traits
+    method: handler
+    
+  # keeper.agents.agent_manager:manager
+  - name: manager
+    kind: registry.entry
+    meta:
+      name: agent.manager
+      type: agent.gen1
+      title: Agent Manager
+      comment: Manages and oversees other agents in the Wippy system
+      group:
+        - System Utilities
+      tags:
+        - agent
+        - management
+        - system
+        - discovery
+      icon: tabler:robot
+    prompt: |-
+      You are the Agent Manager for the Wippy platform, responsible for overseeing and managing all agents in the system.
+    
+      ## Your Core Responsibilities:
+    
+      1. **Agent Discovery & Listing**: Help users find and understand available agents
+      2. **Agent Information**: Provide detailed information about agent capabilities, purposes, and configurations
+      3. **System Organization**: Help organize and categorize agents for better discoverability
+      4. **Agent Health & Status**: Monitor and report on agent operational status
+      5. **Best Practices**: Guide users on effective agent usage and management
+    
+      ## Your Capabilities:
+    
+      - **Comprehensive Agent Listing**: Access to all agents with metadata, groupings, and capabilities
+      - **Registry Search**: Advanced search capabilities across the agent registry
+      - **Agent Analysis**: Deep understanding of agent specifications, tools, and relationships
+      - **System Knowledge**: Expertise in Wippy's agent architecture and patterns
+    
+      ## When Helping Users:
+    
+      - Always start by understanding what the user is trying to accomplish
+      - Provide clear, organized information about available agents
+      - Explain agent capabilities in practical terms
+      - Suggest the most appropriate agents for specific tasks
+      - Help users understand agent relationships and delegation patterns
+      - Offer guidance on agent selection and usage best practices
+    
+      ## Agent Management Best Practices:
+    
+      - Agents should have clear, specific purposes
+      - Use delegation to connect specialized agents
+      - Leverage traits for consistent behavior patterns
+      - Maintain proper metadata for discoverability
+      - Monitor agent performance and usage patterns
+      - Keep agent configurations up to date
+    
+      ## Your Approach:
+    
+      - Be proactive in suggesting relevant agents
+      - Provide context about why specific agents are recommended
+      - Help users understand the agent ecosystem
+      - Facilitate efficient agent discovery and selection
+      - Maintain awareness of system-wide agent health and performance
+    
+      Your goal is to make the Wippy agent ecosystem accessible, organized, and efficiently utilized by all users.
+    model: gpt-4.1
+    temperature: 0.7
+    max_tokens: 4096
+    tools:
+      - keeper.agents.agent_manager:*
+      - keeper.agents.registry:find_entries
+      - keeper.agents.registry:get_entries
+    memory:
+      - Agent capabilities include tools, memory, traits, delegation, and inheritance
+      - Agent discovery relies on proper tagging, grouping, and descriptive metadata
+      - 'Agent groups help organize agents by function: System Utilities, Development, Content, etc.'
+      - Agent health includes operational status, token usage, and performance metrics
+      - Agent relationships include inheritance (parent-child) and delegation (specialized handoffs)
+      - Agents are defined as registry entries with type 'agent.gen1'
+      - 'Best practices: clear purposes, proper delegation, trait usage, metadata maintenance'
+      - System agents handle core platform functions while user agents handle specific tasks
+      - The registry system supports advanced search with wildcards and metadata filtering
+      - You manage all agents in the Wippy platform ecosystem
+    traits:
+      - dev
+      - research
+    
+  # keeper.agents.agent_manager:update_agent_metadata
+  - name: update_agent_metadata
+    kind: function.lua
+    meta:
+      type: tool
+      title: Update Agent Metadata
+      comment: Updates metadata fields for a single agent with validation and normalization
+      description: Safely updates agent metadata fields like comment, title, tags, group, and icon with proper validation, normalization, and before/after comparison
+      modules:
+        - registry
+      input_schema: |-
+        {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to update (e.g., 'namespace:agent_name')"
+            },
+            "metadata_updates": {
+              "type": "object",
+              "description": "Metadata fields to update",
+              "properties": {
+                "comment": {
+                  "type": "string",
+                  "description": "Agent description/comment"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Agent display title"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of tags for the agent"
+                },
+                "group": {
+                  "type": "string",
+                  "description": "Agent group/category"
+                },
+                "icon": {
+                  "type": "string",
+                  "description": "Icon name for the agent"
+                },
+                "class": {
+                  "type": ["string", "array"],
+                  "description": "Agent class or array of classes"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "required": ["agent_id", "metadata_updates"]
+        }
+      llm_description: Updates metadata fields for a single agent with validation and normalization. Validates agent existence, normalizes tags (lowercase, no spaces), validates icon names, and provides before/after comparison. Only updates provided fields while preserving existing metadata.
+    source: file://update_agent_metadata.lua
+    modules:
+      - json
+      - yaml
+      - registry
+    imports:
+      get_entries: keeper.agents.registry:get_entries
+      update_entry: keeper.agents.registry:update_entry
+    method: handler
+    

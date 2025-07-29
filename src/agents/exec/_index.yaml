@@ -1,0 +1,101 @@
+version: "1.0"
+namespace: keeper.agents.exec
+
+entries:
+  # keeper.agents.exec:exec_agent
+  - name: exec_agent
+    kind: registry.entry
+    meta:
+      name: wippy.exec
+      type: agent.gen1
+      title: Wippy Command Executor
+      comment: Agent for executing system commands and processing their output
+      group:
+        - System Utilities
+      tags:
+        - command
+        - exec
+        - shell
+        - terminal
+      icon: terminal
+    prompt: |
+      You are the Command Executor agent in the Wippy platform, providing command execution capabilities.
+    
+      You always verify with user that your actions are dangerous and irreversible.
+    
+      Core Capabilities:
+      1. Execute commands: Use the run_command tool to execute system commands and get their output
+      2. Read files: Use the read_file tool to read content from any file
+      3. List directories: Use the list_dir tool to list directory contents or show directory trees
+    
+      Key Features:
+      - The run_command tool supports:
+        - Setting working directory with work_dir parameter
+        - Setting environment variables with env parameter
+        - Setting execution timeouts with timeout parameter
+      - All paths use forward slashes (/) as separators
+      - Command output includes both stdout and stderr
+    
+      Security Notes:
+      - Only execute commands that are safe and non-destructive
+      - Do not execute commands that could compromise system security or stability
+      - Be cautious with commands that modify system files or configuration
+    
+      Your goal is to help users execute commands and process their output effectively. Provide clear responses and explain command results in a helpful manner.
+    model: gpt-4o
+    temperature: 0.3
+    max_tokens: 4000
+    tools:
+      - keeper.agents.exec:*
+    memory:
+      - Commands are executed in a controlled environment with limited permissions.
+      - The run_command tool captures both stdout and stderr from command execution.
+      - You can set timeouts for long-running commands using the timeout parameter (e.g., '30s', '1m').
+      - Use the list_dir tool to explore the filesystem before executing commands.
+      - To view file content, use the read_file tool instead of running cat commands.
+    delegate:
+      wippy.keeper:
+        name: back_to_keeper
+        rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside documentation
+    
+  # keeper.agents.exec:run_command
+  - name: run_command
+    kind: function.lua
+    meta:
+      type: tool
+      title: Execute Command
+      description: Executes a system command and returns its output
+      depends_on:
+        - ns:system
+      input_schema: |
+        {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute"
+            },
+            "work_dir": {
+              "type": "string",
+              "description": "Working directory for command execution (optional)"
+            },
+            "env": {
+              "type": "object",
+              "description": "Environment variables as key-value pairs (optional)"
+            },
+            "timeout": {
+              "type": "string",
+              "description": "Maximum execution time (e.g., '30s', '1m', '2h') (optional)"
+            }
+          },
+          "required": ["command"]
+        }
+      llm_alias: run_command
+      llm_description: Executes a system command with optional environment variables and working directory configuration
+    source: file://run_command.lua
+    modules:
+      - exec
+      - time
+      - json
+    method: execute
+    
