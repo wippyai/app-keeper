@@ -16,7 +16,7 @@ entries:
       - http
       - security
     imports:
-      dataflow_client: dataflow.runner:client
+      dataflow_client: wippy.dataflow.runner:client
     method: handler
     pool:
       size: 2
@@ -47,8 +47,8 @@ entries:
       - http
       - security
     imports:
-      data_reader: dataflow.persist:data_reader
-      dataflow_repo: dataflow.persist:dataflow_repo
+      data_reader: wippy.dataflow.persist:data_reader
+      dataflow_repo: wippy.dataflow.persist:dataflow_repo
     method: handler
     pool:
       size: 2
@@ -79,7 +79,7 @@ entries:
       - security
       - json
     imports:
-      dataflow_repo: dataflow.persist:dataflow_repo
+      dataflow_repo: wippy.dataflow.persist:dataflow_repo
     method: handler
     pool:
       size: 2
@@ -110,7 +110,7 @@ entries:
       - http
       - security
     imports:
-      dataflow_repo: dataflow.persist:dataflow_repo
+      dataflow_repo: wippy.dataflow.persist:dataflow_repo
     method: handler
     pool:
       size: 2
@@ -141,7 +141,7 @@ entries:
       - http
       - security
     imports:
-      dataflow_client: dataflow.runner:client
+      dataflow_client: wippy.dataflow.runner:client
     method: handler
     pool:
       size: 2

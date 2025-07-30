@@ -27,7 +27,7 @@ entries:
       - json
       - registry
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.registry:create_entry
@@ -71,7 +71,7 @@ entries:
       - json
       - registry
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.registry:delete_entry
@@ -99,7 +99,7 @@ entries:
       - json
       - registry
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.registry:find_entries
@@ -330,7 +330,7 @@ entries:
       - json
       - registry
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.registry:wippy_manager

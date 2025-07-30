@@ -44,7 +44,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
       template_utils: wippy.keeper.agents.views:template_utils
     method: handler
 
@@ -128,7 +128,7 @@ entries:
       - registry
       - security
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.views:delete_view
@@ -155,7 +155,7 @@ entries:
     modules:
       - registry
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.views:get_source
@@ -312,7 +312,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
       template_utils: wippy.keeper.agents.views:template_utils
     method: handler
 
@@ -410,7 +410,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
       template_utils: wippy.keeper.agents.views:template_utils
     method: handler
 
@@ -506,7 +506,7 @@ entries:
       - registry
       - security
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
       template_utils: wippy.keeper.agents.views:template_utils
     method: handler
 

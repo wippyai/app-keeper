@@ -42,7 +42,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.http:delete_http_endpoint
@@ -60,7 +60,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.http:endpoint_specialist

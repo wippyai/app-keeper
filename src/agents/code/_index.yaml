@@ -189,7 +189,7 @@ entries:
       - registry
     imports:
       code_utils: wippy.keeper.agents.code:code_utils
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.code:delete_code_entry
@@ -217,7 +217,7 @@ entries:
       - registry
     imports:
       code_utils: wippy.keeper.agents.code:code_utils
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.code:get_code_entries
@@ -331,7 +331,7 @@ entries:
       - registry
     imports:
       code_utils: wippy.keeper.agents.code:code_utils
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.code:modify_code_source
@@ -381,7 +381,7 @@ entries:
       - registry
       - text
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.code:testing_practice
@@ -497,5 +497,5 @@ entries:
     modules:
       - registry
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler

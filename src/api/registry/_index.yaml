@@ -128,7 +128,7 @@ entries:
       - json
       - registry
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
     pool:
       size: 2

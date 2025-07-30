@@ -28,8 +28,8 @@ entries:
       - ctx
       - uuid
     imports:
-      consts: dataflow:consts
-      starter: dataflow.runner:starter
+      consts: wippy.dataflow:consts
+      starter: wippy.dataflow.runner:starter
     method: execute
 
   # wippy.keeper.make.tools:research
@@ -67,6 +67,6 @@ entries:
       - ctx
       - uuid
     imports:
-      consts: dataflow:consts
-      starter: dataflow.runner:starter
+      consts: wippy.dataflow:consts
+      starter: wippy.dataflow.runner:starter
     method: execute

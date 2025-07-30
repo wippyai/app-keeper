@@ -18,8 +18,8 @@ entries:
       - ctx
       - uuid
     imports:
-      consts: dataflow:consts
-      starter: dataflow.runner:starter
+      consts: wippy.dataflow:consts
+      starter: wippy.dataflow.runner:starter
     method: execute
 
   # wippy.keeper.make.context.tools:summarize_context
@@ -62,7 +62,7 @@ entries:
       - ctx
     imports:
       prompt: wippy.llm:prompt
-      context_reader: dataflow.node:context
+      context_reader: wippy.dataflow.node:context
       llm: wippy.llm:llm
     method: execute
 
@@ -95,5 +95,5 @@ entries:
       - json
       - ctx
     imports:
-      context_reader: dataflow.node:context
+      context_reader: wippy.dataflow.node:context
     method: execute

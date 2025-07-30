@@ -1,0 +1,74 @@
+version: "1.0"
+namespace: wippy.keeper.views
+
+entries:
+  - name: __dependency.wippy.llm
+    kind: "ns.dependency"
+    meta:
+      description: "LLM component for language model operations"
+    component: "wippy/llm"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.session
+    kind: "ns.dependency"
+    meta:
+      description: "Session management component"
+    component: "wippy/session"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.usage
+    kind: "ns.dependency"
+    meta:
+      description: "Usage tracking component"
+    component: "wippy/usage"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.test
+    kind: "ns.dependency"
+    meta:
+      description: "Testing framework component"
+    component: "wippy/test"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.uploads
+    kind: "ns.dependency"
+    meta:
+      description: "File upload management component"
+    component: "wippy/uploads"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.embeddings
+    kind: "ns.dependency"
+    meta:
+      description: "Embeddings processing component"
+    component: "wippy/embeddings"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.agent
+    kind: "ns.dependency"
+    meta:
+      description: "Agent management component"
+    component: "wippy/agent"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.views
+    kind: "ns.dependency"
+    meta:
+      description: "View rendering component"
+    component: "wippy/views"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.dataflow
+    kind: "ns.dependency"
+    meta:
+      description: "Dataflow processing component"
+    component: "wippy/dataflow"
+    version: ">=v0.0.7"
+
+  - name: __dependency.wippy.gov
+    kind: "ns.dependency"
+    meta:
+      description: "Governance component"
+    component: "wippy/gov"
+    version: ">=v0.0.7"
+

@@ -56,7 +56,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.docscout:agent
@@ -228,7 +228,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
     llm_alias: create_extraction_group
     llm_description: "Adds a new DocScout extraction group to the registry.  \nValidates inputs, normalizes field definitions, applies defaults, and returns the created entry.\n"
@@ -456,7 +456,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.docscout:scout_document
@@ -556,7 +556,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.docscout:update_extraction_fields
@@ -642,7 +642,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.docscout:update_extraction_group_meta
@@ -692,7 +692,7 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler
 
   # wippy.keeper.agents.docscout:update_scouting_config
@@ -743,5 +743,5 @@ entries:
       - registry
       - json
     imports:
-      governance_client: gov:client
+      governance_client: wippy.gov:client
     method: handler

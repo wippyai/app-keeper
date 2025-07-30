@@ -113,8 +113,8 @@ entries:
       - registry
       - yaml
     imports:
-      consts: dataflow:consts
-      data_reader: dataflow.persist:data_reader
+      consts: wippy.dataflow:consts
+      data_reader: wippy.dataflow.persist:data_reader
     method: execute
 
   # wippy.keeper.make.develop:develop_init
@@ -130,6 +130,6 @@ entries:
       - ctx
       - uuid
     imports:
-      consts: dataflow:consts
-      context_reader: dataflow.node:context
+      consts: wippy.dataflow:consts
+      context_reader: wippy.dataflow.node:context
     method: execute

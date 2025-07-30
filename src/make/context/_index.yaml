@@ -17,8 +17,8 @@ entries:
       - registry
       - yaml
     imports:
-      consts: dataflow:consts
-      data_reader: dataflow.persist:data_reader
+      consts: wippy.dataflow:consts
+      data_reader: wippy.dataflow.persist:data_reader
     method: execute
 
   # wippy.keeper.make.context:search_arena
@@ -117,7 +117,7 @@ entries:
       - registry
       - funcs
     imports:
-      consts: dataflow:consts
-      context_reader: dataflow.node:context
+      consts: wippy.dataflow:consts
+      context_reader: wippy.dataflow.node:context
       find_relevant: wippy.keeper.agents.registry:find_relevant
     method: execute
