@@ -57,7 +57,7 @@ local function load_context_search_agents()
     end
 
     table.insert(agent_info, "Usage: Use search_context tool with agent_id parameter to specify which specialized agent to use.")
-    table.insert(agent_info, "Example: search_context({query: \"...\", title: \"...\", agent_id: \"wippy.keepermake.context.agents:api_interface_search\"})")
+    table.insert(agent_info, "Example: search_context({query: \"...\", title: \"...\", agent_id: \"wippy.keeper.make.context.agents:api_interface_search\"})")
 
     return table.concat(agent_info, "\n")
 end

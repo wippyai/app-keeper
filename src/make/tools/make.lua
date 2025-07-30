@@ -55,7 +55,7 @@ local function execute(params)
 
     -- Metadata consumed by react_node - routes to supervisor arena
     local input_metadata = {
-        arena_id = "wippy.keepermake.supervisor:arena",
+        arena_id = "wippy.keeper.make.supervisor:arena",
         data_targets = { workflow_output_target },
         target_node_id = dataflow_id,
         session_context = {

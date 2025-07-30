@@ -14,7 +14,7 @@ local CONSTANTS     = {
     CONTEXT_DISCRIMINATOR_PRIVATE = "private", -- supervisor‑only
     CONTEXT_DISCRIMINATOR_GROUP   = "group",   -- for shared inputs only
 
-    CONTEXT_SEARCH_ARENA_ID       = "wippy.keepermake.context:search_arena",
+    CONTEXT_SEARCH_ARENA_ID       = "wippy.keeper.make.context:search_arena",
     TITLE_TRUNCATE_LENGTH         = 20,
     AGENT_SELECTOR_FUNC_ID        = "wippy.agent.gen1:agent_selector"
 }
@@ -113,8 +113,7 @@ local function execute(input)
         add_ctx(context_load.load_recent_tool_usage(session_id), "session_tools")
         if enable_details then
             for _, m in ipairs(context_load.load_messages_and_error_analysis(session_id)) do
-                add_ctx(m,
-                    "session_activity")
+                add_ctx(m, "session_activity")
             end
         end
     end
@@ -179,6 +178,9 @@ local function execute(input)
         ctrl.yield = { user_context = { run_node_ids = { search_node_id } } }
     end
 
+    ---------------------------------------------------------------------
+    -- 5. RETURN ORIGINAL INPUT SO AGENT CAN SEE IT
+    ---------------------------------------------------------------------
     return {
         initialization_summary = {
             supervisor_agent           = agent_id,
@@ -190,7 +192,8 @@ local function execute(input)
                 message_details_enabled = enable_details
             }
         },
-        _control = ctrl
+        _control = ctrl,
+        input = input
     }
 end
 

@@ -4,8 +4,8 @@ local funcs = require("funcs")
 local yaml = require("yaml")
 
 -- Registry IDs of the functions we need to call
-local FIND_RELEVANT_ID = "wippy.keeperagents.registry:find_relevant"
-local GET_ENTRIES_ID = "wippy.keeperagents.registry:get_entries"
+local FIND_RELEVANT_ID = "wippy.keeper.agents.registry:find_relevant"
+local GET_ENTRIES_ID = "wippy.keeper.agents.registry:get_entries"
 
 -- Helper function to create a standardized YAML error response
 -- Uses the yaml module as requested.

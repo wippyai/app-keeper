@@ -3,7 +3,7 @@ local ctx = require("ctx")
 local uuid = require("uuid")
 local consts = require("consts")
 
-local DEVELOPER_ASSISTANT_ARENA_ID = "wippy.keepermake.develop:arena"
+local DEVELOPER_ASSISTANT_ARENA_ID = "wippy.keeper.make.develop:arena"
 
 local function generate_fallback_title(agent_id)
     if agent_id:find("coder_assistant") then
