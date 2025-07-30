@@ -16,7 +16,7 @@ local consts = require("consts")
 -- Constants
 local CONSTANTS = {
     CONTENT_TYPE = "text/plain",
-    SEARCH_ARENA = "keeper.make.context:search_arena"
+    SEARCH_ARENA = "wippy.keepermake.context:search_arena"
 }
 
 -- Implementation

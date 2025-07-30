@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.api.models
+namespace: wippy.keeper.api.models
 
 entries:
-  # keeper.api.models:list_models
+  # wippy.keeper.api.models:list_models
   - name: list_models
     kind: function.lua
     meta:
@@ -18,8 +18,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.models:list_models.endpoint
+
+  # wippy.keeper.api.models:list_models.endpoint
   - name: list_models.endpoint
     kind: http.endpoint
     meta:
@@ -30,4 +30,3 @@ entries:
     method: GET
     func: list_models
     path: /keeper/models/list
-    

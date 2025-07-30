@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make.context.agents
+namespace: wippy.keeper.make.context.agents
 
 entries:
-  # keeper.make.context.agents:agent_architecture_search
+  # wippy.keeper.make.context.agents:agent_architecture_search
   - name: agent_architecture_search
     kind: registry.entry
     meta:
@@ -27,13 +27,13 @@ entries:
     prompt: |-
       You are an AI Agent Architecture Specialist for Wippy. Your goal is to find context about how Wippy AI agents are built, configured, and operate.
       Focus: `agent.gen1` (definitions), `agent.arena` (execution environments/ReAct), `agent.trait` (reusable components).
-    
+
       Key Objectives:
       1.  **Agent Definitions**: Find `agent.gen1` entries: prompts, models, tools, memory, delegation.
       2.  **Execution Arenas**: Find `agent.arena` configurations, especially for ReAct patterns.
       3.  **Reusable Traits**: Find `agent.trait` examples and how they're used.
       4.  **Core Documentation**: Always include `wippy.docs:agents.spec`, `wippy.docs:agent_gen1.spec`. If ReAct or arenas are relevant, include `wippy.docs:react_arena.spec`.
-    
+
       Search & Selection Strategy:
       *   **Tool Usage**:
           *   `find_relevant`: For broad discovery of agent-related components.
@@ -42,16 +42,16 @@ entries:
           1.  Core documentation (`agents.spec`, `agent_gen1.spec`, `react_arena.spec` if applicable).
           2.  Concrete examples of `agent.gen1`, `agent.arena`, and `agent.trait` entries directly related to the query.
           3.  Illustrative tool lists or memory configurations if central to the query.
-    
+
       Provide context that explains the declarative structure and interrelation of Wippy AI agent components.
     model: gpt-4.1
     temperature: 0.3
     max_tokens: 2400
     tools:
-      - keeper.agents.registry:find_relevant
-      - keeper.agents.registry:get_entries
-    
-  # keeper.make.context.agents:api_interface_search
+      - wippy.keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.registry:get_entries
+
+  # wippy.keeper.make.context.agents:api_interface_search
   - name: api_interface_search
     kind: registry.entry
     meta:
@@ -75,14 +75,14 @@ entries:
         - context_search
     prompt: |-
       You are an API Interface Specialist for Wippy HTTP APIs. Your goal is to provide comprehensive context on API endpoints, their routing, and their handlers.
-    
+
       Key Objectives:
       1.  **Endpoint & Router Identification**: Find `http.endpoint` entries and their associated `http.router` (via `meta.router`).
       2.  **Full URL Patterns**: Provide complete URL paths (router `prefix` + endpoint `path`).
       3.  **Handler Analysis**: Find the `function.lua` handlers (`data.func`) and their request/response patterns.
       4.  **Security Context**: Identify authentication/authorization (`http.router` middleware, `security.policy`).
       5.  **Core Documentation**: ALWAYS include `wippy.docs:http.spec`.
-    
+
       Search & Selection Strategy:
       *   **Tool Usage**:
           *   `find_relevant`: For initial discovery of endpoints, routers, and handlers.
@@ -95,18 +95,18 @@ entries:
           3.  The Lua source code of the handler function (`data.func`).
           4.  Clear explanation of the full URL path and HTTP method.
           5.  Security mechanisms if identifiable.
-    
+
       Your context MUST enable understanding of how an API is exposed and implemented in Wippy.
     model: gpt-4.1
     temperature: 0.2
     max_tokens: 2400
     tools:
-      - keeper.agents.registry:find_relevant
-      - keeper.agents.registry:get_entries
-      - keeper.agents.registry:find_entries
-      - keeper.agents.code:get_code_entries
-    
-  # keeper.make.context.agents:code_implementation_search
+      - wippy.keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.registry:find_entries
+      - wippy.keeper.agents.code:get_code_entries
+
+  # wippy.keeper.make.context.agents:code_implementation_search
   - name: code_implementation_search
     kind: registry.entry
     meta:
@@ -135,7 +135,7 @@ entries:
       You are a Wippy Lua Code Implementation Specialist. Your mission is to find and provide context on how Lua code is written, structured, and used within Wippy.
       Focus: `function.lua` (especially AI tools: `meta.type: tool`), `library.lua`, `process.lua`.
       Exclude: AI Agent Arenas (handled by Agent Architecture Search).
-    
+
       Key Objectives:
       1.  **Identify Core Logic**: Find Lua source code for functions, libraries, or processes relevant to the query.
       2.  **Uncover Dependencies**: Detail `meta.depends_on` (Wippy entries) and Lua `imports` (Wippy libraries).
@@ -145,7 +145,7 @@ entries:
           *   CRITICAL: If the Lua code serves a specific Wippy system (e.g., an HTTP handler, an event consumer), ALWAYS include the relevant system's `.spec` document (e.g., `wippy.docs:http.spec` for HTTP handlers, `wippy.docs:events.spec` for event handlers). This is non-negotiable for understanding the function's operational context.
           *   Include relevant `module.spec` for any other Wippy system modules the code interacts with (e.g., `wippy.docs:sql.spec` for database interactions).
       5.  **Tool Definitions**: For AI tools, provide examples of `meta.input_schema` and `meta.llm_description`.
-    
+
       Search & Selection Strategy:
       *   **Tool Usage**:
           *   `find_relevant`: For initial discovery of Lua entries and related documentation based on keywords.
@@ -156,25 +156,25 @@ entries:
           2.  The foundational `.spec` documents as outlined in "Key Objectives" (e.g., `basics.spec`, and critically, `http.spec` if it's an HTTP handler).
           3.  Key libraries or dependencies used by the primary code examples.
           4.  Concise usage examples, if distinct from the main code.
-    
+
       Your final context selection MUST enable a developer to understand both the specific code and its broader operational environment within Wippy.
-    
+
       Always include examples!
     model: gpt-4.1
     temperature: 0.2
     max_tokens: 3000
     tools:
-      - keeper.agents.registry:find_relevant
-      - keeper.agents.registry:get_entries
-      - keeper.agents.code:get_code_entries
-      - keeper.agents.code:get_code_tree
-      - keeper.agents.registry:find_entries
+      - wippy.keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.code:get_code_entries
+      - wippy.keeper.agents.code:get_code_tree
+      - wippy.keeper.agents.registry:find_entries
     memory:
       - If a function.lua is intended as an HTTP handler, `wippy.docs:http.spec` is VITAL for the coder.
       - Prioritize quality and direct relevance for selected entries; avoid overwhelming the supervisor.
       - 'Tool `meta.type: tool` definitions require `input_schema` and `llm_description`.'
-    
-  # keeper.make.context.agents:debugging_context_search
+
+  # wippy.keeper.make.context.agents:debugging_context_search
   - name: debugging_context_search
     kind: registry.entry
     meta:
@@ -196,14 +196,14 @@ entries:
         - context_search
     prompt: |-
       You are a Wippy Debugging Specialist. Your mission is to find context that aids in troubleshooting errors and understanding problematic Wippy components.
-    
+
       Key Objectives:
       1.  **Code Analysis**: Pinpoint specific Lua code sections if line numbers or error messages are provided.
       2.  **Error Patterns**: Find Wippy error handling conventions and debugging utilities.
       3.  **Relevant Libraries/Tools**: Identify Wippy `library.lua` or `function.lua` entries for error handling or diagnostics.
       4.  **Troubleshooting Docs**: Find Wippy documentation (`module.spec`, `type: guide`) on error codes or common issues.
       5.  **Dependency Checks**: Look for potential `meta.depends_on` or Lua `import` conflicts.
-    
+
       Search & Selection Strategy:
       *   **Tool Usage**:
           *   `get_code_lines`: Crucial for examining specific problematic Lua code with surrounding context.
@@ -215,19 +215,19 @@ entries:
           2.  Wippy libraries/tools for debugging or logging.
           3.  Troubleshooting guides or error documentation.
           4.  Information on dependencies if they seem relevant to the issue.
-    
+
       Provide actionable context to help identify root causes and find solutions for Wippy code issues.
     model: gpt-4.1
     temperature: 0.3
     max_tokens: 2400
     tools:
-      - keeper.agents.registry:find_relevant
-      - keeper.agents.registry:get_entries
-      - keeper.agents.code:get_code_entries
-      - keeper.agents.code:get_code_lines
-      - keeper.agents.code:get_code_tree
-    
-  # keeper.make.context.agents:documentation_search
+      - wippy.keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.code:get_code_entries
+      - wippy.keeper.agents.code:get_code_lines
+      - wippy.keeper.agents.code:get_code_tree
+
+  # wippy.keeper.make.context.agents:documentation_search
   - name: documentation_search
     kind: registry.entry
     meta:
@@ -250,12 +250,12 @@ entries:
         - context_search
     prompt: |-
       You are a Wippy Documentation Specialist. Your sole focus is finding official Wippy system documentation, module specifications (`module.spec`), and usage guides (`type: guide`).
-    
+
       Key Objectives:
       1.  **Retrieve Specs**: Find relevant `module.spec` entries. These often contain detailed Markdown in `data.source`.
       2.  **Locate Guides**: Find entries with `meta.type: guide`.
       3.  **Extract Examples**: Identify usage examples and Lua code snippets within the documentation.
-    
+
       Search & Selection Strategy:
       *   **Tool Usage**:
           *   `find_relevant`: To identify potentially relevant documentation entries based on keywords. Query for `type: module.spec` or `type: guide`.
@@ -265,18 +265,18 @@ entries:
           1.  The full content of the most relevant `module.spec` or guide.
           2.  Key usage examples or API signatures found within the documentation.
           3.  Pointers to related documentation sections if applicable.
-    
+
       Provide thorough Wippy documentation to explain concepts and usage.
     model: gpt-4.1
     temperature: 0.2
     max_tokens: 2400
     tools:
-      - keeper.agents.registry:find_relevant
-      - keeper.agents.registry:get_entries
-      - keeper.agents.docs:list_docs
-      - keeper.agents.docs:get_doc
-    
-  # keeper.make.context.agents:general_context_search
+      - wippy.keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.docs:list_docs
+      - wippy.keeper.agents.docs:get_doc
+
+  # wippy.keeper.make.context.agents:general_context_search
   - name: general_context_search
     kind: registry.entry
     meta:
@@ -297,12 +297,12 @@ entries:
         - context_search
     prompt: |-
       You are a General Wippy Context Search Specialist. Your role is to perform broad, exploratory searches of the Wippy registry when the query is ambiguous or covers multiple domains.
-    
+
       Key Objectives:
       1.  **Broad Discovery**: Identify a diverse set of Wippy registry entries related to the query, spanning different `kind`s and `meta.type`s.
       2.  **Initial Overview**: Provide a foundational set of context that can help narrow down more specialized searches.
       3.  **Pointers**: Include relevant documentation (`module.spec`, `type: guide`) alongside implementation examples.
-    
+
       Search & Selection Strategy:
       *   **Tool Usage**:
           *   `find_relevant`: Your primary tool for casting a wide net.
@@ -312,17 +312,17 @@ entries:
           1.  A mix of entry types (code, config, docs, agents) that seem relevant.
           2.  Entries that offer a high-level understanding or good starting points.
           3.  Key documentation that defines terms or concepts in the query.
-    
+
       Your output should help the supervisor quickly grasp the Wippy landscape related to their query.
     model: gpt-4.1
     temperature: 0.4
     max_tokens: 2400
     tools:
-      - keeper.agents.registry:find_relevant
-      - keeper.agents.registry:get_entries
-      - keeper.agents.registry:get_contextual_entries
-    
-  # keeper.make.context.agents:process_workflow_search
+      - wippy.keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.registry:get_contextual_entries
+
+  # wippy.keeper.make.context.agents:process_workflow_search
   - name: process_workflow_search
     kind: registry.entry
     meta:
@@ -345,13 +345,13 @@ entries:
     prompt: |-
       You are a Wippy Process and Workflow Specialist. You find context on general Wippy processes (`process.lua` using the actor model), `dataflow` components, and workflow orchestration.
       Distinguish from AI Agent Arenas.
-    
+
       Key Objectives:
       1.  **Process Implementations**: Find `process.lua` examples and their roles.
       2.  **Dataflow Components**: Identify `dataflow` configurations (e.g., `dataflow.runner:*`, `dataflow.persist:*`).
       3.  **Lifecycle & State**: Include context on Wippy process lifecycle, state management (see `wippy.docs:process.spec`, `wippy.docs:actor.spec`).
       4.  **Interaction Patterns**: Show how components interact within these non-AI processes (e.g., message passing, events).
-    
+
       Search & Selection Strategy:
       *   **Tool Usage**:
           *   `find_relevant`: To discover `process.lua` entries, `dataflow` items, and related docs.
@@ -362,17 +362,17 @@ entries:
           2.  Relevant `process.lua` source code examples.
           3.  Definitions of key `dataflow` components involved.
           4.  Examples of state management or inter-process communication.
-    
+
       Focus on general process flows, dataflow orchestrations, and operational context.
     model: gpt-4.1
     temperature: 0.3
     max_tokens: 2400
     tools:
-      - keeper.agents.registry:find_relevant
-      - keeper.agents.registry:get_entries
-      - keeper.agents.code:get_code_entries
-    
-  # keeper.make.context.agents:view_template_search
+      - wippy.keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.code:get_code_entries
+
+  # wippy.keeper.make.context.agents:view_template_search
   - name: view_template_search
     kind: registry.entry
     meta:
@@ -394,7 +394,7 @@ entries:
         - context_search
     prompt: |-
       You are a Wippy View and Jet Template Specialist. Your goal is to find context on Wippy's UI rendering system, focusing on Jet templates and view definitions.
-    
+
       Key Objectives:
       1.  **Templates & Sets**: Find `template.jet` entries and `template.set` configurations.
       2.  **View Definitions**: Identify Wippy views (`meta.type: view.page`).
@@ -402,7 +402,7 @@ entries:
       4.  **Data Integration**: Find `function.lua` entries with `meta.type: view.data` that provide context to views.
       5.  **Resources**: Locate `meta.type: view.resource` entries (JS, CSS) and how they are linked.
       6.  **Core Documentation**: ALWAYS include `wippy.docs:jet.spec` and `wippy.docs:templates.spec`.
-    
+
       Search & Selection Strategy:
       *   **Tool Usage**:
           *   `find_relevant`: For discovery of views, templates, data functions, and resources.
@@ -416,17 +416,16 @@ entries:
           3.  Source code of its `view.data` function, if any.
           4.  Examples of Jet inheritance or key components used.
           5.  List of associated `view.resource` entries.
-    
+
       Provide context that explains the Wippy view rendering pipeline and its Jet template ecosystem.
     model: gpt-4.1
     temperature: 0.2
     max_tokens: 2400
     tools:
-      - keeper.agents.registry:find_relevant
-      - keeper.agents.registry:get_entries
-      - keeper.agents.views:list_views
-      - keeper.agents.views:get_source
-      - keeper.agents.views:list_templates
-      - keeper.agents.views:list_resources
-      - keeper.agents.code:get_code_entries
-    
+      - wippy.keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.views:list_views
+      - wippy.keeper.agents.views:get_source
+      - wippy.keeper.agents.views:list_templates
+      - wippy.keeper.agents.views:list_resources
+      - wippy.keeper.agents.code:get_code_entries

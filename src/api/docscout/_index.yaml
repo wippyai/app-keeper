@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.api.docscout
+namespace: wippy.keeper.api.docscout
 
 entries:
-  # keeper.api.docscout:create_group
+  # wippy.keeper.api.docscout:create_group
   - name: create_group
     kind: function.lua
     meta:
@@ -19,8 +19,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.docscout:create_group.endpoint
+
+  # wippy.keeper.api.docscout:create_group.endpoint
   - name: create_group.endpoint
     kind: http.endpoint
     meta:
@@ -31,8 +31,8 @@ entries:
     method: POST
     func: create_group
     path: /keeper/docscout/groups/create
-    
-  # keeper.api.docscout:delete_group
+
+  # wippy.keeper.api.docscout:delete_group
   - name: delete_group
     kind: function.lua
     meta:
@@ -49,8 +49,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.docscout:delete_group.endpoint
+
+  # wippy.keeper.api.docscout:delete_group.endpoint
   - name: delete_group.endpoint
     kind: http.endpoint
     meta:
@@ -61,8 +61,8 @@ entries:
     method: DELETE
     func: delete_group
     path: /keeper/docscout/groups/delete
-    
-  # keeper.api.docscout:list_groups
+
+  # wippy.keeper.api.docscout:list_groups
   - name: list_groups
     kind: function.lua
     meta:
@@ -77,8 +77,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.docscout:list_groups.endpoint
+
+  # wippy.keeper.api.docscout:list_groups.endpoint
   - name: list_groups.endpoint
     kind: http.endpoint
     meta:
@@ -89,8 +89,8 @@ entries:
     method: GET
     func: list_groups
     path: /keeper/docscout/groups/list
-    
-  # keeper.api.docscout:test_extraction
+
+  # wippy.keeper.api.docscout:test_extraction
   - name: test_extraction
     kind: function.lua
     meta:
@@ -106,8 +106,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.docscout:test_extraction.endpoint
+
+  # wippy.keeper.api.docscout:test_extraction.endpoint
   - name: test_extraction.endpoint
     kind: http.endpoint
     meta:
@@ -118,8 +118,8 @@ entries:
     method: POST
     func: test_extraction
     path: /keeper/docscout/test
-    
-  # keeper.api.docscout:update_group
+
+  # wippy.keeper.api.docscout:update_group
   - name: update_group
     kind: function.lua
     meta:
@@ -136,8 +136,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.docscout:update_group.endpoint
+
+  # wippy.keeper.api.docscout:update_group.endpoint
   - name: update_group.endpoint
     kind: http.endpoint
     meta:
@@ -148,4 +148,3 @@ entries:
     method: PUT
     func: update_group
     path: /keeper/docscout/groups/update
-    

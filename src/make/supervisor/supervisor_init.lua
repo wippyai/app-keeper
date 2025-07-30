@@ -14,7 +14,7 @@ local CONSTANTS     = {
     CONTEXT_DISCRIMINATOR_PRIVATE = "private", -- supervisor‑only
     CONTEXT_DISCRIMINATOR_GROUP   = "group",   -- for shared inputs only
 
-    CONTEXT_SEARCH_ARENA_ID       = "keeper.make.context:search_arena",
+    CONTEXT_SEARCH_ARENA_ID       = "wippy.keepermake.context:search_arena",
     TITLE_TRUNCATE_LENGTH         = 20,
     AGENT_SELECTOR_FUNC_ID        = "wippy.agent.gen1:agent_selector"
 }

@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.views.editors.security_policy
+namespace: wippy.keeper.views.editors.security_policy
 
 entries:
-  # keeper.views.editors.security_policy:editors
+  # wippy.keeper.views.editors.security_policy:editors
   - name: editors
     kind: registry.entry
     meta:
@@ -14,9 +14,9 @@ entries:
         icon: tabler:shield-lock
         order: 1
         id: default
-        page_name: keeper.views.editors.security_policy:info
-    
-  # keeper.views.editors.security_policy:info
+        page_name: wippy.keeper.views.editors.security_policy:info
+
+  # wippy.keeper.views.editors.security_policy:info
   - version: "1.0"
     name: info
     kind: template.jet
@@ -29,7 +29,6 @@ entries:
       content_type: text/html
       secure: true
     source: file://info.jet
-    set: keeper.views.common:templates
+    set: wippy.keeper.views.common:templates
     resources:
-      - keeper.views.common:alpine.js
-    
+      - wippy.keeper.views.common:alpine.js

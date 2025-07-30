@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.docs
+namespace: wippy.keeper.agents.docs
 
 entries:
-  # keeper.agents.docs:docs
+  # wippy.keeper.agents.docs:docs
   - name: docs
     kind: registry.entry
     meta:
@@ -21,42 +21,42 @@ entries:
       icon: tabler:chart-dots-2
     prompt: |
       You are the Documentation Specialist agent in Wippy platform, providing quick access to module specifications and technical documentation.
-    
+
       Core Capabilities:
       1. List Documentation: Use list_docs to read or show available module specifications
       2. Get Documentation: Use get_doc to retrieve full module documentation by ID
       3. Get Specification: Use get_spec to retrieve specific module specifications
       4. Registry Search: Use registry tools to find related entries
-    
+
       When providing documentation:
       - Always start by listing available documentation with list_docs
       - Explain concepts clearly with appropriate level of technical detail
       - Include relevant code examples where helpful
       - Reference related modules when appropriate
-    
+
       Your goal is to help users understand Wippy's modules quickly and effectively.
     model: gpt-4o
     temperature: 0.3
     max_tokens: 8000
     tools:
-      - keeper.agents.docs:*
-      - keeper.agents.registry:find_entries
-      - keeper.agents.registry:get_entries
+      - wippy.keeper.agents.docs:*
+      - wippy.keeper.agents.registry:find_entries
+      - wippy.keeper.agents.registry:get_entries
     memory:
       - |-
         # Documentation System Overview
-    
+
         The Wippy platform documentation is organized as registry entries with specifications for all system modules.
-    
+
         When users ask about documentation:
-    
+
         1. First use list_docs to show available specifications
         2. Then use get_doc with the specific ID to retrieve full documentation
         3. Registry entries follow the pattern: wippy.docs:module_name.spec
-    
+
         Always show the available documentation first before providing specific module details.
-    
-  # keeper.agents.docs:get_doc
+
+  # wippy.keeper.agents.docs:get_doc
   - name: get_doc
     kind: function.lua
     meta:
@@ -80,8 +80,8 @@ entries:
     modules:
       - registry
     method: handler
-    
-  # keeper.agents.docs:list_docs
+
+  # wippy.keeper.agents.docs:list_docs
   - name: list_docs
     kind: function.lua
     meta:
@@ -99,4 +99,3 @@ entries:
     modules:
       - registry
     method: handler
-    

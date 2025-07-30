@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make.context
+namespace: wippy.keeper.make.context
 
 entries:
-  # keeper.make.context:context_finalizer
+  # wippy.keeper.make.context:context_finalizer
   - name: context_finalizer
     kind: function.lua
     meta:
@@ -20,8 +20,8 @@ entries:
       consts: dataflow:consts
       data_reader: dataflow.persist:data_reader
     method: execute
-    
-  # keeper.make.context:search_arena
+
+  # wippy.keeper.make.context:search_arena
   - name: search_arena
     kind: registry.entry
     meta:
@@ -37,9 +37,9 @@ entries:
     description: Specialized arena for building context from registry entries and custom content
     prompt: |
       You are a context search specialist. Your job is to gather relevant context information for a specific task.
-    
+
       You have access to your own tools for finding and reading registry entries.
-    
+
       Your process:
       1. ANALYZE the task/query to understand what context is needed
       2. USE your own tools to discover and examine relevant registry entries
@@ -48,14 +48,14 @@ entries:
          - success=true if you gathered useful context
          - selected_entries: array of {entry_id, comment} for registry entries to fetch and store
          - search_summary: brief description of what context was gathered
-    
+
       Focus on quality over quantity - include only relevant context that will help with the task.
       Always explain WHY each registry entry is relevant when selecting it.
-    
+
       Please note, all ids are given in namespace.child:name.child format. Entry kind has nothing to do with id.
     tools: {}
-    end_function: keeper.make.context:context_finalizer
-    id: keeper.make.context:search_arena
+    end_function: wippy.keeper.make.context:context_finalizer
+    id: wippy.keeper.make.context:search_arena
     iterations:
       max: 8
       min: 2
@@ -100,9 +100,9 @@ entries:
             },
             "required": ["success"]
           }
-    start_function: keeper.make.context:search_initializer
-    
-  # keeper.make.context:search_initializer
+    start_function: wippy.keeper.make.context:search_initializer
+
+  # wippy.keeper.make.context:search_initializer
   - name: search_initializer
     kind: function.lua
     meta:
@@ -119,6 +119,5 @@ entries:
     imports:
       consts: dataflow:consts
       context_reader: dataflow.node:context
-      find_relevant: keeper.agents.registry:find_relevant
+      find_relevant: wippy.keeper.agents.registry:find_relevant
     method: execute
-    

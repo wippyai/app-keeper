@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make.supervisor
+namespace: wippy.keeper.make.supervisor
 
 entries:
-  # keeper.make.supervisor:arena
+  # wippy.keeper.make.supervisor:arena
   - name: arena
     kind: registry.entry
     meta:
@@ -22,7 +22,7 @@ entries:
     description: Arena for supervisor agents to coordinate specialized `developer_assistant` agents and manage complex Wippy system modification tasks.
     prompt: |
       You are a Supervisor Agent, orchestrating a team of specialized `developer_assistant` agents (Coder, Views, Registry Assistants) to perform complex tasks related to the development and configuration of the Wippy system. You also possess tools for direct context searching to aid your planning and delegation.
-    
+
       **Your Core Role:**
       1.  **Understand Initial Context**: Review the context provided at the start of your operation. This includes information about yourself, manageable agents, the current session, and an initial dynamic context search related to the primary task.
       2.  **Decompose Complex Requests**: Analyze user requests and break them down into specific, actionable sub-tasks suitable for your team of `developer_assistant` agents.
@@ -36,11 +36,11 @@ entries:
           *   **Clear Expected Outcome**: The `expected_outcome_description` should precisely state what you need back.
       5.  **Manage Workflow & Synthesize Results**: Coordinate sequences of operations. Combine outputs.
       6.  **Augment Your Own Context**: If *you* lack specific details needed to effectively instruct an assistant, use your `search_context` tool. This tool is for *your* understanding.
-    
+
       **Tool Usage Strategy:**
       -   `delegate_to_assistant`: Your PRIMARY tool for actioning development/configuration tasks.
       -   `search_context`: Use SPARINGLY (max 1-2 times per overall user request) and ONLY when *you* need more Wippy system context.
-    
+
       **Interaction Flow:**
       1.  REVIEW initial context.
       2.  ANALYZE the user's overall objective.
@@ -50,10 +50,10 @@ entries:
       6.  AWAIT and REVIEW results. Iterate if needed.
       7.  CONSOLIDATE work into a final result.
     tools:
-      - keeper.make.context.tools:search_context
-      - keeper.make.context.tools:summarize_context
-      - keeper.make.context.tools:view_context
-      - keeper.make.develop.tools:delegate
+      - wippy.keeper.make.context.tools:search_context
+      - wippy.keeper.make.context.tools:summarize_context
+      - wippy.keeper.make.context.tools:view_context
+      - wippy.keeper.make.develop.tools:delegate
     iterations:
       max: 40
       min: 1
@@ -72,9 +72,9 @@ entries:
             },
             "required": ["success", "summary_of_actions"]
           }
-    start_function: keeper.make.supervisor:supervisor_init
-    
-  # keeper.make.supervisor:context_loaders
+    start_function: wippy.keeper.make.supervisor:supervisor_init
+
+  # wippy.keeper.make.supervisor:context_loaders
   - name: context_loaders
     kind: library.lua
     meta:
@@ -96,8 +96,8 @@ entries:
       agent_registry: wippy.agent.gen1:registry
       message_repo: wippy.session.persist:message_repo
       session_repo: wippy.session.persist:session_repo
-    
-  # keeper.make.supervisor:supervisor_init
+
+  # wippy.keeper.make.supervisor:supervisor_init
   - name: supervisor_init
     kind: function.lua
     meta:
@@ -111,6 +111,5 @@ entries:
       - uuid
       - funcs
     imports:
-      context_loaders: keeper.make.supervisor:context_loaders
+      context_loaders: wippy.keeper.make.supervisor:context_loaders
     method: execute
-    

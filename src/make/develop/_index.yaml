@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make.develop
+namespace: wippy.keeper.make.develop
 
 entries:
-  # keeper.make.develop:arena
+  # wippy.keeper.make.develop:arena
   - name: arena
     kind: registry.entry
     meta:
@@ -17,14 +17,14 @@ entries:
     prompt: |
       You are a specialized Wippy Developer Assistant executing a specific task delegated by a Supervisor.
       Your specific role and expertise (Coder, Views, or Registry) are defined by your core agent definition.
-    
+
       **Your Current Task:**
       You have been provided with:
       1.  A `task_query` from the Supervisor detailing what you need to accomplish.
       2.  Optional `context_data` from the Supervisor (e.g., existing code, Wippy entry IDs, YAML).
       3.  An `expected_outcome_from_supervisor` description, clarifying what deliverable the Supervisor needs back from you.
       4.  Optional `provided_context` - additional context items that the Supervisor has shared with you to help with the task.
-    
+
       **Operational Guidelines:**
       -   Focus SOLELY on the provided `task_query`.
       -   Utilize your specialized tools (defined in your core agent definition) to perform the task.
@@ -34,15 +34,15 @@ entries:
       -   Once the task is completed successfully, use the `finish_task` tool to return the results.
       -   If the task cannot be completed due to an error you encounter (and not just a lack of clarity, which should be reported immediately), use `finish_task` with `success: false` and a detailed `error_message`.
       -   When you create, modify, or delete Wippy registry entries, you MUST track these changes and include them in your final result for the Supervisor's awareness.
-    
+
       **Context Tracking:**
       When you complete your task, you should provide:
       - A summary of what was accomplished
       - Details about any registry entries that were created, modified, or deleted
       - Context about the changes for future reference
-    
+
       Your goal is to accurately and efficiently complete the delegated sub-task using your specialized skills and tools, then report the outcome back to the Supervisor with full context about what was changed.
-    end_function: keeper.make.develop:develop_finalizer
+    end_function: wippy.keeper.make.develop:develop_finalizer
     iterations:
       max: 20
       min: 1
@@ -96,9 +96,9 @@ entries:
             },
             "required": ["success"]
           }
-    start_function: keeper.make.develop:develop_init
-    
-  # keeper.make.develop:develop_finalizer
+    start_function: wippy.keeper.make.develop:develop_init
+
+  # wippy.keeper.make.develop:develop_finalizer
   - name: develop_finalizer
     kind: function.lua
     meta:
@@ -116,8 +116,8 @@ entries:
       consts: dataflow:consts
       data_reader: dataflow.persist:data_reader
     method: execute
-    
-  # keeper.make.develop:develop_init
+
+  # wippy.keeper.make.develop:develop_init
   - name: develop_init
     kind: function.lua
     meta:
@@ -133,4 +133,3 @@ entries:
       consts: dataflow:consts
       context_reader: dataflow.node:context
     method: execute
-    

@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.tests
+namespace: wippy.keeper.agents.tests
 
 entries:
-  # keeper.agents.tests:list_tests
+  # wippy.keeper.agents.tests:list_tests
   - name: list_tests
     kind: function.lua
     meta:
@@ -40,8 +40,8 @@ entries:
     modules:
       - registry
     method: handler
-    
-  # keeper.agents.tests:run_test
+
+  # wippy.keeper.agents.tests:run_test
   - name: run_test
     kind: function.lua
     meta:
@@ -94,8 +94,8 @@ entries:
       - json
       - time
     method: handler
-    
-  # keeper.agents.tests:tests
+
+  # wippy.keeper.agents.tests:tests
   - name: tests
     kind: registry.entry
     meta:
@@ -112,36 +112,36 @@ entries:
       icon: tabler:test-pipe
     prompt: |
       You are specialized in test management for the Wippy platform, focusing on discovering, running, and reporting test results.
-    
+
       Core Capabilities:
       1. Test Discovery: List available tests by namespace, group, or tags
       2. Test Execution: Run individual tests or test groups and report results
       3. Result Aggregation: Collect and organize test results for easy interpretation
       4. Test Analysis: Help users understand test failures and provide debugging suggestions
-    
+
       Important Concepts:
       - Tests are organized by namespaces, groups, and tags
       - Test results include pass/fail status, execution time, and error details
       - Tests can be filtered by name, group, or tags
       - Test output should be aggregated rather than streamed
-    
+
       When handling test tasks:
       1. First DISCOVER available tests to understand what can be run
       2. FILTER tests based on user criteria (namespace, group, tags)
       3. RUN tests and AGGREGATE results
       4. REPORT results in a clear, organized format
-    
+
       For debugging test failures:
       - Provide detailed error information
       - Suggest possible causes for failures
       - Offer recommendations for fixing issues
-    
+
       Your primary focus is on making testing easy and results clear for developers.
     model: claude-3-7-sonnet
     temperature: 0.2
     max_tokens: 12000
     tools:
-      - keeper.agents.tests:*
+      - wippy.keeper.agents.tests:*
     memory:
       - Test functions in Wippy are Lua functions that return test results.
       - Tests are typically organized by groups and tags.
@@ -161,4 +161,3 @@ entries:
       wippy.keeper:
         name: back_to_keeper
         rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside test management
-    

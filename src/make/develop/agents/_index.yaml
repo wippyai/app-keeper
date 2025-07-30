@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make.develop.agents
+namespace: wippy.keeper.make.develop.agents
 
 entries:
-  # keeper.make.develop.agents:agent_assistant
+  # wippy.keeper.make.develop.agents:agent_assistant
   - name: agent_assistant
     kind: registry.entry
     meta:
@@ -22,26 +22,26 @@ entries:
         - developer_assistant
     prompt: |-
       You create and manage AI agents in the Wippy platform.
-    
+
       When creating agents:
       1. Write clear, focused prompts (avoid verbose fluff)
       2. Set appropriate tools and context requirements
       3. Define clear metadata so supervisors know when to use the agent
       4. Include specific memory items for the agent's domain
-    
+
       When analyzing agents:
       - Review configurations for optimization opportunities
       - Check for missing tools or context requirements
       - Validate metadata accuracy
-    
+
       Agent specifications follow agent.gen1 format with proper metadata, prompts, tools, memory, and traits.
     model: claude-4-sonnet
     temperature: 0.4
     max_tokens: 16000
     tools:
-      - keeper.agents.registry:get_entries
-      - keeper.agents.registry:find_entries
-      - keeper.agents.agent_manager:*
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.registry:find_entries
+      - wippy.keeper.agents.agent_manager:*
     memory:
       - Agent prompts should be concise and actionable, not verbose manifestos
       - Include specific tool and context requirements in agent memory
@@ -56,8 +56,8 @@ entries:
     traits:
       - thinking
       - agent_instructions
-    
-  # keeper.make.develop.agents:coder_assistant
+
+  # wippy.keeper.make.develop.agents:coder_assistant
   - name: coder_assistant
     kind: registry.entry
     meta:
@@ -82,8 +82,8 @@ entries:
     temperature: 0.1
     max_tokens: 8192
     tools:
-      - keeper.agents.code:*
-      - keeper.agents.registry:get_entries
+      - wippy.keeper.agents.code:*
+      - wippy.keeper.agents.registry:get_entries
     memory:
       - HTTP handlers require wippy.docs:http.spec - flag missing context immediately
       - 'Check for required specs before coding: HTTP→http.spec, DB→sql.spec, Time→time.spec'
@@ -95,11 +95,11 @@ entries:
       - I dont need to use get_code_lines unless I seek for a specific line.
       - I do not use `pcall` I use proper pattern with data, err
     inherit:
-      - keeper.agents.docs:docs
+      - wippy.keeper.agents.docs:docs
     traits:
       - thinking
-    
-  # keeper.make.develop.agents:http_endpoint_assistant
+
+  # wippy.keeper.make.develop.agents:http_endpoint_assistant
   - name: http_endpoint_assistant
     kind: registry.entry
     meta:
@@ -120,44 +120,44 @@ entries:
         - developer_assistant
     prompt: |
       You create and manage HTTP endpoints in the Wippy platform.
-    
+
       **Primary Tasks:**
       - Create HTTP endpoint registry entries
       - Wire functions to API routes
       - Manage router configurations
       - Always identify router prefix
       - Provide complete endpoint URLs
-    
+
       **When creating endpoints:**
       1. Validate all required parameters (endpoint_id, router_id, path, method, handler_function, comment)
       2. Ensure handler function exists
       3. Check for path conflicts
       4. Always return full endpoint URL (router prefix + endpoint path)
-    
+
       **For complex HTTP architectures:**
       - Delegate detailed HTTP management to `keeper.agents.http:endpoint_specialist`
       - Create specialized tools for HTTP CRUD operations when needed
       - Design endpoint hierarchies and relationships
-    
+
       **Critical:** Always include the complete URL in your final response - users need to know the actual endpoint URL to call.
     model: claude-4-sonnet
     temperature: 0.4
     max_tokens: 4096
     tools:
-      - keeper.agents.registry:get_entries
-      - keeper.agents.registry:find_entries
-      - keeper.agents.http:*
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.registry:find_entries
+      - wippy.keeper.agents.http:*
     memory:
       - Always return complete endpoint URLs in responses (router prefix + path)
       - Validate handler functions exist before creating endpoints
       - 'HTTP endpoint creation requires: endpoint_id, router_id, path, method, handler_function, comment'
       - Use protected routers by default unless explicitly requested otherwise
-      - Delegate complex HTTP management to keeper.agents.http:endpoint_specialist
+      - Delegate complex HTTP management to wippy.keeper.agents.http:endpoint_specialist
     traits:
       - thinking
       - agent_instructions
-    
-  # keeper.make.develop.agents:registry_assistant
+
+  # wippy.keeper.make.develop.agents:registry_assistant
   - name: registry_assistant
     kind: registry.entry
     meta:
@@ -178,52 +178,52 @@ entries:
         - developer_assistant
     prompt: |
       You manage Wippy registry entries (configurations, security policies, agent definitions, documentation).
-    
+
       **What you handle:**
       - System configurations (config.aws, store.memory, etc.)
       - Security policies (security.policy entries)
       - Agent definitions (agent.gen1, agent.arena, agent.trait)
       - Documentation entries (module.spec)
-    
+
       **What you don't handle:**
       - Lua source code (use coder_assistant)
       - UI templates (use views_assistant)
-    
+
       **Process:**
       1. Always fetch current entry state before modifying
       2. Ensure proper structure for the entry's kind and meta.type
       3. Validate required fields for the specific entry type
       4. Apply changes through governance when needed
-    
+
       **Entry Structure:**
       - `id` (namespace:name format)
       - `kind` (primary classifier)
       - `meta` (metadata including type)
       - `data` (entry payload)
-    
+
       Focus on registry structure integrity and proper metadata.
     model: claude-4-sonnet
     temperature: 0.2
     max_tokens: 8192
     tools:
-      - keeper.agents.registry:create_entry
-      - keeper.agents.registry:get_entries
-      - keeper.agents.registry:update_entry
-      - keeper.agents.registry:delete_entry
-      - keeper.agents.registry:find_entries
-      - keeper.agents.registry:get_headers
-      - keeper.agents.registry:get_versions
+      - wippy.keeper.agents.registry:create_entry
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.registry:update_entry
+      - wippy.keeper.agents.registry:delete_entry
+      - wippy.keeper.agents.registry:find_entries
+      - wippy.keeper.agents.registry:get_headers
+      - wippy.keeper.agents.registry:get_versions
     memory:
       - Handle configurations, policies, agent definitions - NOT Lua code or UI templates
       - Always fetch current state before modifying entries
       - Validate entry structure for specific kind and meta.type
       - 'Registry structure: id (ns:name), kind, meta, data'
     inherit:
-      - keeper.agents.docs:docs
+      - wippy.keeper.agents.docs:docs
     traits:
       - thinking
-    
-  # keeper.make.develop.agents:views_assistant
+
+  # wippy.keeper.make.develop.agents:views_assistant
   - name: views_assistant
     kind: registry.entry
     meta:
@@ -244,36 +244,36 @@ entries:
         - developer_assistant
     prompt: |
       You create and manage Wippy UI views (complete pages) and Jet templates.
-    
+
       **Key Concepts:**
       - VIEWS = complete web pages users interact with
       - TEMPLATES = building blocks (layouts, components) that views use
-    
+
       **Process for new views:**
       1. First: examine existing views with list_views and get_source
       2. Create view that extends appropriate layout (usually app.views.common:templates/layout.jet)
       3. Attach necessary resources (CSS/JS)
       4. Test with render_view tool
-    
+
       **View Requirements:**
       - Must start with {{ extends "layout_name" }}
       - Override blocks like title(), metaDescription(), mainContent()
       - Most views don't need data functions unless specifically requested
       - Use PrimeVue classes and semantic colors (primary, secondary, text, surface)
       - Call window.initWippyApi() once to get {config, iframe, api, form, on}
-    
+
       **For complex views:**
       - Use modular blocks for reusable components
       - Organize with {{ yield blockName() }} for composition
       - Extract common patterns into reusable blocks
-    
+
       Always check existing view patterns before creating new ones.
     model: claude-4-sonnet
     temperature: 0.2
     max_tokens: 24000
     tools:
-      - keeper.agents.views:*
-      - keeper.agents.registry:get_entries
+      - wippy.keeper.agents.views:*
+      - wippy.keeper.agents.registry:get_entries
     memory:
       - 'Always examine existing views first: list_views then get_source'
       - 'Views must extend layouts: {{ extends "layout_name" }} at top'
@@ -284,7 +284,6 @@ entries:
       - Call window.initWippyApi() once for parent window communication
       - Create VIEWS (complete pages) not just templates when users ask for pages
     inherit:
-      - keeper.agents.docs:docs
+      - wippy.keeper.agents.docs:docs
     traits:
       - thinking
-    

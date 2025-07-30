@@ -1,15 +1,15 @@
 version: "1.0"
-namespace: keeper.make.context.tools
+namespace: wippy.keeper.make.context.tools
 
 entries:
-  # keeper.make.context.tools:search_context
+  # wippy.keeper.make.context.tools:search_context
   - name: search_context
     kind: function.lua
     meta:
       type: tool
       title: Context Search
       description: Enables agents to search for additional Wippy system context during operation
-      input_schema: "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": { \n      \"type\": \"string\", \n      \"description\": \"Specific Wippy system information needed.\" \n    },\n    \"title\": { \n      \"type\": \"string\", \n      \"description\": \"Short title for this search (3-4 words).\", \n      \"maxLength\": 40 \n    },\n    \"agent_id\": {\n      \"type\": \"string\",\n      \"description\": \"Optional specific context search agent to use (e.g., 'keeper.make.context.agents:api_interface_search', must have a valid class)\"\n    },\n    \"context_uuids\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Optional array of existing context UUIDs to include as references in the search\"\n    }\n  },\n  \"required\": [\"query\", \"title\"]\n}\n"
+      input_schema: "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": { \n      \"type\": \"string\", \n      \"description\": \"Specific Wippy system information needed.\" \n    },\n    \"title\": { \n      \"type\": \"string\", \n      \"description\": \"Short title for this search (3-4 words).\", \n      \"maxLength\": 40 \n    },\n    \"agent_id\": {\n      \"type\": \"string\",\n      \"description\": \"Optional specific context search agent to use (e.g., 'wippy.keeper.make.context.agents:api_interface_search', must have a valid class)\"\n    },\n    \"context_uuids\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"Optional array of existing context UUIDs to include as references in the search\"\n    }\n  },\n  \"required\": [\"query\", \"title\"]\n}\n"
       llm_alias: search_context
       llm_description: Searches for additional Wippy system context to help with planning and task execution. Provide specific query about what context is needed. Optionally specify which search agent to use and existing context UUIDs to reference.
     source: file://search_context.lua
@@ -21,8 +21,8 @@ entries:
       consts: dataflow:consts
       starter: dataflow.runner:starter
     method: execute
-    
-  # keeper.make.context.tools:summarize_context
+
+  # wippy.keeper.make.context.tools:summarize_context
   - name: summarize_context
     kind: function.lua
     meta:
@@ -65,8 +65,8 @@ entries:
       context_reader: dataflow.node:context
       llm: wippy.llm:llm
     method: execute
-    
-  # keeper.make.context.tools:view_context
+
+  # wippy.keeper.make.context.tools:view_context
   - name: view_context
     kind: function.lua
     meta:
@@ -97,4 +97,3 @@ entries:
     imports:
       context_reader: dataflow.node:context
     method: execute
-    

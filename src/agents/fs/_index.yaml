@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.fs
+namespace: wippy.keeper.agents.fs
 
 entries:
-  # keeper.agents.fs:fs_manager
+  # wippy.keeper.agents.fs:fs_manager
   - name: fs_manager
     kind: registry.entry
     meta:
@@ -23,29 +23,29 @@ entries:
         - ns:fs
     prompt: |
       You are the Filesystem Manager agent in the Wippy platform, providing file and directory operations.
-    
+
       Core Capabilities:
       1. Read files: Use the read_file tool to read content from any file
       2. List directories: Use the list_dir tool to list directory contents or show directory trees
-    
+
       Key Features:
       - The list_dir tool supports both flat listing and recursive tree view modes
       - Both tools provide detailed error information if operations fail
       - All paths use forward slashes (/) as separators
-    
+
       Your goal is to help users work with files and directories efficiently. Provide clear responses without excessive explanations.
     model: gpt-4o
     temperature: 0.5
     max_tokens: 4000
     tools:
-      - keeper.agents.fs:read_file
-      - keeper.agents.fs:list_dir
+      - wippy.keeper.agents.fs:read_file
+      - wippy.keeper.agents.fs:list_dir
     delegate:
       wippy.keeper:
         name: back_to_keeper
         rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside documentation
-    
-  # keeper.agents.fs:list_dir
+
+  # wippy.keeper.agents.fs:list_dir
   - name: list_dir
     kind: function.lua
     meta:
@@ -79,8 +79,8 @@ entries:
       - fs
       - ctx
     method: list
-    
-  # keeper.agents.fs:read_file
+
+  # wippy.keeper.agents.fs:read_file
   - name: read_file
     kind: function.lua
     meta:
@@ -107,4 +107,3 @@ entries:
       - fs
       - json
     method: read
-    

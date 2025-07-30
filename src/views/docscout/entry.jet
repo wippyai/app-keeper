@@ -3026,7 +3026,7 @@
                 if (navigate && typeof navigate === 'function') {
                     try {
                         // Navigate to the main DocScout groups view (adjust ID if different)
-                        console.log("App: Navigating back using host API to 'keeper.views.docscout:groups'");
+                        console.log("App: Navigating back using host API to 'wippy.keeper.views.docscout:groups'");
                         navigate('/c/keeper.views.docscout:groups');
                     } catch (err) {
                         console.error('App: Host navigation failed:', err, 'Falling back.');

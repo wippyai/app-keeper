@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.api.dataflow
+namespace: wippy.keeper.api.dataflow
 
 entries:
-  # keeper.api.dataflow:cancel_dataflow
+  # wippy.keeper.api.dataflow:cancel_dataflow
   - name: cancel_dataflow
     kind: function.lua
     meta:
@@ -20,8 +20,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.dataflow:cancel_dataflow.endpoint
+
+  # wippy.keeper.api.dataflow:cancel_dataflow.endpoint
   - name: cancel_dataflow.endpoint
     kind: http.endpoint
     meta:
@@ -32,8 +32,8 @@ entries:
     method: POST
     func: cancel_dataflow
     path: /dataflows/{id}/cancel
-    
-  # keeper.api.dataflow:get_dataflow_details
+
+  # wippy.keeper.api.dataflow:get_dataflow_details
   - name: get_dataflow_details
     kind: function.lua
     meta:
@@ -52,8 +52,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.dataflow:get_dataflow_details.endpoint
+
+  # wippy.keeper.api.dataflow:get_dataflow_details.endpoint
   - name: get_dataflow_details.endpoint
     kind: http.endpoint
     meta:
@@ -64,8 +64,8 @@ entries:
     method: GET
     func: get_dataflow_details
     path: /dataflows/{id}
-    
-  # keeper.api.dataflow:get_dataflow_nodes
+
+  # wippy.keeper.api.dataflow:get_dataflow_nodes
   - name: get_dataflow_nodes
     kind: function.lua
     meta:
@@ -83,8 +83,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.dataflow:get_dataflow_nodes.endpoint
+
+  # wippy.keeper.api.dataflow:get_dataflow_nodes.endpoint
   - name: get_dataflow_nodes.endpoint
     kind: http.endpoint
     meta:
@@ -95,8 +95,8 @@ entries:
     method: GET
     func: get_dataflow_nodes
     path: /dataflows/{id}/nodes
-    
-  # keeper.api.dataflow:list_dataflows
+
+  # wippy.keeper.api.dataflow:list_dataflows
   - name: list_dataflows
     kind: function.lua
     meta:
@@ -114,8 +114,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.dataflow:list_own_dataflows.endpoint
+
+  # wippy.keeper.api.dataflow:list_own_dataflows.endpoint
   - name: list_own_dataflows.endpoint
     kind: http.endpoint
     meta:
@@ -126,8 +126,8 @@ entries:
     method: GET
     func: list_dataflows
     path: /dataflows
-    
-  # keeper.api.dataflow:terminate_dataflow
+
+  # wippy.keeper.api.dataflow:terminate_dataflow
   - name: terminate_dataflow
     kind: function.lua
     meta:
@@ -145,8 +145,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.dataflow:terminate_dataflow.endpoint
+
+  # wippy.keeper.api.dataflow:terminate_dataflow.endpoint
   - name: terminate_dataflow.endpoint
     kind: http.endpoint
     meta:
@@ -157,4 +157,3 @@ entries:
     method: POST
     func: terminate_dataflow
     path: /dataflows/{id}/terminate
-    

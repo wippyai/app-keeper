@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.views.editors.contract
+namespace: wippy.keeper.views.editors.contract
 
 entries:
-  # keeper.views.editors.contract:binding_editors
+  # wippy.keeper.views.editors.contract:binding_editors
   - name: binding_editors
     kind: registry.entry
     meta:
@@ -14,9 +14,9 @@ entries:
         icon: tabler:link
         order: 1
         id: default
-        page_name: keeper.views.editors.contract:binding_info
-    
-  # keeper.views.editors.contract:binding_info
+        page_name: wippy.keeper.views.editors.contract:binding_info
+
+  # wippy.keeper.views.editors.contract:binding_info
   - name: binding_info
     kind: template.jet
     meta:
@@ -28,11 +28,11 @@ entries:
       content_type: text/html
       secure: true
     source: file://binding_info.jet
-    set: keeper.views.common:templates
+    set: wippy.keeper.views.common:templates
     resources:
-      - keeper.views.common:alpine.js
-    
-  # keeper.views.editors.contract:definition_editors
+      - wippy.keeper.views.common:alpine.js
+
+  # wippy.keeper.views.editors.contract:definition_editors
   - name: definition_editors
     kind: registry.entry
     meta:
@@ -44,9 +44,9 @@ entries:
         icon: tabler:contract
         order: 1
         id: default
-        page_name: keeper.views.editors.contract:definition_info
-    
-  # keeper.views.editors.contract:definition_info
+        page_name: wippy.keeper.views.editors.contract:definition_info
+
+  # wippy.keeper.views.editors.contract:definition_info
   - name: definition_info
     kind: template.jet
     meta:
@@ -58,7 +58,6 @@ entries:
       content_type: text/html
       secure: true
     source: file://definition_info.jet
-    set: keeper.views.common:templates
+    set: wippy.keeper.views.common:templates
     resources:
-      - keeper.views.common:alpine.js
-    
+      - wippy.keeper.views.common:alpine.js

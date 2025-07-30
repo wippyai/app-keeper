@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.registry
+namespace: wippy.keeper.agents.registry
 
 entries:
-  # keeper.agents.registry:apply_version
+  # wippy.keeper.agents.registry:apply_version
   - name: apply_version
     kind: function.lua
     meta:
@@ -29,8 +29,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.registry:create_entry
+
+  # wippy.keeper.agents.registry:create_entry
   - name: create_entry
     kind: function.lua
     meta:
@@ -73,8 +73,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.registry:delete_entry
+
+  # wippy.keeper.agents.registry:delete_entry
   - name: delete_entry
     kind: function.lua
     meta:
@@ -101,8 +101,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.registry:find_entries
+
+  # wippy.keeper.agents.registry:find_entries
   - name: find_entries
     kind: function.lua
     meta:
@@ -142,8 +142,8 @@ entries:
       - json
       - registry
     method: handler
-    
-  # keeper.agents.registry:find_relevant
+
+  # wippy.keeper.agents.registry:find_relevant
   - name: find_relevant
     kind: function.lua
     meta:
@@ -169,8 +169,8 @@ entries:
     imports:
       llm: wippy.llm:llm
     method: handler
-    
-  # keeper.agents.registry:get_contextual_entries
+
+  # wippy.keeper.agents.registry:get_contextual_entries
   - name: get_contextual_entries
     kind: function.lua
     meta:
@@ -195,8 +195,8 @@ entries:
       - yaml
       - funcs
     method: handler
-    
-  # keeper.agents.registry:get_entries
+
+  # wippy.keeper.agents.registry:get_entries
   - name: get_entries
     kind: function.lua
     meta:
@@ -225,8 +225,8 @@ entries:
       - yaml
       - registry
     method: handler
-    
-  # keeper.agents.registry:get_headers
+
+  # wippy.keeper.agents.registry:get_headers
   - name: get_headers
     kind: function.lua
     meta:
@@ -263,8 +263,8 @@ entries:
       - json
       - registry
     method: handler
-    
-  # keeper.agents.registry:get_versions
+
+  # wippy.keeper.agents.registry:get_versions
   - name: get_versions
     kind: function.lua
     meta:
@@ -288,8 +288,8 @@ entries:
       - json
       - registry
     method: handler
-    
-  # keeper.agents.registry:update_entry
+
+  # wippy.keeper.agents.registry:update_entry
   - name: update_entry
     kind: function.lua
     meta:
@@ -332,8 +332,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.registry:wippy_manager
+
+  # wippy.keeper.agents.registry:wippy_manager
   - name: wippy_manager
     kind: registry.entry
     meta:
@@ -354,7 +354,7 @@ entries:
     temperature: 0.5
     max_tokens: 8000
     tools:
-      - keeper.agents.registry:*
+      - wippy.keeper.agents.registry:*
     memory:
       - Registry entries have a unique ID consisting of a namespace and name component.
       - The registry maintains a complete version history of all changes.
@@ -372,4 +372,3 @@ entries:
       wippy.keeper:
         name: back_to_keeper
         rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside documentation
-    

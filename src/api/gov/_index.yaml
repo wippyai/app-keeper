@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.api.gov
+namespace: wippy.keeper.api.gov
 
 entries:
-  # keeper.api.gov:download
+  # wippy.keeper.api.gov:download
   - name: download
     kind: function.lua
     meta:
@@ -17,8 +17,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.gov:download.endpoint
+
+  # wippy.keeper.api.gov:download.endpoint
   - name: download.endpoint
     kind: http.endpoint
     meta:
@@ -30,8 +30,8 @@ entries:
     method: POST
     func: download
     path: /keeper/sync/download
-    
-  # keeper.api.gov:redo
+
+  # wippy.keeper.api.gov:redo
   - name: redo
     kind: function.lua
     meta:
@@ -48,8 +48,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.gov:redo.endpoint
+
+  # wippy.keeper.api.gov:redo.endpoint
   - name: redo.endpoint
     kind: http.endpoint
     meta:
@@ -61,8 +61,8 @@ entries:
     method: POST
     func: redo
     path: /keeper/sync/redo
-    
-  # keeper.api.gov:state
+
+  # wippy.keeper.api.gov:state
   - name: state
     kind: function.lua
     meta:
@@ -79,8 +79,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.gov:state.endpoint
+
+  # wippy.keeper.api.gov:state.endpoint
   - name: state.endpoint
     kind: http.endpoint
     meta:
@@ -92,8 +92,8 @@ entries:
     method: GET
     func: state
     path: /keeper/sync/state
-    
-  # keeper.api.gov:undo
+
+  # wippy.keeper.api.gov:undo
   - name: undo
     kind: function.lua
     meta:
@@ -110,8 +110,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.gov:undo.endpoint
+
+  # wippy.keeper.api.gov:undo.endpoint
   - name: undo.endpoint
     kind: http.endpoint
     meta:
@@ -123,8 +123,8 @@ entries:
     method: POST
     func: undo
     path: /keeper/sync/undo
-    
-  # keeper.api.gov:upload
+
+  # wippy.keeper.api.gov:upload
   - name: upload
     kind: function.lua
     meta:
@@ -139,8 +139,8 @@ entries:
     method: handler
     pool:
       size: 1
-    
-  # keeper.api.gov:upload.endpoint
+
+  # wippy.keeper.api.gov:upload.endpoint
   - name: upload.endpoint
     kind: http.endpoint
     meta:
@@ -152,4 +152,3 @@ entries:
     method: POST
     func: upload
     path: /keeper/sync/upload
-    

@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.views.session
+namespace: wippy.keeper.views.session
 
 entries:
-  # keeper.views.session:list
+  # wippy.keeper.views.session:list
   - name: list
     kind: template.jet
     meta:
@@ -20,9 +20,9 @@ entries:
       group_placement: bottom
       secure: true
     source: file://list.jet
-    set: keeper.views.common:templates
-    
-  # keeper.views.session:view
+    set: wippy.keeper.views.common:templates
+
+  # wippy.keeper.views.session:view
   - name: view
     kind: template.jet
     meta:
@@ -35,5 +35,4 @@ entries:
       content_type: text/html
       secure: true
     source: file://view.jet
-    set: keeper.views.common:templates
-    
+    set: wippy.keeper.views.common:templates

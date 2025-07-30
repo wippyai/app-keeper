@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.git
+namespace: wippy.keeper.git
 
 entries:
-  # keeper.git:branch
+  # wippy.keeper.git:branch
   - name: branch
     kind: library.lua
     meta:
@@ -13,10 +13,10 @@ entries:
       - json
     imports:
       env: env
-      git_repo: keeper.git:git_repo
+      git_repo: wippy.keeper.git:git_repo
     method: create
-    
-  # keeper.git:commit
+
+  # wippy.keeper.git:commit
   - name: commit
     kind: library.lua
     meta:
@@ -28,10 +28,10 @@ entries:
       - time
     imports:
       env: env
-      git_repo: keeper.git:git_repo
+      git_repo: wippy.keeper.git:git_repo
     method: create
-    
-  # keeper.git:git_repo
+
+  # wippy.keeper.git:git_repo
   - name: git_repo
     kind: library.lua
     meta:
@@ -44,8 +44,8 @@ entries:
     imports:
       env: env
     method: create
-    
-  # keeper.git:remote
+
+  # wippy.keeper.git:remote
   - name: remote
     kind: library.lua
     meta:
@@ -56,10 +56,10 @@ entries:
       - json
     imports:
       env: env
-      git_repo: keeper.git:git_repo
+      git_repo: wippy.keeper.git:git_repo
     method: create
-    
-  # keeper.git:status
+
+  # wippy.keeper.git:status
   - name: status
     kind: library.lua
     meta:
@@ -70,6 +70,5 @@ entries:
       - json
     imports:
       env: env
-      git_repo: keeper.git:git_repo
+      git_repo: wippy.keeper.git:git_repo
     method: get
-    

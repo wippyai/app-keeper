@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.views.common
+namespace: wippy.keeper.views.common
 
 entries:
-  # keeper.views.common:alpine.js
+  # wippy.keeper.views.common:alpine.js
   - name: alpine.js
     kind: registry.entry
     meta:
@@ -11,10 +11,10 @@ entries:
       order: 6
       defer: true
       resource_type: script
-      template_set: keeper.views.common:templates
+      template_set: wippy.keeper.views.common:templates
       url: https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js
-    
-  # keeper.views.common:iconify
+
+  # wippy.keeper.views.common:iconify
   - name: iconify
     kind: registry.entry
     meta:
@@ -22,10 +22,10 @@ entries:
       type: view.resource
       order: 15
       resource_type: script
-      template_set: keeper.views.common:templates
+      template_set: wippy.keeper.views.common:templates
       url: https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js
-    
-  # keeper.views.common:layout
+
+  # wippy.keeper.views.common:layout
   - name: layout
     kind: template.jet
     meta:
@@ -33,8 +33,8 @@ entries:
       description: Base layout template for admin pages
     source: file://layout.jet
     set: templates
-    
-  # keeper.views.common:tailwindcss
+
+  # wippy.keeper.views.common:tailwindcss
   - name: tailwindcss
     kind: registry.entry
     meta:
@@ -42,18 +42,18 @@ entries:
       type: view.resource
       order: 5
       resource_type: script
-      template_set: keeper.views.common:templates
+      template_set: wippy.keeper.views.common:templates
       url: https://cdn.tailwindcss.com
-    
-  # keeper.views.common:templates
+
+  # wippy.keeper.views.common:templates
   - name: templates
     kind: template.set
     meta:
       description: Template set for admin pages
     engine:
       development_mode: true
-    
-  # keeper.views.common:wippy-api
+
+  # wippy.keeper.views.common:wippy-api
   - name: wippy-api
     kind: registry.entry
     meta:
@@ -61,6 +61,5 @@ entries:
       type: view.resource
       order: 10
       resource_type: script
-      template_set: keeper.views.common:templates
+      template_set: wippy.keeper.views.common:templates
       url: https://front.wippy.ai/proxy.js
-    

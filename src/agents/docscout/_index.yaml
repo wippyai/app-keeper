@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.docscout
+namespace: wippy.keeper.agents.docscout
 
 entries:
-  # keeper.agents.docscout:add_extraction_field
+  # wippy.keeper.agents.docscout:add_extraction_field
   - name: add_extraction_field
     kind: function.lua
     meta:
@@ -58,8 +58,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.docscout:agent
+
+  # wippy.keeper.agents.docscout:agent
   - name: agent
     kind: registry.entry
     meta:
@@ -93,7 +93,7 @@ entries:
     temperature: 0.2
     max_tokens: 4000
     tools:
-      - keeper.agents.docscout:*
+      - wippy.keeper.agents.docscout:*
     memory:
       - 'Uploads go through a processing pipeline with statuses: "uploaded", "queued", "processing", "completed", "error".'
       - Different file types have different processing requirements and capabilities.
@@ -102,8 +102,8 @@ entries:
       - Each document chunk contains metadata including page numbers and chunk position information.
       - Search results include similarity scores (0-1) indicating relevance to the query.
       - Salesforce schema reflection allows for exploring object schemas and properties.
-    
-  # keeper.agents.docscout:create_extraction_group
+
+  # wippy.keeper.agents.docscout:create_extraction_group
   - name: create_extraction_group
     kind: function.lua
     meta:
@@ -232,8 +232,8 @@ entries:
     method: handler
     llm_alias: create_extraction_group
     llm_description: "Adds a new DocScout extraction group to the registry.  \nValidates inputs, normalizes field definitions, applies defaults, and returns the created entry.\n"
-    
-  # keeper.agents.docscout:extract_document
+
+  # wippy.keeper.agents.docscout:extract_document
   - name: extract_document
     kind: function.lua
     meta:
@@ -259,8 +259,8 @@ entries:
     imports:
       extractor: docscout:extractor
     method: handler
-    
-  # keeper.agents.docscout:list_extraction_groups
+
+  # wippy.keeper.agents.docscout:list_extraction_groups
   - name: list_extraction_groups
     kind: function.lua
     meta:
@@ -295,8 +295,8 @@ entries:
       - registry
       - yaml
     method: handler
-    
-  # keeper.agents.docscout:list_files
+
+  # wippy.keeper.agents.docscout:list_files
   - name: list_files
     kind: function.lua
     meta:
@@ -340,8 +340,8 @@ entries:
     imports:
       upload_repo: wippy.uploads:upload_repo
     method: execute
-    
-  # keeper.agents.docscout:list_models
+
+  # wippy.keeper.agents.docscout:list_models
   - name: list_models
     kind: function.lua
     meta:
@@ -382,8 +382,8 @@ entries:
     imports:
       models: wippy.llm:models
     method: handler
-    
-  # keeper.agents.docscout:read_extraction_groups
+
+  # wippy.keeper.agents.docscout:read_extraction_groups
   - name: read_extraction_groups
     kind: function.lua
     meta:
@@ -415,8 +415,8 @@ entries:
       - registry
       - yaml
     method: handler
-    
-  # keeper.agents.docscout:remove_extraction_field
+
+  # wippy.keeper.agents.docscout:remove_extraction_field
   - name: remove_extraction_field
     kind: function.lua
     meta:
@@ -458,8 +458,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.docscout:scout_document
+
+  # wippy.keeper.agents.docscout:scout_document
   - name: scout_document
     kind: function.lua
     meta:
@@ -510,8 +510,8 @@ entries:
       embeddings: wippy.embeddings:embeddings
       upload_repo: wippy.uploads:upload_repo
     method: execute
-    
-  # keeper.agents.docscout:update_extracting_config
+
+  # wippy.keeper.agents.docscout:update_extracting_config
   - name: update_extracting_config
     kind: function.lua
     meta:
@@ -558,8 +558,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.docscout:update_extraction_fields
+
+  # wippy.keeper.agents.docscout:update_extraction_fields
   - name: update_extraction_fields
     kind: function.lua
     meta:
@@ -644,8 +644,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.docscout:update_extraction_group_meta
+
+  # wippy.keeper.agents.docscout:update_extraction_group_meta
   - name: update_extraction_group_meta
     kind: function.lua
     meta:
@@ -694,8 +694,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.docscout:update_scouting_config
+
+  # wippy.keeper.agents.docscout:update_scouting_config
   - name: update_scouting_config
     kind: function.lua
     meta:
@@ -745,4 +745,3 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    

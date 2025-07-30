@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.views.editors.entry
+namespace: wippy.keeper.views.editors.entry
 
 entries:
-  # keeper.views.editors.entry:generic_registry_editor
+  # wippy.keeper.views.editors.entry:generic_registry_editor
   - name: generic_registry_editor
     kind: registry.entry
     meta:
@@ -15,9 +15,9 @@ entries:
         icon: tabler:json
         order: 1
         id: default
-        page_name: keeper.views.editors.entry:json_editor
-    
-  # keeper.views.editors.entry:json_editor
+        page_name: wippy.keeper.views.editors.entry:json_editor
+
+  # wippy.keeper.views.editors.entry:json_editor
   - name: json_editor
     kind: template.jet
     meta:
@@ -29,7 +29,6 @@ entries:
       content_type: text/html
       secure: true
     source: file://json_editor.jet
-    set: keeper.views.common:templates
+    set: wippy.keeper.views.common:templates
     resources:
-      - keeper.views.common:alpine.js
-    
+      - wippy.keeper.views.common:alpine.js

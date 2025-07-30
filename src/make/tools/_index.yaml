@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make.tools
+namespace: wippy.keeper.make.tools
 
 entries:
-  # keeper.make.tools:make
+  # wippy.keeper.make.tools:make
   - name: make
     kind: function.lua
     meta:
@@ -31,8 +31,8 @@ entries:
       consts: dataflow:consts
       starter: dataflow.runner:starter
     method: execute
-    
-  # keeper.make.tools:research
+
+  # wippy.keeper.make.tools:research
   - name: research
     kind: function.lua
     meta:
@@ -70,4 +70,3 @@ entries:
       consts: dataflow:consts
       starter: dataflow.runner:starter
     method: execute
-    

@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.api.usage
+namespace: wippy.keeper.api.usage
 
 entries:
-  # keeper.api.usage:get_summary
+  # wippy.keeper.api.usage:get_summary
   - name: get_summary
     kind: function.lua
     meta:
@@ -22,8 +22,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.usage:get_summary.endpoint
+
+  # wippy.keeper.api.usage:get_summary.endpoint
   - name: get_summary.endpoint
     kind: http.endpoint
     meta:
@@ -34,8 +34,8 @@ entries:
     method: GET
     func: get_summary
     path: /keeper/usage/summary
-    
-  # keeper.api.usage:get_usage_by_model
+
+  # wippy.keeper.api.usage:get_usage_by_model
   - name: get_usage_by_model
     kind: function.lua
     meta:
@@ -55,8 +55,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.usage:get_usage_by_model.endpoint
+
+  # wippy.keeper.api.usage:get_usage_by_model.endpoint
   - name: get_usage_by_model.endpoint
     kind: http.endpoint
     meta:
@@ -67,8 +67,8 @@ entries:
     method: GET
     func: get_usage_by_model
     path: /keeper/usage/by-model
-    
-  # keeper.api.usage:get_usage_by_time
+
+  # wippy.keeper.api.usage:get_usage_by_time
   - name: get_usage_by_time
     kind: function.lua
     meta:
@@ -88,8 +88,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.usage:get_usage_by_time.endpoint
+
+  # wippy.keeper.api.usage:get_usage_by_time.endpoint
   - name: get_usage_by_time.endpoint
     kind: http.endpoint
     meta:
@@ -100,4 +100,3 @@ entries:
     method: GET
     func: get_usage_by_time
     path: /keeper/usage/by-time
-    

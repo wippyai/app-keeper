@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make
+namespace: wippy.keeper.make
 
 entries:
-  # keeper.make:dev
+  # wippy.keeper.make:dev
   - name: dev
     kind: registry.entry
     meta:
@@ -16,17 +16,17 @@ entries:
         - user-confirmation
         - system-building
       depends_on:
-        - keeper.make.tools
+        - wippy.keeper.make.tools
     prompt: |
       You can create anything in the Wippy system using the **make** tool.
-    
+
       **CRITICAL: Always get user permission first.**
-    
+
       Before using make tool:
       1. Explain what you want to build and why
       2. Ask for explicit permission
       3. Wait for confirmation
-    
+
       **What you can create:**
       - Functions and APIs
       - HTTP endpoints
@@ -35,10 +35,10 @@ entries:
       - Tools and utilities
       - Configurations and policies
       - Anything the user needs
-    
+
       **How to propose:**
       "I could create [specific component] that [specific functionality] for [user benefit]. This would solve [specific problem]. May I create this?"
-    
+
       **Query format for make tool:**
       Focus on user intent and namespace requirements, not implementation details:
       - What the user wants to accomplish
@@ -46,12 +46,12 @@ entries:
       - Key constraints or requirements
       - Let underlying agents handle implementation specifics
       - Trust the make tool, dont assume functionality, you are coming to chef, not to worker.
-    
+
       Never use make tool without explicit user permission.
     tools:
-      - keeper.make.tools:make
-    
-  # keeper.make:research
+      - wippy.keeper.make.tools:make
+
+  # wippy.keeper.make:research
   - name: research
     kind: registry.entry
     meta:
@@ -64,27 +64,26 @@ entries:
         - context-search
         - investigation
       depends_on:
-        - keeper.make.tools
+        - wippy.keeper.make.tools
     prompt: |
       You can perform research using the **perform_research** tool.
-    
+
       **When to use:**
       - User asks complex questions about Wippy system
       - Need examples or patterns from existing code
       - Require comprehensive understanding of system components
-    
+
       **Research query format:**
       Focus on user's actual question and constraints:
       - What specific information does the user need?
       - What domain/namespace should be searched?
       - What are the user's constraints or context?
       - Let research agents handle search strategy
-    
+
       **Example:**
       User asks: "How do I create HTTP endpoints in Wippy?"
       Research query: "User needs to understand HTTP endpoint creation in Wippy - find documentation, examples, and patterns for creating endpoints with proper routing"
-    
+
       Trust that research agents know how to search effectively - provide clear user intent and context.
     tools:
-      - keeper.make.tools:research
-    
+      - wippy.keeper.make.tools:research

@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make.supervisor.agents
+namespace: wippy.keeper.make.supervisor.agents
 
 entries:
-  # keeper.make.supervisor.agents:generic_supervisor
+  # wippy.keeper.make.supervisor.agents:generic_supervisor
   - name: generic_supervisor
     kind: registry.entry
     meta:
@@ -44,8 +44,8 @@ entries:
     traits:
       - thinking
       - coordination
-    
-  # keeper.make.supervisor.agents:page_supervisor
+
+  # wippy.keeper.make.supervisor.agents:page_supervisor
   - name: page_supervisor
     kind: registry.entry
     meta:
@@ -68,30 +68,30 @@ entries:
         - supervisor
     prompt: |
       You orchestrate web development using backend-first methodology.
-    
+
       **Development Sequence:**
       1. **Research**: Find patterns and examples
       2. **Backend Functions**: Create business logic first
       3. **HTTP Endpoints** (if needed): Wire functions to URLs
       4. **Frontend Views**: Create pages that consume APIs or display data
       5. **Validate**: Test the complete flow
-    
+
       **When HTTP endpoints are needed:**
       - Frontend needs to call backend APIs
       - External systems need to access functions
       - User specifically requests API endpoints
-    
+
       **When HTTP endpoints are optional:**
       - Static pages with no backend interaction
       - Views that only display data without API calls
       - Simple informational pages
-    
+
       **Critical rules:**
       - If creating endpoints: Get the full URL (like `/api/time/current`) from http agent before giving to view agents
       - Never give view agents function IDs (like `/app:function_name`) - they're not URLs
       - Ensure coder agents get http.spec for HTTP handlers
       - Build progressively: each phase informs the next
-    
+
       **Context management:**
       - Research domain patterns first
       - Share relevant context with each agent
@@ -120,4 +120,3 @@ entries:
     traits:
       - thinking
       - coordination
-    

@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.views.docscout
+namespace: wippy.keeper.views.docscout
 
 entries:
-  # keeper.views.docscout:editors
+  # wippy.keeper.views.docscout:editors
   - name: editors
     kind: registry.entry
     meta:
@@ -14,9 +14,9 @@ entries:
         icon: tabler:library
         order: 1
         id: default
-        page_name: keeper.views.docscout:entry
-    
-  # keeper.views.docscout:entry
+        page_name: wippy.keeper.views.docscout:entry
+
+  # wippy.keeper.views.docscout:entry
   - name: entry
     kind: template.jet
     meta:
@@ -30,11 +30,11 @@ entries:
       content_type: text/html
       secure: true
     source: file://entry.jet
-    set: keeper.views.common:templates
+    set: wippy.keeper.views.common:templates
     resources:
-      - keeper.views.common:alpine.js
-    
-  # keeper.views.docscout:groups
+      - wippy.keeper.views.common:alpine.js
+
+  # wippy.keeper.views.docscout:groups
   - name: groups
     kind: template.jet
     meta:
@@ -50,7 +50,6 @@ entries:
       group_icon: tabler:file-analytics
       secure: true
     source: file://groups.jet
-    set: keeper.views.common:templates
+    set: wippy.keeper.views.common:templates
     resources:
-      - keeper.views.common:alpine.js
-    
+      - wippy.keeper.views.common:alpine.js

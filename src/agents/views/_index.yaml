@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.views
+namespace: wippy.keeper.agents.views
 
 entries:
-  # keeper.agents.views:add_block
+  # wippy.keeper.agents.views:add_block
   - name: add_block
     kind: function.lua
     meta:
@@ -45,10 +45,10 @@ entries:
       - json
     imports:
       governance_client: gov:client
-      template_utils: keeper.agents.views:template_utils
+      template_utils: wippy.keeper.agents.views:template_utils
     method: handler
-    
-  # keeper.agents.views:create_view
+
+  # wippy.keeper.agents.views:create_view
   - name: create_view
     kind: function.lua
     meta:
@@ -130,8 +130,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.views:delete_view
+
+  # wippy.keeper.agents.views:delete_view
   - name: delete_view
     kind: function.lua
     meta:
@@ -157,8 +157,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.views:get_source
+
+  # wippy.keeper.agents.views:get_source
   - name: get_source
     kind: function.lua
     meta:
@@ -191,10 +191,10 @@ entries:
       - registry
       - json
     imports:
-      template_utils: keeper.agents.views:template_utils
+      template_utils: wippy.keeper.agents.views:template_utils
     method: handler
-    
-  # keeper.agents.views:list_blocks
+
+  # wippy.keeper.agents.views:list_blocks
   - name: list_blocks
     kind: function.lua
     meta:
@@ -219,10 +219,10 @@ entries:
       - registry
       - json
     imports:
-      template_utils: keeper.agents.views:template_utils
+      template_utils: wippy.keeper.agents.views:template_utils
     method: handler
-    
-  # keeper.agents.views:list_resources
+
+  # wippy.keeper.agents.views:list_resources
   - name: list_resources
     kind: function.lua
     meta:
@@ -240,8 +240,8 @@ entries:
     modules:
       - registry
     method: handler
-    
-  # keeper.agents.views:list_templates
+
+  # wippy.keeper.agents.views:list_templates
   - name: list_templates
     kind: function.lua
     meta:
@@ -259,8 +259,8 @@ entries:
     modules:
       - registry
     method: handler
-    
-  # keeper.agents.views:list_views
+
+  # wippy.keeper.agents.views:list_views
   - name: list_views
     kind: function.lua
     meta:
@@ -278,8 +278,8 @@ entries:
     modules:
       - registry
     method: handler
-    
-  # keeper.agents.views:remove_block
+
+  # wippy.keeper.agents.views:remove_block
   - name: remove_block
     kind: function.lua
     meta:
@@ -313,10 +313,10 @@ entries:
       - json
     imports:
       governance_client: gov:client
-      template_utils: keeper.agents.views:template_utils
+      template_utils: wippy.keeper.agents.views:template_utils
     method: handler
-    
-  # keeper.agents.views:render_view
+
+  # wippy.keeper.agents.views:render_view
   - name: render_view
     kind: function.lua
     meta:
@@ -348,8 +348,8 @@ entries:
     imports:
       renderer: wippy.views:renderer
     method: handler
-    
-  # keeper.agents.views:template_utils
+
+  # wippy.keeper.agents.views:template_utils
   - name: template_utils
     kind: library.lua
     meta:
@@ -358,8 +358,8 @@ entries:
       comment: Utilities for working with Jet templates
       description: Provides powerful functions for parsing, extracting, and manipulating blocks, yields, and other elements in Jet templates
     source: file://template_utils.lua
-    
-  # keeper.agents.views:update_source
+
+  # wippy.keeper.agents.views:update_source
   - name: update_source
     kind: function.lua
     meta:
@@ -411,10 +411,10 @@ entries:
       - json
     imports:
       governance_client: gov:client
-      template_utils: keeper.agents.views:template_utils
+      template_utils: wippy.keeper.agents.views:template_utils
     method: handler
-    
-  # keeper.agents.views:update_view
+
+  # wippy.keeper.agents.views:update_view
   - name: update_view
     kind: function.lua
     meta:
@@ -507,10 +507,10 @@ entries:
       - security
     imports:
       governance_client: gov:client
-      template_utils: keeper.agents.views:template_utils
+      template_utils: wippy.keeper.agents.views:template_utils
     method: handler
-    
-  # keeper.agents.views:views
+
+  # wippy.keeper.agents.views:views
   - name: views
     kind: registry.entry
     meta:
@@ -527,52 +527,52 @@ entries:
       icon: tabler:layout-dashboard
     prompt: |
       You are designated to manage the presentation layer of the application with a focus on creating and managing VIEWS.
-    
+
       Key Concepts:
       1. VIEWS are complete web pages that users interact with
       2. TEMPLATES are building blocks (layouts, components) that views use
       3. When a user asks for a "view", "page", or similar - ALWAYS create a proper VIEW, not just a template
-    
+
       Core Capabilities:
       1. View Management: Create, update, delete, and list views (complete pages)
       2. Template Management: Work with templates, layouts, and components (building blocks)
       3. Resource Management: Manage and attach resources to views (CSS, JavaScript, fonts)
       4. View Rendering: Render views with parameters to validate functionality
-    
+
       View Structure:
       - ALWAYS start by examining existing views with list_views and get_source before creating new views
       - ALL views must extend a layout template (usually "app.views.common:templates/layout.jet")
       - Learn proper syntax from other views or docs
       - Most views (80%) DON'T need a data function - only add one if specifically requested
       - Views must have proper template inheritance using "extends" at the top of the template
-    
+
       When a user requests a view or page:
       1. First LIST existing views to understand current structure
       2. READ at least one existing view to understand structure and patterns
       3. Create a new view that EXTENDS an appropriate layout
       4. Attach necessary resources (CSS/JS)
       5. Verify the final result with the render_view tool
-    
+
       When working with templates and views, follow these strict rules:
       - Views MUST start with an "extends" statement to inherit from a layout
       - Implement content using proper "block" declarations
       - Ensure correct resource attachment
       - Only add data functions when specifically needed or requested
       - Always check existing views as examples before creating new ones
-    
+
       For charts and visualizations:
       - Ensure appropriate JavaScript libraries are attached as resources
       - Use standard patterns from existing views
       - Include necessary initialization code in the view template
-    
+
       For data functions I always refer to other agents.
-    
+
       I never suggest URLs to user, I dont control this part of the system and user should be able to locate pages by themselves.
-    
+
       I never inject any resource or URL into the view, I always use the resources that are already defined in the system.
-    
+
       Remember to always check existing views as examples before creating new ones. I always make views announced by default, unless the user specifically requests otherwise.
-    
+
       The embedded page must call window.initWippyApi() ONCE to get {config, iframe, api, form, on} somewhere in view hierarchy and store it globally
       Only report FATAL errors that should close the whole doc using iframe.handleError()
       Use PrimeVue classes (i.e. p-button, p-inputtext, p-textarea) and semantic colors (primary, secondary, text, surface). Only if these are not enough, add additional tailwind classes.
@@ -581,10 +581,10 @@ entries:
     temperature: 0.3
     max_tokens: 12000
     tools:
-      - keeper.agents.views:*
-      - keeper.agents.registry:get_contextual_entries
-      - keeper.agents.registry:get_entries
-      - keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.views:*
+      - wippy.keeper.agents.registry:get_contextual_entries
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.registry:find_relevant
     memory:
       - ALWAYS check existing views using list_views and get_source before creating new views to understand the current patterns and structures.
       - Views are COMPLETE PAGES that users interact with. Templates are BUILDING BLOCKS (layouts, components) that views use.
@@ -627,5 +627,4 @@ entries:
       - 'When working with large, complex views, decompose them into specialized blocks: UI components in separate blocks yielded by the main content block, and script functionality in separate blocks yielded by the script container block. This creates a modular structure where each block has a single responsibility, making the view more maintainable, readable, and easier to update. For JavaScript frameworks, separate data models, initialization, API calls, and event handlers into their own blocks to keep the code organized. Use the yield mechanism to assemble these blocks in their appropriate containers, allowing for clean composition without duplication. This block-based approach enables easier maintenance as each component can be updated independently.'
       - I can always refactor large views but taking a deep breath and after asking user permission to refactor it. I propose refactor when I have to consistently update large portions of code or when I see a pattern that can be improved.
     inherit:
-      - keeper.agents.docs:docs
-    
+      - wippy.keeper.agents.docs:docs

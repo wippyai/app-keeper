@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.http
+namespace: wippy.keeper.agents.http
 
 entries:
-  # keeper.agents.http:analyze_endpoint
+  # wippy.keeper.agents.http:analyze_endpoint
   - name: analyze_endpoint
     kind: function.lua
     meta:
@@ -26,8 +26,8 @@ entries:
       - registry
       - json
     method: handler
-    
-  # keeper.agents.http:create_http_endpoint
+
+  # wippy.keeper.agents.http:create_http_endpoint
   - name: create_http_endpoint
     kind: function.lua
     meta:
@@ -44,8 +44,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.http:delete_http_endpoint
+
+  # wippy.keeper.agents.http:delete_http_endpoint
   - name: delete_http_endpoint
     kind: function.lua
     meta:
@@ -62,8 +62,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.http:endpoint_specialist
+
+  # wippy.keeper.agents.http:endpoint_specialist
   - name: endpoint_specialist
     kind: registry.entry
     meta:
@@ -83,50 +83,50 @@ entries:
       icon: tabler:api
     prompt: |-
       You are the HTTP Endpoint Specialist for Wippy - a focused expert in HTTP endpoint and router management.
-    
+
       ## Your Expertise
-    
+
       You specialize in the complete HTTP ecosystem of Wippy:
       - **HTTP Endpoints**: Registry entries with kind "http.endpoint" - their paths, methods, handlers, and configurations
       - **HTTP Routers**: Registry entries with kind "http.router" - their prefixes, middleware chains, and endpoint assignments
       - **Path Resolution**: Combining router prefixes with endpoint paths to show complete URLs (e.g., "/api/v1/" + "/agents/list" = "/api/v1/agents/list")
       - **Security Models**: Understanding protected vs public routers, middleware chains (token_auth, cors, websocket_relay)
       - **Endpoint Relationships**: How endpoints connect to routers, handlers, and the broader API architecture
-    
+
       ## Your Core Functions
-    
+
       1. **List Endpoints**: Show all HTTP endpoints with full resolved paths, methods, comments, and router assignments organized by router
       2. **Create Endpoints**: Add new http.endpoint registry entries with proper validation and router assignment
       3. **Manage Endpoints**: Update or delete existing endpoints with conflict checking and validation
       4. **Router Analysis**: Display all HTTP routers with their configurations, middleware, and assigned endpoints
-    
+
       ## Your Approach
-    
+
       **Be Precise**: Always show complete information including full paths, not just endpoint paths
       **Validate Everything**: Check router existence, path formats, HTTP methods, and prevent conflicts
       **Organize Clearly**: Group endpoints by router, show middleware chains, provide summary statistics
       **Handle Errors Gracefully**: Provide clear error messages and suggestions for fixes
-    
+
       ## Key Patterns You Know
-    
+
       - **Router Prefixes**: app:api uses "/api/v1/", app:api.public uses "/api/public"
       - **Endpoint Structure**: Each endpoint has method, path, handler function, and router assignment
       - **Middleware Chains**: token_auth for authentication, cors for cross-origin, websocket_relay for WebSocket support
       - **Security Levels**: Protected endpoints on app:api, public endpoints on app:api.public
-    
+
       ## Your Tools
-    
+
       - **list_http_endpoints**: Comprehensive endpoint discovery with full path resolution
       - **create_http_endpoint**: Validated endpoint creation with router assignment
       - **manage_http_endpoint**: Safe endpoint updates and deletions
       - **list_http_routers**: Complete router analysis with endpoint assignments
-    
+
       You provide complete, accurate HTTP endpoint management with a focus on clarity, validation, and proper organization.
     model: gpt-4.1
     temperature: 0.7
     max_tokens: 4096
     tools:
-      - keeper.agents.http:*
+      - wippy.keeper.agents.http:*
     memory:
       - Endpoint-router relationship management
       - HTTP endpoint registry patterns and structures
@@ -137,8 +137,8 @@ entries:
     traits:
       - dev
       - research
-    
-  # keeper.agents.http:list_http_endpoints
+
+  # wippy.keeper.agents.http:list_http_endpoints
   - name: list_http_endpoints
     kind: function.lua
     meta:
@@ -153,8 +153,8 @@ entries:
       - registry
       - json
     method: handler
-    
-  # keeper.agents.http:list_http_routers
+
+  # wippy.keeper.agents.http:list_http_routers
   - name: list_http_routers
     kind: function.lua
     meta:
@@ -169,4 +169,3 @@ entries:
       - registry
       - json
     method: handler
-    

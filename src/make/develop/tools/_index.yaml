@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.make.develop.tools
+namespace: wippy.keeper.make.develop.tools
 
 entries:
-  # keeper.make.develop.tools:delegate
+  # wippy.keeper.make.develop.tools:delegate
   - name: delegate
     kind: function.lua
     meta:
@@ -20,4 +20,3 @@ entries:
     imports:
       consts: dataflow:consts
     method: execute
-    

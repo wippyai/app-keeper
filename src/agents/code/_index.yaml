@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.code
+namespace: wippy.keeper.agents.code
 
 entries:
-  # keeper.agents.code:analyze_code_dependencies
+  # wippy.keeper.agents.code:analyze_code_dependencies
   - name: analyze_code_dependencies
     kind: function.lua
     meta:
@@ -26,10 +26,10 @@ entries:
     modules:
       - registry
     imports:
-      code_utils: keeper.agents.code:code_utils
+      code_utils: wippy.keeper.agents.code:code_utils
     method: handler
-    
-  # keeper.agents.code:call_function
+
+  # wippy.keeper.agents.code:call_function
   - name: call_function
     kind: function.lua
     meta:
@@ -59,8 +59,8 @@ entries:
     modules:
       - funcs
     method: handler
-    
-  # keeper.agents.code:code_utils
+
+  # wippy.keeper.agents.code:code_utils
   - name: code_utils
     kind: library.lua
     meta:
@@ -72,8 +72,8 @@ entries:
     modules:
       - registry
     method: handler
-    
-  # keeper.agents.code:coder
+
+  # wippy.keeper.agents.code:coder
   - name: coder
     kind: registry.entry
     meta:
@@ -94,10 +94,10 @@ entries:
     temperature: 0.4
     max_tokens: 16000
     tools:
-      - keeper.agents.code:*
-      - keeper.agents.registry:get_contextual_entries
-      - keeper.agents.registry:get_entries
-      - keeper.agents.registry:find_relevant
+      - wippy.keeper.agents.code:*
+      - wippy.keeper.agents.registry:get_contextual_entries
+      - wippy.keeper.agents.registry:get_entries
+      - wippy.keeper.agents.registry:find_relevant
     memory:
       - Code entries in Wippy are primarily Lua-based with standard structure patterns.
       - 'Common kinds of code entries: function.lua (functions), library.lua (reusable libraries), process.lua (background processes).'
@@ -130,11 +130,11 @@ entries:
         name: to_views
         rule: Delegate to Views agent when user requests UI components, pages, layouts, or visual elements
     inherit:
-      - keeper.agents.docs:docs
+      - wippy.keeper.agents.docs:docs
     traits:
       - thinking
-    
-  # keeper.agents.code:create_code_entry
+
+  # wippy.keeper.agents.code:create_code_entry
   - name: create_code_entry
     kind: function.lua
     meta:
@@ -188,11 +188,11 @@ entries:
     modules:
       - registry
     imports:
-      code_utils: keeper.agents.code:code_utils
+      code_utils: wippy.keeper.agents.code:code_utils
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.code:delete_code_entry
+
+  # wippy.keeper.agents.code:delete_code_entry
   - name: delete_code_entry
     kind: function.lua
     meta:
@@ -216,11 +216,11 @@ entries:
     modules:
       - registry
     imports:
-      code_utils: keeper.agents.code:code_utils
+      code_utils: wippy.keeper.agents.code:code_utils
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.code:get_code_entries
+
+  # wippy.keeper.agents.code:get_code_entries
   - name: get_code_entries
     kind: function.lua
     meta:
@@ -246,11 +246,11 @@ entries:
       - json
       - registry
     imports:
-      code_utils: keeper.agents.code:code_utils
-      new_utils: keeper.agents.code:analyze_code_dependencies
+      code_utils: wippy.keeper.agents.code:code_utils
+      new_utils: wippy.keeper.agents.code:analyze_code_dependencies
     method: handler
-    
-  # keeper.agents.code:get_code_lines
+
+  # wippy.keeper.agents.code:get_code_lines
   - name: get_code_lines
     kind: function.lua
     meta:
@@ -283,8 +283,8 @@ entries:
     modules:
       - registry
     method: handler
-    
-  # keeper.agents.code:get_code_tree
+
+  # wippy.keeper.agents.code:get_code_tree
   - name: get_code_tree
     kind: function.lua
     meta:
@@ -316,8 +316,8 @@ entries:
       - registry
       - yaml
     method: handler
-    
-  # keeper.agents.code:manage_code_dependencies
+
+  # wippy.keeper.agents.code:manage_code_dependencies
   - name: manage_code_dependencies
     kind: function.lua
     meta:
@@ -330,11 +330,11 @@ entries:
     modules:
       - registry
     imports:
-      code_utils: keeper.agents.code:code_utils
+      code_utils: wippy.keeper.agents.code:code_utils
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.code:modify_code_source
+
+  # wippy.keeper.agents.code:modify_code_source
   - name: modify_code_source
     kind: function.lua
     meta:
@@ -383,8 +383,8 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    
-  # keeper.agents.code:testing_practice
+
+  # wippy.keeper.agents.code:testing_practice
   - name: testing_practice
     kind: registry.entry
     meta:
@@ -422,7 +422,7 @@ entries:
         required_parameters:
           args: Table containing test arguments to pass to the function
           target_id: The namespace:name ID of the function being tested
-        tool_id: keeper.agents.code:call_function
+        tool_id: wippy.keeper.agents.code:call_function
       test_case_design:
         edge_cases: Test boundary conditions and unusual but valid scenarios
         error_conditions: Verify proper error handling and meaningful error messages
@@ -453,7 +453,7 @@ entries:
           details: Design test inputs that cover normal operation, edge cases, and error conditions
         step_2:
           action: Execute function using call_function tool
-          details: Use keeper.agents.code:call_function with target_id and test arguments
+          details: Use wippy.keeper.agents.code:call_function with target_id and test arguments
         step_3:
           action: Verify expected behavior
           details: Confirm function returns expected results and handles errors appropriately
@@ -463,8 +463,8 @@ entries:
         step_5:
           action: Fix identified issues
           details: Address any bugs or unexpected behavior before marking function complete
-    
-  # keeper.agents.code:update_code_metadata
+
+  # wippy.keeper.agents.code:update_code_metadata
   - name: update_code_metadata
     kind: function.lua
     meta:
@@ -499,4 +499,3 @@ entries:
     imports:
       governance_client: gov:client
     method: handler
-    

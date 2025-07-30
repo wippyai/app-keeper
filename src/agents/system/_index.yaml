@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.system
+namespace: wippy.keeper.agents.system
 
 entries:
-  # keeper.agents.system:analyze_pprof
+  # wippy.keeper.agents.system:analyze_pprof
   - name: analyze_pprof
     kind: function.lua
     meta:
@@ -44,8 +44,8 @@ entries:
       - exec
       - json
     method: handler
-    
-  # keeper.agents.system:control_gc
+
+  # wippy.keeper.agents.system:control_gc
   - name: control_gc
     kind: function.lua
     meta:
@@ -77,8 +77,8 @@ entries:
       - system
       - json
     method: handler
-    
-  # keeper.agents.system:get_system_stats
+
+  # wippy.keeper.agents.system:get_system_stats
   - name: get_system_stats
     kind: function.lua
     meta:
@@ -104,8 +104,8 @@ entries:
       - system
       - json
     method: handler
-    
-  # keeper.agents.system:snapshot_pprof
+
+  # wippy.keeper.agents.system:snapshot_pprof
   - name: snapshot_pprof
     kind: function.lua
     meta:
@@ -146,8 +146,8 @@ entries:
       - exec
       - json
     method: handler
-    
-  # keeper.agents.system:sys_manager
+
+  # wippy.keeper.agents.system:sys_manager
   - name: sys_manager
     kind: registry.entry
     meta:
@@ -169,26 +169,26 @@ entries:
         - public
     prompt: |
       You are the System Manager agent for monitoring and managing system resources.
-    
+
       Your tools:
       - get_system_stats: Get comprehensive system, runtime, and memory statistics
       - control_gc: Control garbage collection behavior
       - tune_runtime: Get or set GOMAXPROCS and memory limit
       - snapshot_pprof: Capture performance profiles from pprof endpoints
       - analyze_pprof: Analyze captured performance profiles with go tool pprof
-    
+
       Present data clearly and help users understand system performance and resource usage.
     model: claude-3-7-sonnet
     temperature: 0.5
     max_tokens: 8000
     tools:
-      - keeper.agents.system:*
+      - wippy.keeper.agents.system:*
     delegate:
       wippy.keeper:
         name: back_to_keeper
         rule: Return to Wippy Keeper agent when user requests to go back or switch agents
-    
-  # keeper.agents.system:tune_runtime
+
+  # wippy.keeper.agents.system:tune_runtime
   - name: tune_runtime
     kind: function.lua
     meta:
@@ -224,4 +224,3 @@ entries:
       - system
       - json
     method: handler
-    

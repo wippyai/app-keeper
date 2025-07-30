@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.git
+namespace: wippy.keeper.agents.git
 
 entries:
-  # keeper.agents.git:commit_changes
+  # wippy.keeper.agents.git:commit_changes
   - name: commit_changes
     kind: function.lua
     meta:
@@ -32,10 +32,10 @@ entries:
       llm_description: Creates a new commit with the specified message and optional author, or amends the previous commit
     source: file://commit_changes.lua
     imports:
-      commit: keeper.git:commit
+      commit: wippy.keeper.git:commit
     method: handler
-    
-  # keeper.agents.git:get_repo_status
+
+  # wippy.keeper.agents.git:get_repo_status
   - name: get_repo_status
     kind: function.lua
     meta:
@@ -51,10 +51,10 @@ entries:
       llm_description: Provides full repository status information including current branch, staged/unstaged changes, and sync status with remote
     source: file://get_repo_status.lua
     imports:
-      status: keeper.git:status
+      status: wippy.keeper.git:status
     method: handler
-    
-  # keeper.agents.git:git_agent
+
+  # wippy.keeper.agents.git:git_agent
   - name: git_agent
     kind: registry.entry
     meta:
@@ -72,19 +72,19 @@ entries:
       icon: git-branch
     prompt: |
       You are the Git Manager agent in the Wippy platform, providing comprehensive Git repository management capabilities.
-    
+
       Core Capabilities:
       1. Repository Status: Check repository status, uncommitted changes, and branch information
       2. Branch Management: Create, list, switch, and delete branches
       3. Commit Operations: Stage files, create commits, and view commit history
       4. Remote Operations: Pull, push, fetch, and manage remote repositories
-    
+
       Your goal is to help users effectively manage their Git repositories by executing necessary Git commands.
     model: gpt-4o
     temperature: 0.3
     max_tokens: 4000
     tools:
-      - keeper.agents.git:*
+      - wippy.keeper.agents.git:*
     memory:
       - Git is a distributed version control system used to track changes in source code during software development.
       - The basic Git workflow involves staging changes (git add), committing them (git commit), and pushing to a remote repository (git push).
@@ -93,8 +93,8 @@ entries:
       wippy.keeper:
         name: back_to_keeper
         rule: Return to Wippy Keeper agent when user requests to go back, switch agents, or needs services outside Git management
-    
-  # keeper.agents.git:list_branches
+
+  # wippy.keeper.agents.git:list_branches
   - name: list_branches
     kind: function.lua
     meta:
@@ -115,11 +115,11 @@ entries:
       llm_description: Lists all branches in the repository, with an option to include remote branches
     source: file://list_branches.lua
     imports:
-      branch: keeper.git:branch
-      status: keeper.git:status
+      branch: wippy.keeper.git:branch
+      status: wippy.keeper.git:status
     method: handler
-    
-  # keeper.agents.git:manage_branch
+
+  # wippy.keeper.agents.git:manage_branch
   - name: manage_branch
     kind: function.lua
     meta:
@@ -154,10 +154,10 @@ entries:
       llm_description: Creates new branches, switches between branches, or deletes branches based on specified action
     source: file://manage_branch.lua
     imports:
-      branch: keeper.git:branch
+      branch: wippy.keeper.git:branch
     method: handler
-    
-  # keeper.agents.git:manage_remote
+
+  # wippy.keeper.agents.git:manage_remote
   - name: manage_remote
     kind: function.lua
     meta:
@@ -188,10 +188,10 @@ entries:
       llm_description: Manages remote repositories by adding new ones, listing existing ones, or removing them
     source: file://manage_remote.lua
     imports:
-      remote: keeper.git:remote
+      remote: wippy.keeper.git:remote
     method: handler
-    
-  # keeper.agents.git:stage_changes
+
+  # wippy.keeper.agents.git:stage_changes
   - name: stage_changes
     kind: function.lua
     meta:
@@ -218,10 +218,10 @@ entries:
       llm_description: Stages specified files or all changes for commit, or unstages files
     source: file://stage_changes.lua
     imports:
-      commit: keeper.git:commit
+      commit: wippy.keeper.git:commit
     method: handler
-    
-  # keeper.agents.git:sync_remote
+
+  # wippy.keeper.agents.git:sync_remote
   - name: sync_remote
     kind: function.lua
     meta:
@@ -256,11 +256,11 @@ entries:
       llm_description: Synchronizes with remote repositories through push, pull, or fetch operations
     source: file://sync_remote.lua
     imports:
-      branch: keeper.git:branch
-      remote: keeper.git:remote
+      branch: wippy.keeper.git:branch
+      remote: wippy.keeper.git:remote
     method: handler
-    
-  # keeper.agents.git:view_diff
+
+  # wippy.keeper.agents.git:view_diff
   - name: view_diff
     kind: function.lua
     meta:
@@ -293,11 +293,11 @@ entries:
       llm_description: Shows the differences between working directory, staging area, and committed versions of files, with option to view all changes at once
     source: file://view_diff.lua
     imports:
-      git_repo: keeper.git:git_repo
-      status: keeper.git:status
+      git_repo: wippy.keeper.git:git_repo
+      status: wippy.keeper.git:status
     method: handler
-    
-  # keeper.agents.git:view_history
+
+  # wippy.keeper.agents.git:view_history
   - name: view_history
     kind: function.lua
     meta:
@@ -318,6 +318,5 @@ entries:
       llm_description: Retrieves and displays commit history with configurable number of entries
     source: file://view_history.lua
     imports:
-      commit: keeper.git:commit
+      commit: wippy.keeper.git:commit
     method: handler
-    

@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.api.git
+namespace: wippy.keeper.api.git
 
 entries:
-  # keeper.api.git:create_branch
+  # wippy.keeper.api.git:create_branch
   - name: create_branch
     kind: function.lua
     meta:
@@ -17,13 +17,13 @@ entries:
       - json
       - security
     imports:
-      branch: keeper.git:branch
+      branch: wippy.keeper.git:branch
       env: env
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:create_branch.endpoint
+
+  # wippy.keeper.api.git:create_branch.endpoint
   - name: create_branch.endpoint
     kind: http.endpoint
     meta:
@@ -34,8 +34,8 @@ entries:
     method: POST
     func: create_branch
     path: /keeper/git/branches/create
-    
-  # keeper.api.git:create_commit
+
+  # wippy.keeper.api.git:create_commit
   - name: create_commit
     kind: function.lua
     meta:
@@ -50,13 +50,13 @@ entries:
       - json
       - security
     imports:
-      commit: keeper.git:commit
+      commit: wippy.keeper.git:commit
       env: env
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:create_commit.endpoint
+
+  # wippy.keeper.api.git:create_commit.endpoint
   - name: create_commit.endpoint
     kind: http.endpoint
     meta:
@@ -67,8 +67,8 @@ entries:
     method: POST
     func: create_commit
     path: /keeper/git/commit
-    
-  # keeper.api.git:fetch_updates
+
+  # wippy.keeper.api.git:fetch_updates
   - name: fetch_updates
     kind: function.lua
     meta:
@@ -84,12 +84,12 @@ entries:
       - security
     imports:
       env: env
-      remote: keeper.git:remote
+      remote: wippy.keeper.git:remote
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:fetch_updates.endpoint
+
+  # wippy.keeper.api.git:fetch_updates.endpoint
   - name: fetch_updates.endpoint
     kind: http.endpoint
     meta:
@@ -100,8 +100,8 @@ entries:
     method: POST
     func: fetch_updates
     path: /keeper/git/fetch
-    
-  # keeper.api.git:generate_message
+
+  # wippy.keeper.api.git:generate_message
   - name: generate_message
     kind: function.lua
     meta:
@@ -119,12 +119,12 @@ entries:
     imports:
       prompt: wippy.llm:prompt
       llm: wippy.llm:llm
-      status: keeper.git:status
+      status: wippy.keeper.git:status
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:generate_message.endpoint
+
+  # wippy.keeper.api.git:generate_message.endpoint
   - name: generate_message.endpoint
     kind: http.endpoint
     meta:
@@ -135,8 +135,8 @@ entries:
     method: POST
     func: generate_message
     path: /keeper/git/generate-message
-    
-  # keeper.api.git:get_status
+
+  # wippy.keeper.api.git:get_status
   - name: get_status
     kind: function.lua
     meta:
@@ -153,12 +153,12 @@ entries:
       - env
     imports:
       start_tokens: wippy.session:start_tokens
-      status: keeper.git:status
+      status: wippy.keeper.git:status
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:get_status.endpoint
+
+  # wippy.keeper.api.git:get_status.endpoint
   - name: get_status.endpoint
     kind: http.endpoint
     meta:
@@ -169,8 +169,8 @@ entries:
     method: GET
     func: get_status
     path: /keeper/git/status
-    
-  # keeper.api.git:list_branches
+
+  # wippy.keeper.api.git:list_branches
   - name: list_branches
     kind: function.lua
     meta:
@@ -185,13 +185,13 @@ entries:
       - json
       - security
     imports:
-      branch: keeper.git:branch
+      branch: wippy.keeper.git:branch
       env: env
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:list_branches.endpoint
+
+  # wippy.keeper.api.git:list_branches.endpoint
   - name: list_branches.endpoint
     kind: http.endpoint
     meta:
@@ -202,8 +202,8 @@ entries:
     method: GET
     func: list_branches
     path: /keeper/git/branches
-    
-  # keeper.api.git:pull_changes
+
+  # wippy.keeper.api.git:pull_changes
   - name: pull_changes
     kind: function.lua
     meta:
@@ -219,12 +219,12 @@ entries:
       - security
     imports:
       env: env
-      remote: keeper.git:remote
+      remote: wippy.keeper.git:remote
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:pull_changes.endpoint
+
+  # wippy.keeper.api.git:pull_changes.endpoint
   - name: pull_changes.endpoint
     kind: http.endpoint
     meta:
@@ -235,8 +235,8 @@ entries:
     method: POST
     func: pull_changes
     path: /keeper/git/pull
-    
-  # keeper.api.git:push_changes
+
+  # wippy.keeper.api.git:push_changes
   - name: push_changes
     kind: function.lua
     meta:
@@ -252,12 +252,12 @@ entries:
       - security
     imports:
       env: env
-      remote: keeper.git:remote
+      remote: wippy.keeper.git:remote
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:push_changes.endpoint
+
+  # wippy.keeper.api.git:push_changes.endpoint
   - name: push_changes.endpoint
     kind: http.endpoint
     meta:
@@ -268,8 +268,8 @@ entries:
     method: POST
     func: push_changes
     path: /keeper/git/push
-    
-  # keeper.api.git:stage_files
+
+  # wippy.keeper.api.git:stage_files
   - name: stage_files
     kind: function.lua
     meta:
@@ -284,13 +284,13 @@ entries:
       - json
       - security
     imports:
-      commit: keeper.git:commit
+      commit: wippy.keeper.git:commit
       env: env
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:stage_files.endpoint
+
+  # wippy.keeper.api.git:stage_files.endpoint
   - name: stage_files.endpoint
     kind: http.endpoint
     meta:
@@ -301,8 +301,8 @@ entries:
     method: POST
     func: stage_files
     path: /keeper/git/stage
-    
-  # keeper.api.git:switch_branch
+
+  # wippy.keeper.api.git:switch_branch
   - name: switch_branch
     kind: function.lua
     meta:
@@ -317,13 +317,13 @@ entries:
       - json
       - security
     imports:
-      branch: keeper.git:branch
+      branch: wippy.keeper.git:branch
       env: env
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.git:switch_branch.endpoint
+
+  # wippy.keeper.api.git:switch_branch.endpoint
   - name: switch_branch.endpoint
     kind: http.endpoint
     meta:
@@ -334,4 +334,3 @@ entries:
     method: POST
     func: switch_branch
     path: /keeper/git/branches/switch
-    

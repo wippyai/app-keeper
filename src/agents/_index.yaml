@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents
+namespace: wippy.keeper.agents
 
 entries:
-  # keeper.agents:meta
+  # wippy.keeper.agents:meta
   - name: meta
     kind: registry.entry
     meta:
@@ -44,4 +44,3 @@ entries:
       - research
       - thinking
       - dev
-    

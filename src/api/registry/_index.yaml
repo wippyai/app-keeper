@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.api.registry
+namespace: wippy.keeper.api.registry
 
 entries:
-  # keeper.api.registry:get_entry
+  # wippy.keeper.api.registry:get_entry
   - name: get_entry
     kind: function.lua
     meta:
@@ -17,8 +17,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.registry:get_entry.endpoint
+
+  # wippy.keeper.api.registry:get_entry.endpoint
   - name: get_entry.endpoint
     kind: http.endpoint
     meta:
@@ -29,8 +29,8 @@ entries:
     method: GET
     func: get_entry
     path: /keeper/registry/entry
-    
-  # keeper.api.registry:get_entry_editors
+
+  # wippy.keeper.api.registry:get_entry_editors
   - name: get_entry_editors
     kind: function.lua
     meta:
@@ -42,12 +42,12 @@ entries:
       - http
       - json
     imports:
-      entry_editor_registry: keeper.editors:entry_editor_registry
+      entry_editor_registry: wippy.keeper.editors:entry_editor_registry
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.registry:get_entry_editors.endpoint
+
+  # wippy.keeper.api.registry:get_entry_editors.endpoint
   - name: get_entry_editors.endpoint
     kind: http.endpoint
     meta:
@@ -58,8 +58,8 @@ entries:
     method: GET
     func: get_entry_editors
     path: /keeper/registry/entry/editors
-    
-  # keeper.api.registry:list_entries
+
+  # wippy.keeper.api.registry:list_entries
   - name: list_entries
     kind: function.lua
     meta:
@@ -74,8 +74,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.registry:list_entries.endpoint
+
+  # wippy.keeper.api.registry:list_entries.endpoint
   - name: list_entries.endpoint
     kind: http.endpoint
     meta:
@@ -86,8 +86,8 @@ entries:
     method: GET
     func: list_entries
     path: /keeper/registry/entries
-    
-  # keeper.api.registry:list_namespaces
+
+  # wippy.keeper.api.registry:list_namespaces
   - name: list_namespaces
     kind: function.lua
     meta:
@@ -102,8 +102,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.registry:list_namespaces.endpoint
+
+  # wippy.keeper.api.registry:list_namespaces.endpoint
   - name: list_namespaces.endpoint
     kind: http.endpoint
     meta:
@@ -114,8 +114,8 @@ entries:
     method: GET
     func: list_namespaces
     path: /keeper/registry/namespaces
-    
-  # keeper.api.registry:update_entry
+
+  # wippy.keeper.api.registry:update_entry
   - name: update_entry
     kind: function.lua
     meta:
@@ -132,8 +132,8 @@ entries:
     method: handler
     pool:
       size: 2
-    
-  # keeper.api.registry:update_entry.endpoint
+
+  # wippy.keeper.api.registry:update_entry.endpoint
   - name: update_entry.endpoint
     kind: http.endpoint
     meta:
@@ -144,4 +144,3 @@ entries:
     method: PUT
     func: update_entry
     path: /keeper/registry/entry
-    

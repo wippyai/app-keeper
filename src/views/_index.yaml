@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.views
+namespace: wippy.keeper.views
 
 entries:
-  # keeper.views:git_sync
+  # wippy.keeper.views:git_sync
   - name: git_sync
     kind: template.jet
     meta:
@@ -21,9 +21,9 @@ entries:
       public: true
       secure: true
     source: file://git_sync.jet
-    set: keeper.views.common:templates
+    set: wippy.keeper.views.common:templates
 
-  # keeper.views:registry
+  # wippy.keeper.views:registry
   - name: registry
     kind: registry.entry
     meta:
@@ -39,7 +39,7 @@ entries:
       group_placement: bottom
       internal: /keeper
 
-  # keeper.views:tests
+  # wippy.keeper.views:tests
   - name: tests
     kind: template.jet
     meta:
@@ -58,9 +58,9 @@ entries:
       secure: true
       space: admin
     source: file://tests.jet
-    set: keeper.views.common:templates
+    set: wippy.keeper.views.common:templates
 
-  # keeper.views:token_usage
+  # wippy.keeper.views:token_usage
   - name: token_usage
     kind: template.jet
     meta:

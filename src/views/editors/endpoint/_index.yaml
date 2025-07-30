@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.views.editors.endpoint
+namespace: wippy.keeper.views.editors.endpoint
 
 entries:
-  # keeper.views.editors.endpoint:editors
+  # wippy.keeper.views.editors.endpoint:editors
   - name: editors
     kind: registry.entry
     meta:
@@ -14,9 +14,9 @@ entries:
         icon: tabler:world
         order: 1
         id: default
-        page_name: keeper.views.editors.endpoint:info
-    
-  # keeper.views.editors.endpoint:info
+        page_name: wippy.keeper.views.editors.endpoint:info
+
+  # wippy.keeper.views.editors.endpoint:info
   - name: info
     kind: template.jet
     meta:
@@ -28,5 +28,4 @@ entries:
       content_type: text/html
       secure: true
     source: file://info.jet
-    set: keeper.views.common:templates
-    
+    set: wippy.keeper.views.common:templates

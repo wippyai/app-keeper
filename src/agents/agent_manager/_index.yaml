@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: keeper.agents.agent_manager
+namespace: wippy.keeper.agents.agent_manager
 
 entries:
-  # keeper.agents.agent_manager:analyze_agent_config
+  # wippy.keeper.agents.agent_manager:analyze_agent_config
   - name: analyze_agent_config
     kind: function.lua
     meta:
@@ -26,8 +26,8 @@ entries:
       - registry
       - json
     method: handler
-    
-  # keeper.agents.agent_manager:create_agent
+
+  # wippy.keeper.agents.agent_manager:create_agent
   - name: create_agent
     kind: function.lua
     meta:
@@ -126,11 +126,11 @@ entries:
     modules:
       - json
     imports:
-      create_entry: keeper.agents.registry:create_entry
-      find_entries: keeper.agents.registry:find_entries
+      create_entry: wippy.keeper.agents.registry:create_entry
+      find_entries: wippy.keeper.agents.registry:find_entries
     method: handler
-    
-  # keeper.agents.agent_manager:list_agents
+
+  # wippy.keeper.agents.agent_manager:list_agents
   - name: list_agents
     kind: function.lua
     meta:
@@ -150,8 +150,8 @@ entries:
       - registry
       - json
     method: handler
-    
-  # keeper.agents.agent_manager:list_models
+
+  # wippy.keeper.agents.agent_manager:list_models
   - name: list_models
     kind: function.lua
     meta:
@@ -191,8 +191,8 @@ entries:
     imports:
       llm: wippy.llm:llm
     method: handler
-    
-  # keeper.agents.agent_manager:list_tools
+
+  # wippy.keeper.agents.agent_manager:list_tools
   - name: list_tools
     kind: function.lua
     meta:
@@ -229,8 +229,8 @@ entries:
     imports:
       llm: wippy.llm:llm
     method: handler
-    
-  # keeper.agents.agent_manager:manage_agent_classes
+
+  # wippy.keeper.agents.agent_manager:manage_agent_classes
   - name: manage_agent_classes
     kind: function.lua
     meta:
@@ -267,11 +267,11 @@ entries:
       - json
       - yaml
     imports:
-      get_entries: keeper.agents.registry:get_entries
-      update_entry: keeper.agents.registry:update_entry
+      get_entries: wippy.keeper.agents.registry:get_entries
+      update_entry: wippy.keeper.agents.registry:update_entry
     method: handler
-    
-  # keeper.agents.agent_manager:manage_agent_delegation
+
+  # wippy.keeper.agents.agent_manager:manage_agent_delegation
   - name: manage_agent_delegation
     kind: function.lua
     meta:
@@ -319,8 +319,8 @@ entries:
       - registry
       - json
     method: handler
-    
-  # keeper.agents.agent_manager:manage_agent_inheritance
+
+  # wippy.keeper.agents.agent_manager:manage_agent_inheritance
   - name: manage_agent_inheritance
     kind: function.lua
     meta:
@@ -358,8 +358,8 @@ entries:
     imports:
       agent_registry: wippy.agent.gen1:registry
     method: handler
-    
-  # keeper.agents.agent_manager:manage_agent_memory
+
+  # wippy.keeper.agents.agent_manager:manage_agent_memory
   - name: manage_agent_memory
     kind: function.lua
     meta:
@@ -396,11 +396,11 @@ entries:
       - json
       - yaml
     imports:
-      get_entries: keeper.agents.registry:get_entries
-      update_entry: keeper.agents.registry:update_entry
+      get_entries: wippy.keeper.agents.registry:get_entries
+      update_entry: wippy.keeper.agents.registry:update_entry
     method: handler
-    
-  # keeper.agents.agent_manager:manage_agent_tools
+
+  # wippy.keeper.agents.agent_manager:manage_agent_tools
   - name: manage_agent_tools
     kind: function.lua
     meta:
@@ -437,11 +437,11 @@ entries:
       - json
       - yaml
     imports:
-      get_entries: keeper.agents.registry:get_entries
-      update_entry: keeper.agents.registry:update_entry
+      get_entries: wippy.keeper.agents.registry:get_entries
+      update_entry: wippy.keeper.agents.registry:update_entry
     method: handler
-    
-  # keeper.agents.agent_manager:manage_agent_traits
+
+  # wippy.keeper.agents.agent_manager:manage_agent_traits
   - name: manage_agent_traits
     kind: function.lua
     meta:
@@ -479,8 +479,8 @@ entries:
     imports:
       traits: wippy.agent:traits
     method: handler
-    
-  # keeper.agents.agent_manager:manager
+
+  # wippy.keeper.agents.agent_manager:manager
   - name: manager
     kind: registry.entry
     meta:
@@ -498,56 +498,56 @@ entries:
       icon: tabler:robot
     prompt: |-
       You are the Agent Manager for the Wippy platform, responsible for overseeing and managing all agents in the system.
-    
+
       ## Your Core Responsibilities:
-    
+
       1. **Agent Discovery & Listing**: Help users find and understand available agents
       2. **Agent Information**: Provide detailed information about agent capabilities, purposes, and configurations
       3. **System Organization**: Help organize and categorize agents for better discoverability
       4. **Agent Health & Status**: Monitor and report on agent operational status
       5. **Best Practices**: Guide users on effective agent usage and management
-    
+
       ## Your Capabilities:
-    
+
       - **Comprehensive Agent Listing**: Access to all agents with metadata, groupings, and capabilities
       - **Registry Search**: Advanced search capabilities across the agent registry
       - **Agent Analysis**: Deep understanding of agent specifications, tools, and relationships
       - **System Knowledge**: Expertise in Wippy's agent architecture and patterns
-    
+
       ## When Helping Users:
-    
+
       - Always start by understanding what the user is trying to accomplish
       - Provide clear, organized information about available agents
       - Explain agent capabilities in practical terms
       - Suggest the most appropriate agents for specific tasks
       - Help users understand agent relationships and delegation patterns
       - Offer guidance on agent selection and usage best practices
-    
+
       ## Agent Management Best Practices:
-    
+
       - Agents should have clear, specific purposes
       - Use delegation to connect specialized agents
       - Leverage traits for consistent behavior patterns
       - Maintain proper metadata for discoverability
       - Monitor agent performance and usage patterns
       - Keep agent configurations up to date
-    
+
       ## Your Approach:
-    
+
       - Be proactive in suggesting relevant agents
       - Provide context about why specific agents are recommended
       - Help users understand the agent ecosystem
       - Facilitate efficient agent discovery and selection
       - Maintain awareness of system-wide agent health and performance
-    
+
       Your goal is to make the Wippy agent ecosystem accessible, organized, and efficiently utilized by all users.
     model: gpt-4.1
     temperature: 0.7
     max_tokens: 4096
     tools:
-      - keeper.agents.agent_manager:*
-      - keeper.agents.registry:find_entries
-      - keeper.agents.registry:get_entries
+      - wippy.keeper.agents.agent_manager:*
+      - wippy.keeper.agents.registry:find_entries
+      - wippy.keeper.agents.registry:get_entries
     memory:
       - Agent capabilities include tools, memory, traits, delegation, and inheritance
       - Agent discovery relies on proper tagging, grouping, and descriptive metadata
@@ -562,8 +562,8 @@ entries:
     traits:
       - dev
       - research
-    
-  # keeper.agents.agent_manager:update_agent_metadata
+
+  # wippy.keeper.agents.agent_manager:update_agent_metadata
   - name: update_agent_metadata
     kind: function.lua
     meta:
@@ -625,7 +625,6 @@ entries:
       - yaml
       - registry
     imports:
-      get_entries: keeper.agents.registry:get_entries
-      update_entry: keeper.agents.registry:update_entry
+      get_entries: wippy.keeper.agents.registry:get_entries
+      update_entry: wippy.keeper.agents.registry:update_entry
     method: handler
-    
